@@ -5,6 +5,10 @@ import re
 
 import pyrsistent as pr
 
+def main():
+    text = slurp("example.clj")
+    print(pr_str_(read_string(text)))
+
 #************************************************************
 # Reader
 #************************************************************
@@ -181,3 +185,10 @@ def hash_map(*elements):
 
 def is_hash_map(obj):
     return isinstance(obj, pr.PMap)
+
+def slurp(path):
+    with open(path, "r", encoding="utf-8") as file:
+        return file.read()
+
+if __name__ == '__main__':
+    main()
