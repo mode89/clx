@@ -5,6 +5,7 @@ pkgs.mkShell {
     (pkgs.python3.withPackages (ps: with ps; [
       pylint
       pyrsistent
+      pytest
     ]))
   ];
 }
