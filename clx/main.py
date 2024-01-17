@@ -12,7 +12,10 @@ from typing import \
     Iterator, \
     List, \
     Optional, \
+    Protocol, \
     Tuple, \
+    Type, \
+    TypeVar, \
     Union
 
 import pyrsistent as pr
@@ -20,6 +23,8 @@ import pyrsistent as pr
 #************************************************************
 # Types
 #************************************************************
+
+T = TypeVar("T")
 
 class Symbol:
     def __init__(
@@ -205,7 +210,14 @@ Form = Union[ReaderAtom, PersistentList, PersistentVector, PersistentMap]
 def munge(chars: str) -> str:
     return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
 
-def define_record(name: str, *fields: Symbol) -> type:
+class Record(Protocol):
+    def __init__(self, *field_values: Any) -> None: ...
+    def get(self, field: Keyword) -> Any: ...
+    def assoc(self: T, field: Keyword, value: Any) -> T: ...
+
+RecordT = TypeVar("RecordT", bound=Record)
+
+def define_record(name: str, *fields: Symbol) -> Type[RecordT]:
     for field in fields:
         assert is_simple_symbol(field), "field names must be simple symbols"
     mfields = [munge(f.name) for f in fields]
@@ -221,11 +233,9 @@ class {name}:
     }}
   def get(self, field):
     return self._data[field]
-  def assoc(self, *field_values):
+  def assoc(self, field, value):
     data = self._data.copy()
-    field_values_it = iter(field_values)
-    for field, value in zip(field_values_it, field_values_it):
-      data[field] = value
+    data[field] = value
     new = {name}.__new__({name})
     new._data = data
     return new
