@@ -58,6 +58,9 @@ def symbol(arg1: Union[str, Symbol], arg2: Optional[str] = None) -> Symbol:
 def is_symbol(obj: Any) -> bool:
     return isinstance(obj, Symbol)
 
+def is_simple_symbol(obj: Any) -> bool:
+    return isinstance(obj, Symbol) and obj.namespace is None
+
 Keyword = namedtuple("Keyword", ["namespace", "name"])
 
 KEYWORD_TABLE: Dict[str, Keyword] = {}
@@ -200,6 +203,8 @@ def munge(chars: str) -> str:
     return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
 
 def define_record(name: str, *fields: Symbol) -> type:
+    for field in fields:
+        assert is_simple_symbol(field), "field names must be simple symbols"
     mfields = [munge(f.name) for f in fields]
     init_args = ", ".join(mfields)
     init_fields = "\n      ".join([f"kw_{f}: {f}," for f in mfields])

@@ -51,6 +51,8 @@ def test_symbol() -> None:
     assert foo_bar.namespace == "foo"
     assert foo_bar == S("foo/bar")
     assert S(S("quux")) == S("quux")
+    assert clx.is_simple_symbol(S("foo"))
+    assert not clx.is_simple_symbol(S("foo/bar"))
 
 def test_record() -> None:
     Record = clx.define_record("Record", S("a"), S("b")) # pylint: disable=invalid-name
