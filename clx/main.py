@@ -39,15 +39,21 @@ class Symbol:
     def with_meta(self, _meta: "PersistentMap") -> "Symbol":
         return Symbol(self.namespace, self.name, _meta)
 
-def symbol(arg1: str, arg2: Optional[str] = None) -> Symbol:
+def symbol(arg1: Union[str, Symbol], arg2: Optional[str] = None) -> Symbol:
     if arg2 is None:
-        if "/" in arg1:
-            _ns, name = arg1.split("/", 1)
-            return Symbol(_ns, name, None)
+        if isinstance(arg1, str):
+            if "/" in arg1:
+                _ns, name = arg1.split("/", 1)
+                return Symbol(_ns, name, None)
+            else:
+                return Symbol(None, arg1, None)
+        elif isinstance(arg1, Symbol):
+            return arg1
         else:
-            return Symbol(None, arg1, None)
+            raise Exception(
+                "symbol expects a string or a Symbol as the first argument")
     else:
-        return Symbol(arg1, arg2, None)
+        return Symbol(arg1, arg2, None) # type: ignore
 
 def is_symbol(obj: Any) -> bool:
     return isinstance(obj, Symbol)
@@ -57,17 +63,30 @@ Keyword = namedtuple("Keyword", ["namespace", "name"])
 KEYWORD_TABLE: Dict[str, Keyword] = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
 
-def keyword(arg1: str, arg2: Optional[str] = None) -> Keyword:
+def keyword(
+        arg1: Union[str, Keyword, Symbol],
+        arg2: Optional[str] = None) -> Keyword:
     if arg2 is None:
-        if "/" in arg1:
-            _ns, _name = arg1.split("/", 1)
-            qname = arg1
+        if isinstance(arg1, str):
+            if "/" in arg1:
+                _ns, _name = arg1.split("/", 1)
+                qname = arg1
+            else:
+                _ns = None
+                _name = arg1
+                qname = _name
+        elif isinstance(arg1, Symbol):
+            _ns = arg1.namespace
+            _name = arg1.name
+            qname = f"{_ns}/{_name}" if _ns else _name
+        elif isinstance(arg1, Keyword):
+            return arg1
         else:
-            _ns = None
-            _name = arg1
-            qname = _name
+            raise Exception(
+                "keyword expects a string, a Keyword, or a Symbol as the "
+                "first argument")
     else:
-        _ns = arg1
+        _ns = arg1 # type: ignore
         _name = arg2
         qname = f"{_ns}/{_name}"
     with KEYWORD_TABLE_LOCK:
