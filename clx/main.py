@@ -177,6 +177,35 @@ def is_hash_map(obj: Any) -> bool:
 ReaderAtom = Union[None, bool, int, float, str, Symbol, Keyword]
 Form = Union[ReaderAtom, PersistentList, PersistentVector, PersistentMap]
 
+def define_record(name: str, *fields: Symbol) -> type:
+    field_num = len(fields)
+    init_args = ", ".join([f"field{i}" for i in range(field_num)])
+    init_fields = "\n      ".join(
+        [f"kw_field{i}: field{i}," for i in range(field_num)])
+    _ns: Dict[Any, Any] = \
+        {f"kw_field{i}": keyword(fields[i]) for i in range(field_num)}
+    exec( # pylint: disable=exec-used
+        f"""
+class {name}:
+  def __init__(self, {init_args}):
+    self._data = {{
+      {init_fields}
+    }}
+  def get(self, field):
+    return self._data[field]
+  def assoc(self, *field_values):
+    data = self._data.copy()
+    field_values_it = iter(field_values)
+    for field, value in zip(field_values_it, field_values_it):
+      data[field] = value
+    new = {name}.__new__({name})
+    new._data = data
+    return new
+cls = {name}
+        """,
+        _ns)
+    return _ns["cls"]
+
 #************************************************************
 # Constants
 #************************************************************

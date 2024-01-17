@@ -48,6 +48,25 @@ def test_symbol() -> None:
     assert foo_bar.namespace == "foo"
     assert foo_bar == S("foo/bar")
 
+def test_record() -> None:
+    Record = clx.define_record("Record", S("a"), S("b")) # pylint: disable=invalid-name
+    _r1 = Record(1, 2)
+    assert isinstance(_r1, Record)
+    assert _r1.get(K("a")) == 1 # type: ignore
+    assert _r1.get(K("b")) == 2 # type: ignore
+    _r2 = _r1.assoc(K("a"), 3) # type: ignore
+    assert isinstance(_r2, Record)
+    assert _r2.get(K("a")) == 3 # type: ignore
+    assert _r2.get(K("b")) == 2 # type: ignore
+    assert _r1.get(K("a")) == 1 # type: ignore
+    assert _r1.get(K("b")) == 2 # type: ignore
+    _r3 = _r1.assoc(K("a"), 4, K("b"), 5) # type: ignore
+    assert isinstance(_r3, Record)
+    assert _r3.get(K("a")) == 4 # type: ignore
+    assert _r3.get(K("b")) == 5 # type: ignore
+    assert _r1.get(K("a")) == 1 # type: ignore
+    assert _r1.get(K("b")) == 2 # type: ignore
+
 def test_read_string() -> None:
     assert clx.read_string("1") == 1
     assert clx.read_string("1.23") == 1.23
