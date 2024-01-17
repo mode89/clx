@@ -132,3 +132,6 @@ def test_munge() -> None:
     assert clx.munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert clx.munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
+
+def test_eval_string() -> None:
+    assert clx.eval_string("42") == 42

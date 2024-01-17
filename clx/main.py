@@ -1,3 +1,4 @@
+import ast
 from bisect import bisect_left
 from collections import namedtuple
 import re
@@ -143,6 +144,8 @@ class PersistentVector:
             and self._impl == other._impl
     def __len__(self) -> int:
         return len(self._impl)
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._impl)
     def __getitem__(self, index: int) -> Any:
         return self._impl[index]
     def with_meta(self, _meta: "PersistentMap") -> "PersistentVector":
@@ -414,6 +417,40 @@ def _quasiquote_sequence(form: Any) -> PersistentList:
         else:
             return list_(_S_LIST, quasiquote(_f))
     return cons(_S_CONCAT, list_(*map(entry, form)))
+
+#************************************************************
+# Evaluation
+#************************************************************
+
+Context = define_record("Context", symbol("namespaces"), symbol("current-ns"))
+
+def eval_string(text: str) -> Any:
+    tokens = list(tokenize(text))
+    ctx = Context(hash_map(), symbol("user"))
+    _globals: Dict[Any, Any] = {}
+    while tokens:
+        form, tokens = read_form(tokens)
+        result, body, ctx = _compile(form, ctx)
+        body_module = ast.Module(body, type_ignores=[])
+        body_code = compile(body_module, "<none>", "exec")
+        exec(body_code, _globals) # pylint: disable=exec-used
+    result_expr = ast.Expression(result, type_ignores=[])
+    result_code = compile(result_expr, "<none>", "eval")
+    return eval(result_code, _globals) # pylint: disable=eval-used
+
+CompileResult = Tuple[Optional[ast.expr], Optional[PersistentVector], Context]
+
+def _compile(form: Form, ctx: Context) -> CompileResult:
+    if isinstance(form, PersistentList):
+        raise NotImplementedError()
+    elif isinstance(form, PersistentVector):
+        raise NotImplementedError()
+    elif isinstance(form, PersistentMap):
+        raise NotImplementedError()
+    elif isinstance(form, Symbol):
+        raise NotImplementedError()
+    else:
+        return ast.Constant(form, lineno=0, col_offset=0), None, ctx
 
 #************************************************************
 # Core
