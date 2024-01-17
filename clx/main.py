@@ -196,13 +196,14 @@ def is_hash_map(obj: Any) -> bool:
 ReaderAtom = Union[None, bool, int, float, str, Symbol, Keyword]
 Form = Union[ReaderAtom, PersistentList, PersistentVector, PersistentMap]
 
+def munge(chars: str) -> str:
+    return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
+
 def define_record(name: str, *fields: Symbol) -> type:
-    field_num = len(fields)
-    init_args = ", ".join([f"field{i}" for i in range(field_num)])
-    init_fields = "\n      ".join(
-        [f"kw_field{i}: field{i}," for i in range(field_num)])
-    _ns: Dict[Any, Any] = \
-        {f"kw_field{i}": keyword(fields[i]) for i in range(field_num)}
+    mfields = [munge(f.name) for f in fields]
+    init_args = ", ".join(mfields)
+    init_fields = "\n      ".join([f"kw_{f}: {f}," for f in mfields])
+    _ns: Dict[Any, Any] = {f"kw_{munge(f.name)}": keyword(f) for f in fields}
     exec( # pylint: disable=exec-used
         f"""
 class {name}:
@@ -238,6 +239,27 @@ _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
+
+_MUNGE_TABLE = {
+    "-": "_",
+    "_": "_USCORE_",
+    ".": "_DOT_",
+    ":": "_COLON_",
+    "+": "_PLUS_",
+    "*": "_STAR_",
+    "&": "_AMPER_",
+    ">": "_GT_",
+    "<": "_LT_",
+    "=": "_EQ_",
+    "%": "_PERCENT_",
+    "#": "_SHARP_",
+    "!": "_BANG_",
+    "?": "_QMARK_",
+    "'": "_SQUOTE_",
+    "|": "_BAR_",
+    "/": "_SLASH_",
+    "$": "_DOLLAR_"
+}
 
 #************************************************************
 # Reader

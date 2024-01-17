@@ -124,3 +124,9 @@ def test_quasiquote() -> None:
                 S("c")))
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")
+
+def test_munge() -> None:
+    assert clx.munge("foo") == "foo"
+    assert clx.munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
+    assert clx.munge("foo-bar.*baz*/+qux_fred!") == \
+        "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
