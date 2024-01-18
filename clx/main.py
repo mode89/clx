@@ -21,6 +21,34 @@ from typing import \
 import pyrsistent as pr
 
 #************************************************************
+# Utilities
+#************************************************************
+
+_MUNGE_TABLE = {
+    "-": "_",
+    "_": "_USCORE_",
+    ".": "_DOT_",
+    ":": "_COLON_",
+    "+": "_PLUS_",
+    "*": "_STAR_",
+    "&": "_AMPER_",
+    ">": "_GT_",
+    "<": "_LT_",
+    "=": "_EQ_",
+    "%": "_PERCENT_",
+    "#": "_SHARP_",
+    "!": "_BANG_",
+    "?": "_QMARK_",
+    "'": "_SQUOTE_",
+    "|": "_BAR_",
+    "/": "_SLASH_",
+    "$": "_DOLLAR_"
+}
+
+def munge(chars: str) -> str:
+    return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
+
+#************************************************************
 # Types
 #************************************************************
 
@@ -67,7 +95,7 @@ def is_symbol(obj: Any) -> bool:
 def is_simple_symbol(obj: Any) -> bool:
     return isinstance(obj, Symbol) and obj.namespace is None
 
-Keyword = namedtuple("Keyword", ["namespace", "name"])
+Keyword = namedtuple("Keyword", ["namespace", "name", "munged"])
 
 KEYWORD_TABLE: Dict[str, Keyword] = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
@@ -102,7 +130,7 @@ def keyword(
         if qname in KEYWORD_TABLE:
             return KEYWORD_TABLE[qname]
         else:
-            new_kw = Keyword(_ns, _name)
+            new_kw = Keyword(_ns, _name, munge(qname))
             KEYWORD_TABLE[qname] = new_kw
             return new_kw
 
@@ -207,9 +235,6 @@ def is_hash_map(obj: Any) -> bool:
 ReaderAtom = Union[None, bool, int, float, str, Symbol, Keyword]
 Form = Union[ReaderAtom, PersistentList, PersistentVector, PersistentMap]
 
-def munge(chars: str) -> str:
-    return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
-
 class Record(Protocol):
     def __init__(self, *field_values: Any) -> None: ...
     def get(self, field: Keyword) -> Any: ...
@@ -217,28 +242,29 @@ class Record(Protocol):
 
 RecordT = TypeVar("RecordT", bound=Record)
 
-def define_record(name: str, *fields: Symbol) -> Type[RecordT]:
-    for field in fields:
-        assert is_simple_symbol(field), "field names must be simple symbols"
-    mfields = [munge(f.name) for f in fields]
-    init_args = ", ".join(mfields)
-    init_fields = "\n      ".join([f"kw_{f}: {f}," for f in mfields])
+def define_record(name: str, *fields: Keyword) -> Type[RecordT]:
+    init_args = ", ".join([f.munged for f in fields])
+    init_fields = "; ".join(
+        [f"self.{f.munged} = {f.munged}" for f in fields])
+    def assoc_method(field: Keyword) -> str:
+        params = ", ".join(
+            ["value" if f is field else f"self.{f.munged}" for f in fields])
+        return f"lambda self, value: {name}({params})"
+    assoc_methods = [f"kw_{f.munged}: {assoc_method(f)}" for f in fields]
     _ns: Dict[Any, Any] = {f"kw_{munge(f.name)}": keyword(f) for f in fields}
     exec( # pylint: disable=exec-used
         f"""
+assoc_methods = {{
+  {", ".join(assoc_methods)}
+}}
+
 class {name}:
   def __init__(self, {init_args}):
-    self._data = {{
-      {init_fields}
-    }}
+    {init_fields}
   def get(self, field):
-    return self._data[field]
+    return getattr(self, field.munged)
   def assoc(self, field, value):
-    data = self._data.copy()
-    data[field] = value
-    new = {name}.__new__({name})
-    new._data = data
-    return new
+    return assoc_methods[field](self, value)
 cls = {name}
         """,
         _ns)
@@ -257,27 +283,6 @@ _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
-
-_MUNGE_TABLE = {
-    "-": "_",
-    "_": "_USCORE_",
-    ".": "_DOT_",
-    ":": "_COLON_",
-    "+": "_PLUS_",
-    "*": "_STAR_",
-    "&": "_AMPER_",
-    ">": "_GT_",
-    "<": "_LT_",
-    "=": "_EQ_",
-    "%": "_PERCENT_",
-    "#": "_SHARP_",
-    "!": "_BANG_",
-    "?": "_QMARK_",
-    "'": "_SQUOTE_",
-    "|": "_BAR_",
-    "/": "_SLASH_",
-    "$": "_DOLLAR_"
-}
 
 #************************************************************
 # Reader

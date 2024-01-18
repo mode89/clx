@@ -55,7 +55,7 @@ def test_symbol() -> None:
     assert not clx.is_simple_symbol(S("foo/bar"))
 
 def test_record() -> None:
-    record = clx.define_record("Record", S("a"), S("b")) # type: ignore
+    record = clx.define_record("TestRecord", K("a"), K("b")) # type: ignore
     _r1 = record(1, 2)
     assert isinstance(_r1, record)
     assert _r1.get(K("a")) == 1
