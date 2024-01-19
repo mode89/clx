@@ -4,19 +4,6 @@ from collections import namedtuple
 import re
 import sys
 import threading
-from typing import \
-    Any, \
-    Callable, \
-    Dict, \
-    Iterable, \
-    Iterator, \
-    List, \
-    Optional, \
-    Protocol, \
-    Tuple, \
-    Type, \
-    TypeVar, \
-    Union
 
 import pyrsistent as pr
 
@@ -45,35 +32,29 @@ _MUNGE_TABLE = {
     "$": "_DOLLAR_"
 }
 
-def munge(chars: str) -> str:
+def munge(chars):
     return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
 
 #************************************************************
 # Types
 #************************************************************
 
-T = TypeVar("T")
-
 class Symbol:
-    def __init__(
-            self,
-            _namespace: Optional[str],
-            _name: str,
-            _meta: Optional["PersistentMap"]) -> None:
+    def __init__(self, _namespace, _name, _meta):
         self.name = sys.intern(_name)
         self.namespace = sys.intern(_namespace) if _namespace else None
         self._hash = hash((self.namespace, self.name))
         self.__meta__ = _meta
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         return isinstance(other, Symbol) \
             and self.name is other.name \
             and self.namespace is other.namespace
-    def __hash__(self) -> int:
+    def __hash__(self):
         return self._hash
-    def with_meta(self, _meta: "PersistentMap") -> "Symbol":
+    def with_meta(self, _meta):
         return Symbol(self.namespace, self.name, _meta)
 
-def symbol(arg1: Union[str, Symbol], arg2: Optional[str] = None) -> Symbol:
+def symbol(arg1, arg2=None):
     if arg2 is None:
         if isinstance(arg1, str):
             if "/" in arg1:
@@ -87,22 +68,20 @@ def symbol(arg1: Union[str, Symbol], arg2: Optional[str] = None) -> Symbol:
             raise Exception(
                 "symbol expects a string or a Symbol as the first argument")
     else:
-        return Symbol(arg1, arg2, None) # type: ignore
+        return Symbol(arg1, arg2, None)
 
-def is_symbol(obj: Any) -> bool:
+def is_symbol(obj):
     return isinstance(obj, Symbol)
 
-def is_simple_symbol(obj: Any) -> bool:
+def is_simple_symbol(obj):
     return isinstance(obj, Symbol) and obj.namespace is None
 
 Keyword = namedtuple("Keyword", ["namespace", "name", "munged"])
 
-KEYWORD_TABLE: Dict[str, Keyword] = {}
+KEYWORD_TABLE = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
 
-def keyword(
-        arg1: Union[str, Keyword, Symbol],
-        arg2: Optional[str] = None) -> Keyword:
+def keyword(arg1, arg2=None):
     if arg2 is None:
         if isinstance(arg1, str):
             if "/" in arg1:
@@ -123,7 +102,7 @@ def keyword(
                 "keyword expects a string, a Keyword, or a Symbol as the "
                 "first argument")
     else:
-        _ns = arg1 # type: ignore
+        _ns = arg1
         _name = arg2
         qname = f"{_ns}/{_name}"
     with KEYWORD_TABLE_LOCK:
@@ -134,124 +113,117 @@ def keyword(
             KEYWORD_TABLE[qname] = new_kw
             return new_kw
 
-def is_keyword(obj: Any) -> bool:
+def is_keyword(obj):
     return isinstance(obj, Keyword)
 
+def is_simple_keyword(obj):
+    return isinstance(obj, Keyword) and obj.namespace is None
+
 class PersistentList:
-    def __init__(
-            self,
-            impl: pr.PList,
-            _meta: Optional["PersistentMap"]) -> None:
+    def __init__(self, impl, _meta):
         self._impl = impl
         self.__meta__ = _meta
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         return isinstance(other, PersistentList) \
             and self._impl == other._impl
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash(self._impl)
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._impl)
-    def __getitem__(self, index: int) -> Any:
+    def __getitem__(self, index):
         return self._impl[index]
-    def with_meta(self, _meta: "PersistentMap") -> "PersistentList":
+    def with_meta(self, _meta):
         return PersistentList(self._impl, _meta)
-    def cons(self, value: Any) -> "PersistentList":
+    def cons(self, value):
         return PersistentList(self._impl.cons(value), _meta=None)
 
-def list_(*elements: Any) -> PersistentList:
+def list_(*elements):
     return PersistentList(pr.plist(elements), _meta=None)
 
-def is_list(obj: Any) -> bool:
+def is_list(obj):
     return isinstance(obj, PersistentList)
 
 class PersistentVector:
-    def __init__(
-            self,
-            impl: pr.PVector,
-            _meta: Optional["PersistentMap"]) -> None:
+    def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PVector), "Expected a PVector"
         self._impl = impl
         self.__meta__ = _meta
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         return isinstance(other, PersistentVector) \
             and self._impl == other._impl
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._impl)
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self):
         return iter(self._impl)
-    def __getitem__(self, index: int) -> Any:
+    def __getitem__(self, index):
         return self._impl[index]
-    def with_meta(self, _meta: "PersistentMap") -> "PersistentVector":
+    def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
-    def first(self) -> Any:
+    def first(self):
         return self._impl[0]
-    def rest(self) -> "PersistentVector":
+    def rest(self):
         return PersistentVector(self._impl[1:], _meta=None)
 
-def vec(coll: Iterable[Any]) -> PersistentVector:
+def vec(coll):
     return PersistentVector(pr.pvector(coll), _meta=None)
 
-def vector(*elements: Any) -> PersistentVector:
+def vector(*elements):
     return vec(elements)
 
-def is_vector(obj: Any) -> bool:
+def is_vector(obj):
     return isinstance(obj, PersistentVector)
 
 class PersistentMap:
-    def __init__(
-            self,
-            impl: pr.PMap,
-            _meta: Optional["PersistentMap"]) -> None:
+    def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PMap), "Expected a PMap"
         self._impl = impl
         self.__meta__ = _meta
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         return isinstance(other, PersistentMap) \
             and self._impl == other._impl
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._impl)
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self):
         return iter(self._impl)
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key):
         return self._impl[key]
-    def items(self) -> Iterable[Tuple[Any, Any]]:
+    def items(self):
         return self._impl.items()
-    def with_meta(self, _meta: "PersistentMap") -> "PersistentMap":
+    def with_meta(self, _meta):
         return PersistentMap(self._impl, _meta)
-    def get(self, key: Any, default: Any=None) -> Any:
+    def get(self, key, default=None):
         return self._impl.get(key, default)
-    def assoc(self, key: Any, value: Any) -> "PersistentMap":
+    def assoc(self, key, value):
         return PersistentMap(self._impl.set(key, value), _meta=None)
 
-def hash_map(*elements: Any) -> PersistentMap:
+def hash_map(*elements):
     assert len(elements) % 2 == 0, "hash-map expects even number of elements"
     return PersistentMap(
         pr.pmap(dict(zip(elements[::2], elements[1::2]))),
         _meta=None)
 
-def is_hash_map(obj: Any) -> bool:
+def is_hash_map(obj):
     return isinstance(obj, PersistentMap)
 
-ReaderAtom = Union[None, bool, int, float, str, Symbol, Keyword]
-Form = Union[ReaderAtom, PersistentList, PersistentVector, PersistentMap]
+class Record():
+    def get(self, field):
+        raise NotImplementedError()
+    def assoc(self, field, value):
+        raise NotImplementedError()
 
-class Record(Protocol):
-    def __init__(self, *field_values: Any) -> None: ...
-    def get(self, field: Keyword) -> Any: ...
-    def assoc(self: T, field: Keyword, value: Any) -> T: ...
-
-RecordT = TypeVar("RecordT", bound=Record)
-
-def define_record(name: str, *fields: Keyword) -> Type[RecordT]:
+def define_record(name, *fields):
+    for field in fields:
+        assert is_simple_keyword(field), \
+            "field names must be simple keywords"
     init_args = ", ".join([f.munged for f in fields])
     init_fields = "; ".join(
         [f"self.{f.munged} = {f.munged}" for f in fields])
-    def assoc_method(field: Keyword) -> str:
+    def assoc_method(field):
         params = ", ".join(
             ["value" if f is field else f"self.{f.munged}" for f in fields])
         return f"lambda self, value: {name}({params})"
     assoc_methods = [f"kw_{f.munged}: {assoc_method(f)}" for f in fields]
-    _ns: Dict[Any, Any] = {f"kw_{munge(f.name)}": keyword(f) for f in fields}
+    _ns = {f"kw_{munge(f.name)}": keyword(f) for f in fields}
     exec( # pylint: disable=exec-used
         f"""
 assoc_methods = {{
@@ -304,12 +276,12 @@ INT_RE = re.compile(r"-?[0-9]+$")
 FLOAT_RE = re.compile(r"-?[0-9]+\.[0-9]+$")
 STRING_RE = re.compile(r"\"(?:[\\].|[^\\\"])*\"$")
 
-def read_string(text: str) -> Form:
+def read_string(text):
     tokens = list(tokenize(text))
     form, _rest = read_form(tokens)
     return form
 
-def tokenize(text: str) -> Iterator[Token]:
+def tokenize(text):
     lines = text.splitlines()
     line_starts = []
     line_start = 0
@@ -324,7 +296,7 @@ def tokenize(text: str) -> Iterator[Token]:
         column = match.start(1) - line_starts[line_id - 1] + 1
         yield Token(string=token, line=line_id, column=column)
 
-def read_form(tokens: List[Token]) -> Tuple[Form, List[Token]]:
+def read_form(tokens):
     token = tokens[0]
     tstring = token.string
     if tstring == "'":
@@ -352,7 +324,7 @@ def read_form(tokens: List[Token]) -> Tuple[Form, List[Token]]:
     else:
         return read_atom(token), tokens[1:]
 
-def read_atom(token: Token) -> ReaderAtom:
+def read_atom(token):
     tstring = token.string
     if re.match(INT_RE, tstring):
         return int(tstring)
@@ -377,17 +349,17 @@ def read_atom(token: Token) -> ReaderAtom:
                 _K_LINE, token.line,
                 _K_COLUMN, token.column))
 
-def unescape(text: str) -> str:
+def unescape(text):
     return text \
         .replace(r"\\", "\\") \
         .replace(r"\"", "\"") \
         .replace(r"\n", "\n")
 
 def read_collection(
-        tokens: List[Token],
-        ctor: Callable[..., Any],
-        start: str,
-        end: str) -> Tuple[Form, List[Token]]:
+        tokens,
+        ctor,
+        start,
+        end):
     token0 = tokens[0]
     assert token0.string == start, f"Expected '{start}'"
     tokens = tokens[1:]
@@ -404,7 +376,7 @@ def read_collection(
             _K_COLUMN, token0.column)), \
         tokens[1:]
 
-def quasiquote(form: Any) -> Any:
+def quasiquote(form):
     if is_list(form) and len(form) > 0:
         head = form[0]
         if head == _S_UNQUOTE:
@@ -421,8 +393,8 @@ def quasiquote(form: Any) -> Any:
     else:
         return form
 
-def _quasiquote_sequence(form: Any) -> PersistentList:
-    def entry(_f: Any) -> PersistentList:
+def _quasiquote_sequence(form):
+    def entry(_f):
         if is_list(_f) and len(_f) > 0 and _f[0] == _S_UNQUOTE:
             assert len(_f) == 2, "unquote expects 1 argument"
             return list_(_S_LIST, _f[1])
@@ -437,12 +409,14 @@ def _quasiquote_sequence(form: Any) -> PersistentList:
 # Evaluation
 #************************************************************
 
-Context = define_record("Context", symbol("namespaces"), symbol("current-ns"))
+Context = define_record("Context",
+    keyword("namespaces"),
+    keyword("current-ns"))
 
-def eval_string(text: str) -> Any:
+def eval_string(text):
     tokens = list(tokenize(text))
     ctx = Context(hash_map(), symbol("user"))
-    _globals: Dict[Any, Any] = {}
+    _globals = {}
     while tokens:
         form, tokens = read_form(tokens)
         result, body, ctx = _compile(form, ctx)
@@ -453,9 +427,7 @@ def eval_string(text: str) -> Any:
     result_code = compile(result_expr, "<none>", "eval")
     return eval(result_code, _globals) # pylint: disable=eval-used
 
-CompileResult = Tuple[Optional[ast.expr], Optional[PersistentVector], Context]
-
-def _compile(form: Form, ctx: Context) -> CompileResult:
+def _compile(form, ctx):
     if isinstance(form, PersistentList):
         raise NotImplementedError()
     elif isinstance(form, PersistentVector):
@@ -471,11 +443,11 @@ def _compile(form: Form, ctx: Context) -> CompileResult:
 # Core
 #************************************************************
 
-def meta(obj: Any) -> Optional["PersistentMap"]:
+def meta(obj):
     return obj.__meta__
 
-def with_meta(obj: Any, _meta: PersistentMap) -> Any:
+def with_meta(obj, _meta):
     return obj.with_meta(_meta)
 
-def cons(obj: Any, coll: PersistentList) -> PersistentList:
+def cons(obj, coll):
     return coll.cons(obj)

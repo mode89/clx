@@ -8,7 +8,7 @@ L = clx.list_
 V = clx.vector
 M = clx.hash_map
 
-def test_keyword() -> None:
+def test_keyword():
     hello = K("hello")
     assert isinstance(hello, clx.Keyword)
     assert clx.is_keyword(hello)
@@ -31,7 +31,7 @@ def test_keyword() -> None:
     assert K(S("foo/bar")) is K("foo/bar")
     assert K(K("quux")) is K("quux")
 
-def test_symbol() -> None:
+def test_symbol():
     hello = S("hello")
     assert isinstance(hello, clx.Symbol)
     assert clx.is_symbol(hello)
@@ -54,8 +54,8 @@ def test_symbol() -> None:
     assert clx.is_simple_symbol(S("foo"))
     assert not clx.is_simple_symbol(S("foo/bar"))
 
-def test_record() -> None:
-    record = clx.define_record("TestRecord", K("a"), K("b")) # type: ignore
+def test_record():
+    record = clx.define_record("TestRecord", K("a"), K("b"))
     _r1 = record(1, 2)
     assert isinstance(_r1, record)
     assert _r1.get(K("a")) == 1
@@ -73,7 +73,7 @@ def test_record() -> None:
     assert _r1.get(K("a")) == 1
     assert _r1.get(K("b")) == 2
 
-def test_read_string() -> None:
+def test_read_string():
     assert clx.read_string("1") == 1
     assert clx.read_string("1.23") == 1.23
     # assert clx.read_string("1.23e4") == 1.23e4 TODO
@@ -101,7 +101,7 @@ def test_read_string() -> None:
         clx.read_string("{:a 7 \"b\" eight")
     assert clx.read_string("'x") == L(S("quote"), S("x"))
 
-def test_quasiquote() -> None:
+def test_quasiquote():
     assert clx.read_string("`()") == L()
     assert clx.read_string("`a") == L(S("quote"), S("a"))
     assert clx.read_string("`~a") == S("a")
@@ -127,11 +127,11 @@ def test_quasiquote() -> None:
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")
 
-def test_munge() -> None:
+def test_munge():
     assert clx.munge("foo") == "foo"
     assert clx.munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert clx.munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
-def test_eval_string() -> None:
+def test_eval_string():
     assert clx.eval_string("42") == 42
