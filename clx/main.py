@@ -504,8 +504,8 @@ Namespace = define_record("Namespace", _K_BINDINGS)
 def eval_string(text):
     tokens = list(tokenize(text))
     ctx = Context(
-        symbol("user"),
-        hash_map(symbol("user"), Namespace(hash_map())),
+        "user",
+        hash_map("user", Namespace(hash_map())),
         hash_map())
     _globals = {}
     while tokens:
@@ -530,7 +530,15 @@ def _compile(form, ctx):
     elif isinstance(form, PersistentMap):
         raise NotImplementedError()
     elif isinstance(form, Symbol):
-        raise NotImplementedError()
+        py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
+        _meta = meta(form)
+        return \
+            ast.Name(
+                py_name,
+                ast.Load(),
+                lineno=_meta.lookup(_K_LINE, None),
+                col_offset=_meta.lookup(_K_COLUMN, None)), \
+            [], ctx
     else:
         return ast.Constant(form, lineno=0, col_offset=0), [], ctx
 
@@ -541,7 +549,7 @@ def _compile_def(form, ctx):
         "def expects a simple symbol as the first argument"
     value, body, ctx = _compile(form[2], ctx)
     _ns = ctx.lookup(_K_CURRENT_NS, None)
-    py_name = munge(f"{_ns.name}/{name.name}")
+    py_name = munge(f"{_ns}/{name.name}")
     _meta = meta(form)
     line = _meta.lookup(_K_LINE, None)
     column = _meta.lookup(_K_COLUMN, None)
@@ -563,8 +571,37 @@ def _compile_def(form, ctx):
                 col_offset=column)
         ], \
         assoc_in(ctx,
-            list_(_K_NAMESPACES, _ns, _K_BINDINGS, name),
+            list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
             hash_map(_K_PY_NAME, py_name))
+
+def _resolve_symbol(ctx, sym):
+    if is_simple_symbol(sym):
+        result = ctx \
+            .lookup(_K_LOCALS, None) \
+            .lookup(sym.name, None)
+        if result is not None:
+            return result
+        else:
+            result = ctx \
+                .lookup(_K_NAMESPACES, None) \
+                .lookup(ctx.lookup(_K_CURRENT_NS, None), None) \
+                .lookup(_K_BINDINGS, None) \
+                .lookup(sym.name, None)
+            if result is not None:
+                return result
+    else:
+        namespace = ctx \
+            .lookup(_K_NAMESPACES, None) \
+            .lookup(sym.namespace, None)
+        if namespace is not None:
+            result = namespace \
+                .lookup(_K_BINDINGS, None) \
+                .lookup(sym.name, None)
+            if result is not None:
+                return result
+        else:
+            raise Exception(f"Namespace '{sym.namespace}' not found")
+    raise Exception(f"Symbol '{pr_str(sym)}' not found")
 
 #************************************************************
 # Core

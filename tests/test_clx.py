@@ -162,17 +162,52 @@ def test_munge():
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
-def test_eval_string():
+def test_eval_def():
     assert clx.eval_string("42")[0] == 42
     res, ctx, glob = clx.eval_string("(def foo 42)")
     assert res == 42
     assert clx.get_in(ctx,
         L(K("namespaces"),
-          S("user"),
+          "user",
           K("bindings"),
-          S("foo"),
+          "foo",
           K("py-name"))) == munge("user/foo")
     assert glob[munge("user/foo")] == 42
+
+def test_resolve_symbol():
+    resolve = clx._resolve_symbol # pylint: disable=protected-access
+    ctx = clx.Context(
+        current_ns="user",
+        namespaces=M(
+            "user",
+                clx.Namespace(
+                    bindings=M(
+                        "foo", 1,
+                        "bar", 2)),
+            "baz",
+                clx.Namespace(
+                    bindings=M(
+                        "quux", 3,
+                        "fred", 4))),
+        locals=M(
+            "a", 5,
+            "bar", 6))
+    assert resolve(ctx, S("a")) == 5
+    assert resolve(ctx, S("bar")) == 6
+    assert resolve(ctx, S("foo")) == 1
+    assert resolve(ctx, S("baz/quux")) == 3
+    assert resolve(ctx, S("baz/fred")) == 4
+    assert resolve(ctx, S("user/foo")) == 1
+    assert resolve(ctx, S("user/bar")) == 2
+    with pytest.raises(Exception, match=r"Symbol 'user/baz' not found"):
+        resolve(ctx, S("user/baz"))
+    with pytest.raises(Exception, match=r"Namespace 'bar' not found"):
+        resolve(ctx, S("bar/foo"))
+    assert clx.eval_string(
+        """
+        (def forty-two 42)
+        forty-two
+        """)[0] == 42
 
 def test_get():
     _m = M("a", 1, "b", 2)
