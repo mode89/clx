@@ -138,6 +138,24 @@ def test_quasiquote():
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")
 
+def test_printer():
+    assert clx.pr_str(None) == "nil"
+    assert clx.pr_str(True) == "true"
+    assert clx.pr_str(False) == "false"
+    assert clx.pr_str("hello") == "hello"
+    assert clx.pr_str("hello", True) == "\"hello\""
+    assert clx.pr_str(42) == "42"
+    assert clx.pr_str(K("hello")) == ":hello"
+    assert clx.pr_str(K("hello", "world")) == ":hello/world"
+    assert clx.pr_str(S("hello")) == "hello"
+    assert clx.pr_str(S("hello", "world")) == "hello/world"
+    assert clx.pr_str(L(1, True, "hello")) == "(1 true hello)"
+    assert clx.pr_str(L(1, True, "hello"), True) == "(1 true \"hello\")"
+    assert clx.pr_str(V(1, True, "hello")) == "[1 true hello]"
+    assert clx.pr_str(V(1, True, "hello"), True) == "[1 true \"hello\"]"
+    assert clx.pr_str(M("a", 1)) == "{a 1}"
+    assert clx.pr_str(M("a", 1), True) == "{\"a\" 1}"
+
 def test_munge():
     assert munge("foo") == "foo"
     assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"

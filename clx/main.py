@@ -3,6 +3,7 @@ import ast
 from bisect import bisect_left
 from collections import namedtuple
 from collections.abc import Hashable, Mapping, Sequence
+from functools import reduce
 import re
 import sys
 import threading
@@ -449,6 +450,49 @@ def _quasiquote_sequence(form):
         else:
             return list_(_S_LIST, quasiquote(_f))
     return cons(_S_CONCAT, list_(*map(entry, form)))
+
+#************************************************************
+# Printer
+#************************************************************
+
+def pr_str(obj, readably=False):
+    if obj is None:
+        return "nil"
+    if isinstance(obj, bool):
+        return "true" if obj else "false"
+    if isinstance(obj, str):
+        if readably:
+            return "\"" + escape(obj) + "\""
+        return obj
+    if isinstance(obj, Keyword):
+        _ns = f"{obj.namespace}/" if obj.namespace else ""
+        return f":{_ns}{obj.name}"
+    if isinstance(obj, Symbol):
+        _ns = f"{obj.namespace}/" if obj.namespace else ""
+        return f"{_ns}{obj.name}"
+    if isinstance(obj, PersistentList):
+        return "(" + \
+            " ".join(map(lambda x: pr_str(x, readably), obj)) + \
+            ")"
+    if isinstance(obj, PersistentVector):
+        return "[" + \
+            " ".join(map(lambda x: pr_str(x, readably), obj)) + \
+            "]"
+    if isinstance(obj, PersistentMap):
+        ret = reduce(
+            lambda acc, kv:
+                cons(pr_str(kv[0], readably),
+                    cons(pr_str(kv[1], readably), acc)),
+            obj.items(),
+            list_())
+        return "{" + " ".join(ret) + "}"
+    return str(obj)
+
+def escape(text):
+    return text \
+        .replace("\\", r"\\") \
+        .replace("\"", r"\"") \
+        .replace("\n", r"\n")
 
 #************************************************************
 # Evaluation
