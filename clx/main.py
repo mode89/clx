@@ -1,11 +1,15 @@
+from abc import abstractmethod, ABC
 import ast
 from bisect import bisect_left
 from collections import namedtuple
+from collections.abc import Hashable, Mapping, Sequence
 import re
 import sys
 import threading
 
 import pyrsistent as pr
+
+_UNDEFINED = object()
 
 #************************************************************
 # Utilities
@@ -39,12 +43,35 @@ def munge(chars):
 # Types
 #************************************************************
 
-class Symbol:
+class IMeta(ABC):
+    @abstractmethod
+    def with_meta(self, _meta):
+        raise NotImplementedError()
+
+class ISeq(ABC):
+    @abstractmethod
+    def first(self):
+        raise NotImplementedError()
+    @abstractmethod
+    def rest(self):
+        raise NotImplementedError()
+
+class IAssociative(ABC):
+    @abstractmethod
+    def lookup(self, key, not_found):
+        raise NotImplementedError()
+    @abstractmethod
+    def assoc(self, key, value):
+        raise NotImplementedError()
+
+class Symbol(Hashable, IMeta):
     def __init__(self, _namespace, _name, _meta):
         self.name = sys.intern(_name)
         self.namespace = sys.intern(_namespace) if _namespace else None
         self._hash = hash((self.namespace, self.name))
         self.__meta__ = _meta
+    def __str__(self):
+        return f"Symbol({self.namespace}, {self.name})"
     def __eq__(self, other):
         return isinstance(other, Symbol) \
             and self.name is other.name \
@@ -77,6 +104,7 @@ def is_simple_symbol(obj):
     return isinstance(obj, Symbol) and obj.namespace is None
 
 Keyword = namedtuple("Keyword", ["namespace", "name", "munged"])
+Keyword.__str__ = lambda self: f"Keyword({self.namespace}, {self.name})"
 
 KEYWORD_TABLE = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
@@ -119,7 +147,7 @@ def is_keyword(obj):
 def is_simple_keyword(obj):
     return isinstance(obj, Keyword) and obj.namespace is None
 
-class PersistentList:
+class PersistentList(Hashable, Sequence, IMeta, ISeq):
     def __init__(self, impl, _meta):
         self._impl = impl
         self.__meta__ = _meta
@@ -134,6 +162,10 @@ class PersistentList:
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentList(self._impl, _meta)
+    def first(self):
+        return self._impl[0]
+    def rest(self):
+        return PersistentList(self._impl[1:], _meta=None)
     def cons(self, value):
         return PersistentList(self._impl.cons(value), _meta=None)
 
@@ -143,7 +175,7 @@ def list_(*elements):
 def is_list(obj):
     return isinstance(obj, PersistentList)
 
-class PersistentVector:
+class PersistentVector(Hashable, Sequence, IMeta, ISeq):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PVector), "Expected a PVector"
         self._impl = impl
@@ -151,6 +183,8 @@ class PersistentVector:
     def __eq__(self, other):
         return isinstance(other, PersistentVector) \
             and self._impl == other._impl
+    def __hash__(self):
+        return hash(self._impl)
     def __len__(self):
         return len(self._impl)
     def __iter__(self):
@@ -173,7 +207,7 @@ def vector(*elements):
 def is_vector(obj):
     return isinstance(obj, PersistentVector)
 
-class PersistentMap:
+class PersistentMap(Hashable, Mapping, IMeta, IAssociative):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PMap), "Expected a PMap"
         self._impl = impl
@@ -181,35 +215,37 @@ class PersistentMap:
     def __eq__(self, other):
         return isinstance(other, PersistentMap) \
             and self._impl == other._impl
+    def __hash__(self):
+        return hash(self._impl)
     def __len__(self):
         return len(self._impl)
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, key):
         return self._impl[key]
-    def items(self):
-        return self._impl.items()
     def with_meta(self, _meta):
         return PersistentMap(self._impl, _meta)
-    def get(self, key, default=None):
-        return self._impl.get(key, default)
+    def lookup(self, key, not_found):
+        return self._impl.get(key, not_found)
     def assoc(self, key, value):
         return PersistentMap(self._impl.set(key, value), _meta=None)
 
+EMPTY_MAP = PersistentMap(pr.pmap(), _meta=None)
+
 def hash_map(*elements):
     assert len(elements) % 2 == 0, "hash-map expects even number of elements"
-    return PersistentMap(
-        pr.pmap(dict(zip(elements[::2], elements[1::2]))),
-        _meta=None)
+    if len(elements) == 0:
+        return EMPTY_MAP
+    else:
+        return PersistentMap(
+            pr.pmap(dict(zip(elements[::2], elements[1::2]))),
+            _meta=None)
 
 def is_hash_map(obj):
     return isinstance(obj, PersistentMap)
 
-class Record():
-    def get(self, field):
-        raise NotImplementedError()
-    def assoc(self, field, value):
-        raise NotImplementedError()
+class IRecord(IAssociative, ABC):
+    pass
 
 def define_record(name, *fields):
     for field in fields:
@@ -223,18 +259,21 @@ def define_record(name, *fields):
             ["value" if f is field else f"self.{f.munged}" for f in fields])
         return f"lambda self, value: {name}({params})"
     assoc_methods = [f"kw_{f.munged}: {assoc_method(f)}" for f in fields]
-    _ns = {f"kw_{munge(f.name)}": keyword(f) for f in fields}
+    _ns = {
+        **{f"kw_{munge(f.name)}": keyword(f) for f in fields},
+        "IRecord": IRecord,
+    }
     exec( # pylint: disable=exec-used
         f"""
 assoc_methods = {{
   {", ".join(assoc_methods)}
 }}
 
-class {name}:
+class {name}(IRecord):
   def __init__(self, {init_args}):
     {init_fields}
-  def get(self, field):
-    return getattr(self, field.munged)
+  def lookup(self, field, not_found):
+    return getattr(self, field.munged, not_found)
   def assoc(self, field, value):
     return assoc_methods[field](self, value)
 cls = {name}
@@ -444,10 +483,49 @@ def _compile(form, ctx):
 #************************************************************
 
 def meta(obj):
+    assert isinstance(obj, IMeta)
     return obj.__meta__
 
 def with_meta(obj, _meta):
+    assert isinstance(obj, IMeta)
     return obj.with_meta(_meta)
 
 def cons(obj, coll):
     return coll.cons(obj)
+
+def first(coll):
+    assert isinstance(coll, ISeq)
+    return coll.first()
+
+def rest(coll):
+    assert isinstance(coll, ISeq)
+    return coll.rest()
+
+def get(self, key, not_found=_UNDEFINED):
+    assert isinstance(self, IAssociative)
+    value = self.lookup(key, not_found)
+    if value is _UNDEFINED:
+        raise KeyError(key)
+    return value
+
+def assoc(obj, key, value):
+    assert isinstance(obj, IAssociative)
+    return obj.assoc(key, value)
+
+def get_in(obj, path, not_found=_UNDEFINED):
+    assert isinstance(obj, IAssociative)
+    assert isinstance(path, ISeq)
+    for key in path:
+        obj = get(obj, key, not_found)
+    return obj
+
+def assoc_in(obj, path, value):
+    assert isinstance(obj, IAssociative)
+    assert isinstance(path, ISeq)
+    first_path = path.first()
+    rest_path = path.rest()
+    if rest_path:
+        child0 = get(obj, first_path)
+        return obj.assoc(first_path, assoc_in(child0, rest_path, value))
+    else:
+        return obj.assoc(first_path, value)

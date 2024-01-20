@@ -1,6 +1,7 @@
 import pytest
 
 import clx.main as clx
+from clx.main import assoc, get, munge
 
 K = clx.keyword
 S = clx.symbol
@@ -30,6 +31,7 @@ def test_keyword():
     assert K(S("baz")) is K("baz")
     assert K(S("foo/bar")) is K("foo/bar")
     assert K(K("quux")) is K("quux")
+    assert str(K("foo/bar")) == "Keyword(foo, bar)"
 
 def test_symbol():
     hello = S("hello")
@@ -53,25 +55,34 @@ def test_symbol():
     assert S(S("quux")) == S("quux")
     assert clx.is_simple_symbol(S("foo"))
     assert not clx.is_simple_symbol(S("foo/bar"))
+    assert str(S("foo/bar")) == "Symbol(foo, bar)"
+
+def test_hash_map():
+    _m0 = M()
+    assert isinstance(_m0, clx.PersistentMap)
+    _m1 = assoc(_m0, "a", 1)
+    assert _m0 is M()
+    assert isinstance(_m1, clx.PersistentMap)
+    assert get(_m1, "a") == 1
 
 def test_record():
     record = clx.define_record("TestRecord", K("a"), K("b"))
     _r1 = record(1, 2)
     assert isinstance(_r1, record)
-    assert _r1.get(K("a")) == 1
-    assert _r1.get(K("b")) == 2
-    _r2 = _r1.assoc(K("a"), 3)
+    assert get(_r1, K("a")) == 1
+    assert get(_r1, K("b")) == 2
+    _r2 = assoc(_r1, K("a"), 3)
     assert isinstance(_r2, record)
-    assert _r2.get(K("a")) == 3
-    assert _r2.get(K("b")) == 2
-    assert _r1.get(K("a")) == 1
-    assert _r1.get(K("b")) == 2
-    _r3 = _r1.assoc(K("b"), 4)
+    assert get(_r2, K("a")) == 3
+    assert get(_r2, K("b")) == 2
+    assert get(_r1, K("a")) == 1
+    assert get(_r1, K("b")) == 2
+    _r3 = assoc(_r1, K("b"), 4)
     assert isinstance(_r3, record)
-    assert _r3.get(K("a")) == 1
-    assert _r3.get(K("b")) == 4
-    assert _r1.get(K("a")) == 1
-    assert _r1.get(K("b")) == 2
+    assert get(_r3, K("a")) == 1
+    assert get(_r3, K("b")) == 4
+    assert get(_r1, K("a")) == 1
+    assert get(_r1, K("b")) == 2
 
 def test_read_string():
     assert clx.read_string("1") == 1
@@ -128,10 +139,21 @@ def test_quasiquote():
         clx.read_string("`~@a")
 
 def test_munge():
-    assert clx.munge("foo") == "foo"
-    assert clx.munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
-    assert clx.munge("foo-bar.*baz*/+qux_fred!") == \
+    assert munge("foo") == "foo"
+    assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
+    assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
-def test_eval_string():
-    assert clx.eval_string("42") == 42
+def test_get():
+    _m = M("a", 1, "b", 2)
+    assert get(_m, "a") == 1
+    assert get(_m, "b") == 2
+    with pytest.raises(KeyError):
+        get(_m, "c")
+    assert get(_m, "c", 3) == 3
+
+def test_assoc_in():
+    assert clx.assoc_in(M("a", M("b", 1)), L("a", "b"), 2) == M("a", M("b", 2))
+    assert clx.assoc_in(M("a", 1), L("b"), 2) == M("a", 1, "b", 2)
+    with pytest.raises(KeyError):
+        clx.assoc_in(M("a", 1), L("b", "c"), 2)
