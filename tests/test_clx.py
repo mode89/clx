@@ -144,6 +144,18 @@ def test_munge():
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
+def test_eval_string():
+    assert clx.eval_string("42")[0] == 42
+    res, ctx, glob = clx.eval_string("(def foo 42)")
+    assert res == 42
+    assert clx.get_in(ctx,
+        L(K("namespaces"),
+          S("user"),
+          K("bindings"),
+          S("foo"),
+          K("py-name"))) == munge("user/foo")
+    assert glob[munge("user/foo")] == 42
+
 def test_get():
     _m = M("a", 1, "b", 2)
     assert get(_m, "a") == 1

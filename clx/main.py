@@ -292,8 +292,14 @@ _S_WITH_META = symbol("with-meta")
 _S_VEC = symbol("vec")
 _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
+_S_DEF = symbol("def")
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
+_K_CURRENT_NS = keyword("current-ns")
+_K_NAMESPACES = keyword("namespaces")
+_K_LOCALS = keyword("locals")
+_K_PY_NAME = keyword("py-name")
+_K_BINDINGS = keyword("bindings")
 
 #************************************************************
 # Reader
@@ -448,13 +454,15 @@ def _quasiquote_sequence(form):
 # Evaluation
 #************************************************************
 
-Context = define_record("Context",
-    keyword("namespaces"),
-    keyword("current-ns"))
+Context = define_record("Context", _K_CURRENT_NS, _K_NAMESPACES, _K_LOCALS)
+Namespace = define_record("Namespace", _K_BINDINGS)
 
 def eval_string(text):
     tokens = list(tokenize(text))
-    ctx = Context(hash_map(), symbol("user"))
+    ctx = Context(
+        symbol("user"),
+        hash_map(symbol("user"), Namespace(hash_map())),
+        hash_map())
     _globals = {}
     while tokens:
         form, tokens = read_form(tokens)
@@ -464,11 +472,15 @@ def eval_string(text):
         exec(body_code, _globals) # pylint: disable=exec-used
     result_expr = ast.Expression(result, type_ignores=[])
     result_code = compile(result_expr, "<none>", "eval")
-    return eval(result_code, _globals) # pylint: disable=eval-used
+    return eval(result_code, _globals), ctx, _globals # pylint: disable=eval-used
 
 def _compile(form, ctx):
     if isinstance(form, PersistentList):
-        raise NotImplementedError()
+        head = form[0]
+        if head == _S_DEF:
+            return _compile_def(form, ctx)
+        else:
+            raise NotImplementedError()
     elif isinstance(form, PersistentVector):
         raise NotImplementedError()
     elif isinstance(form, PersistentMap):
@@ -476,7 +488,39 @@ def _compile(form, ctx):
     elif isinstance(form, Symbol):
         raise NotImplementedError()
     else:
-        return ast.Constant(form, lineno=0, col_offset=0), None, ctx
+        return ast.Constant(form, lineno=0, col_offset=0), [], ctx
+
+def _compile_def(form, ctx):
+    assert len(form) == 3, "def expects 2 arguments"
+    name = form[1]
+    assert is_simple_symbol(name), \
+        "def expects a simple symbol as the first argument"
+    value, body, ctx = _compile(form[2], ctx)
+    _ns = ctx.lookup(_K_CURRENT_NS, None)
+    py_name = munge(f"{_ns.name}/{name.name}")
+    _meta = meta(form)
+    line = _meta.lookup(_K_LINE, None)
+    column = _meta.lookup(_K_COLUMN, None)
+    return \
+        ast.Name(
+            py_name,
+            ast.Load(),
+            lineno=line,
+            col_offset=column), \
+        body + [
+            ast.Assign(
+                [ast.Name(
+                    py_name,
+                    ast.Store(),
+                    lineno=line,
+                    col_offset=column)],
+                value,
+                lineno=line,
+                col_offset=column)
+        ], \
+        assoc_in(ctx,
+            list_(_K_NAMESPACES, _ns, _K_BINDINGS, name),
+            hash_map(_K_PY_NAME, py_name))
 
 #************************************************************
 # Core
