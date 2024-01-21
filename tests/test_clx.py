@@ -174,6 +174,15 @@ def test_eval_def():
           K("py-name"))) == munge("user/foo")
     assert glob[munge("user/foo")] == 42
 
+def test_eval_do():
+    assert clx.eval_string("(do)")[0] is None
+    assert clx.eval_string("(do 1 2 3)")[0] == 3
+    assert clx.eval_string(
+        """
+        (do (def foo 42)
+            foo)
+        """)[0] == 42
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(

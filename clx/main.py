@@ -294,6 +294,7 @@ _S_VEC = symbol("vec")
 _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
+_S_DO = symbol("do")
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
 _K_CURRENT_NS = keyword("current-ns")
@@ -523,6 +524,8 @@ def _compile(form, ctx):
         head = form[0]
         if head == _S_DEF:
             return _compile_def(form, ctx)
+        if head == _S_DO:
+            return _compile_do(form, ctx)
         else:
             raise NotImplementedError()
     elif isinstance(form, PersistentVector):
@@ -552,6 +555,20 @@ def _compile_def(form, ctx):
         assoc_in(ctx,
             list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
             hash_map(_K_PY_NAME, py_name))
+
+def _compile_do(form, ctx):
+    body = []
+    forms = form.rest()
+    result = None
+    while forms:
+        _f, forms = forms.first(), forms.rest()
+        result, fbody, ctx = _compile(_f, ctx)
+        body.extend(fbody)
+    return \
+        result \
+            if result is not None \
+            else _node(ast.Constant, form, None), \
+        body, ctx
 
 def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
