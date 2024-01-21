@@ -531,14 +531,7 @@ def _compile(form, ctx):
         raise NotImplementedError()
     elif isinstance(form, Symbol):
         py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
-        _meta = meta(form)
-        return \
-            ast.Name(
-                py_name,
-                ast.Load(),
-                lineno=_meta.lookup(_K_LINE, None),
-                col_offset=_meta.lookup(_K_COLUMN, None)), \
-            [], ctx
+        return _node(ast.Name, form, py_name, ast.Load()), [], ctx
     else:
         return ast.Constant(form, lineno=0, col_offset=0), [], ctx
 
@@ -550,25 +543,11 @@ def _compile_def(form, ctx):
     value, body, ctx = _compile(form[2], ctx)
     _ns = ctx.lookup(_K_CURRENT_NS, None)
     py_name = munge(f"{_ns}/{name.name}")
-    _meta = meta(form)
-    line = _meta.lookup(_K_LINE, None)
-    column = _meta.lookup(_K_COLUMN, None)
     return \
-        ast.Name(
-            py_name,
-            ast.Load(),
-            lineno=line,
-            col_offset=column), \
+        _node(ast.Name, form, py_name, ast.Load()), \
         body + [
-            ast.Assign(
-                [ast.Name(
-                    py_name,
-                    ast.Store(),
-                    lineno=line,
-                    col_offset=column)],
-                value,
-                lineno=line,
-                col_offset=column)
+            _node(ast.Assign, form,
+                [_node(ast.Name, form, py_name, ast.Store())], value),
         ], \
         assoc_in(ctx,
             list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
@@ -602,6 +581,13 @@ def _resolve_symbol(ctx, sym):
         else:
             raise Exception(f"Namespace '{sym.namespace}' not found")
     raise Exception(f"Symbol '{pr_str(sym)}' not found")
+
+def _node(type_, form, *args):
+    _n = type_(*args)
+    _meta = meta(form)
+    _n.lineno = _meta.lookup(_K_LINE, None)
+    _n.col_offset = _meta.lookup(_K_COLUMN, None)
+    return _n
 
 #************************************************************
 # Core
