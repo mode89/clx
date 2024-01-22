@@ -212,6 +212,34 @@ def test_eval_let():
                   b))
             """)
 
+def test_eval_if():
+    assert clx.eval_string("(if true 1 2)")[0] == 1
+    assert clx.eval_string("(if false 1 2)")[0] == 2
+    assert clx.eval_string(
+        """
+        (if (let* [a 1
+                   b 2]
+              (odd? (+ a b)))
+          (let* [c 3
+                 d 4]
+            (+ c d))
+          (let* [e 5
+                 f 6]
+            (+ e f)))
+        """)[0] == 7
+    assert clx.eval_string(
+        """
+        (if (let* [a 1
+                   b 2]
+              (even? (+ a b)))
+          (let* [c 3
+                 d 4]
+            (+ c d))
+          (let* [e 5
+                 f 6]
+            (+ e f)))
+        """)[0] == 11
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(

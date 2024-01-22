@@ -296,6 +296,7 @@ _S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
+_S_IF = symbol("if")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -537,6 +538,8 @@ def _compile(form, ctx):
             return _compile_do(form, ctx)
         if head == _S_LET_STAR:
             return _compile_let(form, ctx)
+        if head == _S_IF:
+            return _compile_if(form, ctx)
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
@@ -610,6 +613,30 @@ def _compile_let(form, ctx):
         body_expr = _node(ast.Constant, form, None)
     return body_expr, body, ctx.assoc(_K_LOCALS, old_locals)
 
+def _compile_if(form, ctx):
+    assert len(form) == 4, "if expects 3 arguments"
+    test, then, else_ = form[1], form[2], form[3]
+    test_expr, test_stmts, ctx = _compile(test, ctx)
+    then_expr, then_stmts, ctx = _compile(then, ctx)
+    else_expr, else_stmts, ctx = _compile(else_, ctx)
+    result_name, ctx = _gen_name(ctx, "___if_result_")
+    result_store = _node(ast.Name, form, result_name, ast.Store())
+    result_load = _node(ast.Name, form, result_name, ast.Load())
+    return \
+        result_load, \
+        test_stmts + [
+            _node(ast.If, form,
+                test_expr,
+                then_stmts + [
+                    _node(ast.Assign, form, [result_store], then_expr)
+                ],
+                else_stmts + [
+                    _node(ast.Assign, form, [result_store], else_expr)
+                ]
+            ),
+        ], \
+        ctx
+
 def _compile_call(form, ctx):
     args = []
     body = []
@@ -665,6 +692,8 @@ def _node(type_, form, *args):
 def _basic_bindings():
     bindings = {
         "+": lambda *args: sum(args),
+        "even?": lambda x: x % 2 == 0,
+        "odd?": lambda x: x % 2 == 1,
     }
     _bindings = hash_map()
     _globals = {}
