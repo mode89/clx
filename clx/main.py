@@ -547,6 +547,7 @@ def _compile(form, ctx):
         py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
         return _node(ast.Name, form, py_name, ast.Load()), [], ctx
     else:
+        # Location information is not available for constants
         return ast.Constant(form, lineno=0, col_offset=0), [], ctx
 
 def _compile_def(form, ctx):
