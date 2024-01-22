@@ -504,11 +504,12 @@ Namespace = define_record("Namespace", _K_BINDINGS)
 
 def eval_string(text):
     tokens = list(tokenize(text))
+    _bindings, _globals = _basic_bindings()
     ctx = Context(
-        "user",
-        hash_map("user", Namespace(hash_map())),
-        hash_map())
-    _globals = {}
+        current_ns="user",
+        namespaces=hash_map("user", Namespace(bindings=_bindings)),
+        locals=hash_map(),
+        counter=0)
     while tokens:
         form, tokens = read_form(tokens)
         result, body, ctx = _compile(form, ctx)
@@ -528,6 +529,8 @@ def _compile(form, ctx):
             return _compile_do(form, ctx)
         else:
             raise NotImplementedError()
+        else:
+            return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
         raise NotImplementedError()
     elif isinstance(form, PersistentMap):
@@ -570,6 +573,17 @@ def _compile_do(form, ctx):
             else _node(ast.Constant, form, None), \
         body, ctx
 
+def _compile_call(form, ctx):
+    args = []
+    body = []
+    for arg in form.rest():
+        arg_expr, arg_body, ctx = _compile(arg, ctx)
+        args.append(arg_expr)
+        body.extend(arg_body)
+    _f, f_body, ctx = _compile(form.first(), ctx)
+    body.extend(f_body)
+    return _node(ast.Call, form, _f, args, []), body, ctx
+
 def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
         result = ctx \
@@ -605,6 +619,18 @@ def _node(type_, form, *args):
     _n.lineno = _meta.lookup(_K_LINE, None)
     _n.col_offset = _meta.lookup(_K_COLUMN, None)
     return _n
+
+def _basic_bindings():
+    bindings = {
+        "+": lambda *args: sum(args),
+    }
+    _bindings = hash_map()
+    _globals = {}
+    for name, value in bindings.items():
+        munged = munge(f"user/{name}")
+        _bindings = _bindings.assoc(name, hash_map(_K_PY_NAME, munged))
+        _globals[munged] = value
+    return _bindings, _globals
 
 #************************************************************
 # Core

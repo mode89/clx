@@ -183,6 +183,19 @@ def test_eval_do():
             foo)
         """)[0] == 42
 
+def test_eval_call():
+    assert clx.eval_string("(+ 1 2)")[0] == 3
+    assert clx.eval_string("(+ (def foo 3) (def bar 4))")[0] == 7
+    assert clx.eval_string(
+        """
+        (+ (do (def a 5)
+               (def b 6)
+               (def c (+ a b)))
+           (do (def d 7)
+               (def e 8)
+               (def f (+ a b c d e))))
+        """)[0] == 48
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(
