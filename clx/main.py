@@ -295,11 +295,14 @@ _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
+_S_LET_STAR = symbol("let*")
+
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
 _K_CURRENT_NS = keyword("current-ns")
 _K_NAMESPACES = keyword("namespaces")
 _K_LOCALS = keyword("locals")
+_K_COUNTER = keyword("counter")
 _K_PY_NAME = keyword("py-name")
 _K_BINDINGS = keyword("bindings")
 
@@ -499,8 +502,13 @@ def escape(text):
 # Evaluation
 #************************************************************
 
-Context = define_record("Context", _K_CURRENT_NS, _K_NAMESPACES, _K_LOCALS)
+Context = define_record("Context",
+    _K_CURRENT_NS,
+    _K_NAMESPACES,
+    _K_LOCALS,
+    _K_COUNTER) # for generating unique names
 Namespace = define_record("Namespace", _K_BINDINGS)
+Binding = define_record("Binding", _K_PY_NAME)
 
 def eval_string(text):
     tokens = list(tokenize(text))
@@ -509,7 +517,7 @@ def eval_string(text):
         current_ns="user",
         namespaces=hash_map("user", Namespace(bindings=_bindings)),
         locals=hash_map(),
-        counter=0)
+        counter=1000)
     while tokens:
         form, tokens = read_form(tokens)
         result, body, ctx = _compile(form, ctx)
@@ -527,8 +535,8 @@ def _compile(form, ctx):
             return _compile_def(form, ctx)
         if head == _S_DO:
             return _compile_do(form, ctx)
-        else:
-            raise NotImplementedError()
+        if head == _S_LET_STAR:
+            return _compile_let(form, ctx)
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
@@ -557,7 +565,7 @@ def _compile_def(form, ctx):
         ], \
         assoc_in(ctx,
             list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
-            hash_map(_K_PY_NAME, py_name))
+            Binding(py_name))
 
 def _compile_do(form, ctx):
     body = []
@@ -572,6 +580,34 @@ def _compile_do(form, ctx):
             if result is not None \
             else _node(ast.Constant, form, None), \
         body, ctx
+
+def _compile_let(form, ctx):
+    assert len(form) > 1, "let* expects at least 1 argument"
+    assert len(form) < 4, "let* expects at most 2 arguments"
+    bindings = form[1]
+    assert is_vector(bindings), \
+        "let* expects a vector as the first argument"
+    assert len(bindings) % 2 == 0, \
+        "bindings of let* must have even number of elements"
+    old_locals = ctx.lookup(_K_LOCALS, None)
+    body = []
+    for _name, value in zip(bindings[::2], bindings[1::2]):
+        assert is_simple_symbol(_name), \
+            "first element of each binding pair must be a symbol"
+        value_expr, value_stmts, ctx = _compile(value, ctx)
+        munged = munge(_name.name)
+        py_name, ctx = _gen_name(ctx, f"{munged}_")
+        body.extend(value_stmts)
+        body.append(
+            _node(ast.Assign, _name,
+                [_node(ast.Name, _name, py_name, ast.Store())], value_expr))
+        ctx = assoc_in(ctx, list_(_K_LOCALS, _name.name), Binding(py_name))
+    if len(form) == 3:
+        body_expr, body_stmts, ctx = _compile(form[2], ctx)
+        body.extend(body_stmts)
+    else:
+        body_expr = _node(ast.Constant, form, None)
+    return body_expr, body, ctx.assoc(_K_LOCALS, old_locals)
 
 def _compile_call(form, ctx):
     args = []
@@ -613,6 +649,11 @@ def _resolve_symbol(ctx, sym):
             raise Exception(f"Namespace '{sym.namespace}' not found")
     raise Exception(f"Symbol '{pr_str(sym)}' not found")
 
+def _gen_name(ctx, base="___gen_"):
+    counter = ctx.lookup(_K_COUNTER, None)
+    ctx = assoc(ctx, _K_COUNTER, counter + 1)
+    return f"{base}{counter}", ctx
+
 def _node(type_, form, *args):
     _n = type_(*args)
     _meta = meta(form)
@@ -628,7 +669,7 @@ def _basic_bindings():
     _globals = {}
     for name, value in bindings.items():
         munged = munge(f"user/{name}")
-        _bindings = _bindings.assoc(name, hash_map(_K_PY_NAME, munged))
+        _bindings = _bindings.assoc(name, Binding(munged))
         _globals[munged] = value
     return _bindings, _globals
 

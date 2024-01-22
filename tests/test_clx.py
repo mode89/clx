@@ -196,6 +196,22 @@ def test_eval_call():
                (def f (+ a b c d e))))
         """)[0] == 48
 
+def test_eval_let():
+    assert clx.eval_string("(let* [])")[0] is None
+    assert clx.eval_string("(let* [a 42])")[0] is None
+    assert clx.eval_string("(let* [a 1] a)")[0] == 1
+    assert clx.eval_string("(let* [a 2 b 3] (+ a b))")[0] == 5
+    assert clx.eval_string("(let* [a 4 b (+ a 5)] b)")[0] == 9
+    with pytest.raises(Exception, match=r"Symbol 'b' not found"):
+        clx.eval_string("(let* [a 1] b)")
+    with pytest.raises(Exception, match=r"Symbol 'b' not found"):
+        clx.eval_string(
+            """
+            (let* [a 1]
+              (do (let* [b 2] b)
+                  b))
+            """)
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(
@@ -213,7 +229,8 @@ def test_resolve_symbol():
                         "fred", 4))),
         locals=M(
             "a", 5,
-            "bar", 6))
+            "bar", 6),
+        counter=0)
     assert resolve(ctx, S("a")) == 5
     assert resolve(ctx, S("bar")) == 6
     assert resolve(ctx, S("foo")) == 1
