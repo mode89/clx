@@ -165,8 +165,15 @@ def test_munge():
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
+def test_eval_value():
+    assert _eval("nil") is None
+    assert _eval("true") is True
+    assert _eval("false") is False
+    assert _eval("42") == 42
+    assert _eval("1.23") == 1.23
+    assert _eval("\"hello world\"") == "hello world"
+
 def test_eval_def():
-    assert clx.eval_string("42")[0] == 42
     res, ctx, glob = clx.eval_string("(def foo 42)")
     assert res == 42
     assert clx.get_in(ctx,
