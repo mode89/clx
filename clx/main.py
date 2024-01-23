@@ -297,6 +297,8 @@ _S_DEF = symbol("def")
 _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_IF = symbol("if")
+_S_FN_STAR = symbol("fn*")
+_S_AMPER = symbol("&")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -540,6 +542,8 @@ def _compile(form, ctx):
             return _compile_let(form, ctx)
         if head == _S_IF:
             return _compile_if(form, ctx)
+        if head == _S_FN_STAR:
+            return _compile_fn(form, ctx)
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
@@ -637,6 +641,63 @@ def _compile_if(form, ctx):
         ], \
         ctx
 
+def _compile_fn(form, ctx):
+    assert len(form) > 1, "fn* expects at least 1 argument"
+    assert len(form) < 4, "fn* expects at most 2 arguments"
+    params_form = form[1]
+    assert isinstance(params_form, PersistentVector), \
+        "fn* expects a vector of parameters as the first argument"
+    fname, ctx = _gen_name(ctx, "___fn_")
+    old_locals = ctx.lookup(_K_LOCALS, None)
+
+    pos_params = []
+    rest_param = None
+    while params_form:
+        param = params_form.first()
+        assert is_simple_symbol(param), \
+            "parameters of fn* must be simple symbols"
+        if param == _S_AMPER:
+            assert len(params_form) == 2, \
+                "fn* expects a single symbol after &"
+            rest_param = params_form[1]
+            assert is_simple_symbol(rest_param), \
+                "rest parameter of fn* must be a simple symbol"
+            ctx = assoc_in(ctx,
+                list_(_K_LOCALS, rest_param.name),
+                Binding(munge(rest_param.name)))
+            break
+        pos_params.append(param)
+        ctx = assoc_in(ctx,
+            list_(_K_LOCALS, param.name),
+            Binding(munge(param.name)))
+        params_form = params_form.rest()
+
+    if len(form) == 3:
+        body_form = form[2]
+        body_expr, body_stmts, ctx = _compile(body_form, ctx)
+        body = body_stmts + [_node(ast.Return, form, body_expr)]
+    else:
+        body = [_node(ast.Pass, form)]
+
+    def _arg(_p):
+        return _node(ast.arg, _p, munge(_p.name))
+
+    return \
+        _node(ast.Name, form, fname, ast.Load()), \
+        [_node(ast.FunctionDef, form,
+            fname,
+            ast.arguments(
+                posonlyargs=[_arg(p) for p in pos_params],
+                args=[],
+                vararg=_arg(rest_param) if rest_param else None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                defaults=[],
+            ),
+            body,
+            [])], \
+        ctx.assoc(_K_LOCALS, old_locals)
+
 def _compile_call(form, ctx):
     args = []
     body = []
@@ -694,6 +755,7 @@ def _basic_bindings():
         "+": lambda *args: sum(args),
         "even?": lambda x: x % 2 == 0,
         "odd?": lambda x: x % 2 == 1,
+        "apply": apply,
     }
     _bindings = hash_map()
     _globals = {}

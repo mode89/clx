@@ -9,6 +9,9 @@ L = clx.list_
 V = clx.vector
 M = clx.hash_map
 
+def _eval(text):
+    return clx.eval_string(text)[0]
+
 def test_keyword():
     hello = K("hello")
     assert isinstance(hello, clx.Keyword)
@@ -239,6 +242,34 @@ def test_eval_if():
                  f 6]
             (+ e f)))
         """)[0] == 11
+
+def test_eval_fn():
+    assert _eval("(fn* [])")() is None
+    assert _eval("(fn* [] 1)")() == 1
+    assert _eval("(fn* [x] 2)")(3) == 2
+    assert _eval("(fn* [x y] (+ x y))")(4, 5) == 9
+    assert _eval("(fn* [x y & z] (apply + x y z))")(1, 2, 3, 4, 5) == 15
+    assert _eval("(fn* [& x] (apply + x))")(1, 2, 3, 4) == 10
+    assert _eval(
+        """
+        (def foo (fn* [x y] (+ x y)))
+        (foo 1 2)
+        """) == 3
+    with pytest.raises(Exception, match=r"Symbol 'x' not found"):
+        _eval(
+            """
+            (def foo (fn* [x y] (+ x y)))
+            x
+            """)
+    assert _eval(
+        """
+        (def x 1)
+        (def y 2)
+        (def foo
+          (fn* [x]
+            (+ x y)))
+        (foo 3)
+        """) == 5
 
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
