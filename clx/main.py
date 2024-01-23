@@ -707,6 +707,14 @@ def _basic_bindings():
 # Core
 #************************************************************
 
+def apply(func, *args):
+    assert callable(func), "apply expects a function as the first argument"
+    assert len(args) > 0, "apply expects at least 2 arguments"
+    last_arg = args[-1]
+    assert isinstance(last_arg, Sequence), \
+        "last argument of apply must be a sequence"
+    return func(*args[:-1], *last_arg)
+
 def meta(obj):
     assert isinstance(obj, IMeta)
     return obj.__meta__

@@ -276,6 +276,19 @@ def test_resolve_symbol():
         forty-two
         """)[0] == 42
 
+def test_apply():
+    assert clx.apply(lambda: 42, []) == 42
+    assert clx.apply(lambda x: x, [42]) == 42
+    assert clx.apply(lambda x, y: x + y, [1, 2]) == 3
+    assert clx.apply(lambda x, y, z: x + y + z, V(1, 2, 3)) == 6
+    assert clx.apply(lambda x, y, z: x + y + z, L(1, 2, 3)) == 6
+    with pytest.raises(Exception, match=r"expects a function"):
+        clx.apply(42, [])
+    with pytest.raises(Exception, match=r"expects at least 2 arguments"):
+        clx.apply(lambda x: x)
+    with pytest.raises(Exception, match=r"must be a sequence"):
+        clx.apply(lambda x: x, 42)
+
 def test_get():
     _m = M("a", 1, "b", 2)
     assert get(_m, "a") == 1
