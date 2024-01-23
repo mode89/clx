@@ -291,6 +291,7 @@ _S_UNQUOTE = symbol("unquote")
 _S_SPLICE_UNQUOTE = symbol("splice-unquote")
 _S_WITH_META = symbol("with-meta")
 _S_VEC = symbol("vec")
+_S_VECTOR = symbol("vector")
 _S_LIST = symbol("list")
 _S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
@@ -547,7 +548,7 @@ def _compile(form, ctx):
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
-        raise NotImplementedError()
+        return _compile_vector(form, ctx)
     elif isinstance(form, PersistentMap):
         raise NotImplementedError()
     elif isinstance(form, Symbol):
@@ -709,6 +710,22 @@ def _compile_call(form, ctx):
     body.extend(f_body)
     return _node(ast.Call, form, _f, args, []), body, ctx
 
+def _compile_vector(form, ctx):
+    el_exprs = []
+    stmts = []
+    for elm in form:
+        el_expr, el_stmts, ctx = _compile(elm, ctx)
+        el_exprs.append(el_expr)
+        stmts.extend(el_stmts)
+    py_vector = _resolve_symbol(ctx, _S_VECTOR).lookup(_K_PY_NAME, None)
+    return \
+        _node(ast.Call, form,
+            _node(ast.Name, form, py_vector, ast.Load()),
+            el_exprs,
+            []), \
+        stmts, \
+        ctx
+
 def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
         result = ctx \
@@ -756,6 +773,7 @@ def _basic_bindings():
         "even?": lambda x: x % 2 == 0,
         "odd?": lambda x: x % 2 == 1,
         "apply": apply,
+        "vector": vector,
     }
     _bindings = hash_map()
     _globals = {}
