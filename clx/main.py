@@ -104,8 +104,22 @@ def is_symbol(obj):
 def is_simple_symbol(obj):
     return isinstance(obj, Symbol) and obj.namespace is None
 
-Keyword = namedtuple("Keyword", ["namespace", "name", "munged"])
-Keyword.__str__ = lambda self: f"Keyword({self.namespace}, {self.name})"
+class Keyword(Hashable):
+    def __init__(self, _namespace, _name):
+        self.name = sys.intern(_name)
+        if _namespace is None:
+            self.namespace = None
+            self.munged = munge(_name)
+        else:
+            self.namespace = sys.intern(_namespace)
+            self.munged = munge(_namespace + "/" + _name)
+        self._hash = hash((_namespace, _name))
+    def __eq__(self, other):
+        return self is other
+    def __hash__(self):
+        return self._hash
+    def __str__(self):
+        return f"Keyword({self.namespace}, {self.name})"
 
 KEYWORD_TABLE = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
@@ -115,15 +129,16 @@ def keyword(arg1, arg2=None):
         if isinstance(arg1, str):
             if "/" in arg1:
                 _ns, _name = arg1.split("/", 1)
-                qname = arg1
+                qname = sys.intern(arg1)
             else:
                 _ns = None
                 _name = arg1
-                qname = _name
+                qname = sys.intern(_name)
         elif isinstance(arg1, Symbol):
             _ns = arg1.namespace
             _name = arg1.name
             qname = f"{_ns}/{_name}" if _ns else _name
+            qname = sys.intern((_ns + "/" + _name) if _ns else _name)
         elif isinstance(arg1, Keyword):
             return arg1
         else:
@@ -131,14 +146,19 @@ def keyword(arg1, arg2=None):
                 "keyword expects a string, a Keyword, or a Symbol as the "
                 "first argument")
     else:
-        _ns = arg1
-        _name = arg2
-        qname = f"{_ns}/{_name}"
+        if arg1 is None:
+            _ns = None
+            _name = arg2
+            qname = sys.intern(_name)
+        else:
+            _ns = arg1
+            _name = arg2
+            qname = sys.intern(_ns + "/" + _name)
     with KEYWORD_TABLE_LOCK:
         if qname in KEYWORD_TABLE:
             return KEYWORD_TABLE[qname]
         else:
-            new_kw = Keyword(_ns, _name, munge(qname))
+            new_kw = Keyword(_ns, _name)
             KEYWORD_TABLE[qname] = new_kw
             return new_kw
 

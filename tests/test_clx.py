@@ -35,6 +35,7 @@ def test_keyword():
     assert K(S("foo/bar")) is K("foo/bar")
     assert K(K("quux")) is K("quux")
     assert str(K("foo/bar")) == "Keyword(foo, bar)"
+    assert K(None, "foo") is K("foo")
 
 def test_symbol():
     hello = S("hello")
