@@ -547,12 +547,12 @@ def eval_string(text):
     while tokens:
         form, tokens = read_form(tokens)
         result, body, ctx = _compile(form, ctx)
-        body_module = ast.Module(body, type_ignores=[])
-        body_code = compile(body_module, "<none>", "exec")
-        exec(body_code, _globals) # pylint: disable=exec-used
-    result_expr = ast.Expression(result, type_ignores=[])
-    result_code = compile(result_expr, "<none>", "eval")
-    return eval(result_code, _globals), ctx, _globals # pylint: disable=eval-used
+        body = ast.Module(body, type_ignores=[])
+        result = ast.Expression(result, type_ignores=[])
+        _optimize(ctx, body, result)
+        exec(compile(body, "<none>", "exec"), _globals) # pylint: disable=exec-used
+    return eval(compile(result, "<none>", "eval"), _globals), \
+        ctx, _globals # pylint: disable=eval-used
 
 def _compile(form, ctx):
     if isinstance(form, PersistentList):
@@ -817,6 +817,49 @@ def _node(type_, form, *args):
     _n.lineno = _meta.lookup(_K_LINE, None)
     _n.col_offset = _meta.lookup(_K_COLUMN, None)
     return _n
+
+def _optimize(ctx, body, result):
+    _rewrite_keyword_literals(ctx, body, result)
+
+def _rewrite_keyword_literals(ctx, body, result):
+    keyword_fn = _resolve_symbol(ctx, _S_KEYWORD).lookup(_K_PY_NAME, None)
+    keywords = set()
+
+    def var_name(kwd):
+        return f"___kw_{kwd.munged}"
+
+    class Transformer(ast.NodeTransformer):
+        def visit_Call(self, node): # pylint: disable=invalid-name
+            if isinstance(node.func, ast.Name) \
+                    and node.func.id == keyword_fn \
+                    and len(node.args) == 2 \
+                    and isinstance(node.args[0], ast.Constant) \
+                    and isinstance(node.args[1], ast.Constant):
+                args = node.args
+                _ns = args[0].value
+                _name = args[1].value
+                kwd = keyword(_ns, _name)
+                keywords.add(kwd)
+                return ast.Name(var_name(kwd), ast.Load(),
+                    lineno=node.lineno,
+                    col_offset=node.col_offset)
+            else:
+                self.generic_visit(node)
+                return node
+
+    Transformer().visit(body)
+    Transformer().visit(result)
+    body.body[:0] = [
+        ast.Assign(
+            [ast.Name(var_name(kw), ast.Store(), lineno=0, col_offset=0)],
+            ast.Call(
+                ast.Name(keyword_fn, ast.Load(), lineno=0, col_offset=0),
+                [ast.Constant(kw.namespace, lineno=0, col_offset=0),
+                 ast.Constant(kw.name, lineno=0, col_offset=0)],
+                [], lineno=0, col_offset=0),
+            lineno=0, col_offset=0)
+        for kw in keywords
+    ]
 
 def _basic_bindings():
     bindings = {
