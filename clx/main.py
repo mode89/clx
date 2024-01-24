@@ -313,6 +313,7 @@ _S_WITH_META = symbol("with-meta")
 _S_VEC = symbol("vec")
 _S_VECTOR = symbol("vector")
 _S_LIST = symbol("list")
+_S_HASH_MAP = symbol("hash-map")
 _S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
@@ -570,7 +571,7 @@ def _compile(form, ctx):
     elif isinstance(form, PersistentVector):
         return _compile_vector(form, ctx)
     elif isinstance(form, PersistentMap):
-        raise NotImplementedError()
+        return _compile_map(form, ctx)
     elif isinstance(form, Symbol):
         py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
         return _node(ast.Name, form, py_name, ast.Load()), [], ctx
@@ -746,6 +747,25 @@ def _compile_vector(form, ctx):
         stmts, \
         ctx
 
+def _compile_map(form, ctx):
+    args = []
+    stmts = []
+    for key, value in form.items():
+        key_expr, key_stmts, ctx = _compile(key, ctx)
+        args.append(key_expr)
+        stmts.extend(key_stmts)
+        value_expr, value_stmts, ctx = _compile(value, ctx)
+        args.append(value_expr)
+        stmts.extend(value_stmts)
+    py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).lookup(_K_PY_NAME, None)
+    return \
+        _node(ast.Call, form,
+            _node(ast.Name, form, py_hash_map, ast.Load()),
+            args,
+            []), \
+        stmts, \
+        ctx
+
 def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
         result = ctx \
@@ -794,6 +814,7 @@ def _basic_bindings():
         "odd?": lambda x: x % 2 == 1,
         "apply": apply,
         "vector": vector,
+        "hash-map": hash_map,
     }
     _bindings = hash_map()
     _globals = {}

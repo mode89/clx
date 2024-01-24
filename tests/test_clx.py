@@ -175,6 +175,8 @@ def test_eval_value():
     assert _eval("\"hello world\"") == "hello world"
     assert _eval("[]") == V()
     assert _eval("[1 2 3]") == V(1, 2, 3)
+    assert _eval("{}") == M()
+    assert _eval("{1 2 3 4}") == M(1, 2, 3, 4)
 
 def test_eval_def():
     res, ctx, glob = clx.eval_string("(def foo 42)")
