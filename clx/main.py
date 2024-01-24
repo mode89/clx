@@ -574,7 +574,7 @@ def _compile(form, ctx):
     elif isinstance(form, PersistentMap):
         return _compile_map(form, ctx)
     elif isinstance(form, Symbol):
-        py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
+        py_name = _resolve_symbol(ctx, form).py_name
         return _node(ast.Name, form, py_name, ast.Load()), [], ctx
     elif isinstance(form, Keyword):
         keyword_fn = ast.Name(
@@ -596,7 +596,7 @@ def _compile_def(form, ctx):
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
     value, body, ctx = _compile(form[2], ctx)
-    _ns = ctx.lookup(_K_CURRENT_NS, None)
+    _ns = ctx.current_ns
     py_name = munge(f"{_ns}/{name.name}")
     return \
         _node(ast.Name, form, py_name, ast.Load()), \
@@ -630,7 +630,7 @@ def _compile_let(form, ctx):
         "let* expects a vector as the first argument"
     assert len(bindings) % 2 == 0, \
         "bindings of let* must have even number of elements"
-    old_locals = ctx.lookup(_K_LOCALS, None)
+    old_locals = ctx.locals
     body = []
     for _name, value in zip(bindings[::2], bindings[1::2]):
         assert is_simple_symbol(_name), \
@@ -681,7 +681,7 @@ def _compile_fn(form, ctx):
     assert isinstance(params_form, PersistentVector), \
         "fn* expects a vector of parameters as the first argument"
     fname, ctx = _gen_name(ctx, "___fn_")
-    old_locals = ctx.lookup(_K_LOCALS, None)
+    old_locals = ctx.locals
 
     pos_params = []
     rest_param = None
@@ -749,7 +749,7 @@ def _compile_vector(form, ctx):
         el_expr, el_stmts, ctx = _compile(elm, ctx)
         el_exprs.append(el_expr)
         stmts.extend(el_stmts)
-    py_vector = _resolve_symbol(ctx, _S_VECTOR).lookup(_K_PY_NAME, None)
+    py_vector = _resolve_symbol(ctx, _S_VECTOR).py_name
     return \
         _node(ast.Call, form,
             _node(ast.Name, form, py_vector, ast.Load()),
@@ -768,7 +768,7 @@ def _compile_map(form, ctx):
         value_expr, value_stmts, ctx = _compile(value, ctx)
         args.append(value_expr)
         stmts.extend(value_stmts)
-    py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).lookup(_K_PY_NAME, None)
+    py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).py_name
     return \
         _node(ast.Call, form,
             _node(ast.Name, form, py_hash_map, ast.Load()),
@@ -779,27 +779,19 @@ def _compile_map(form, ctx):
 
 def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
-        result = ctx \
-            .lookup(_K_LOCALS, None) \
-            .lookup(sym.name, None)
+        result = ctx.locals.lookup(sym.name, None)
         if result is not None:
             return result
         else:
             result = ctx \
-                .lookup(_K_NAMESPACES, None) \
-                .lookup(ctx.lookup(_K_CURRENT_NS, None), None) \
-                .lookup(_K_BINDINGS, None) \
-                .lookup(sym.name, None)
+                .namespaces.lookup(ctx.current_ns, None) \
+                .bindings.lookup(sym.name, None)
             if result is not None:
                 return result
     else:
-        namespace = ctx \
-            .lookup(_K_NAMESPACES, None) \
-            .lookup(sym.namespace, None)
+        namespace = ctx.namespaces.lookup(sym.namespace, None)
         if namespace is not None:
-            result = namespace \
-                .lookup(_K_BINDINGS, None) \
-                .lookup(sym.name, None)
+            result = namespace.bindings.lookup(sym.name, None)
             if result is not None:
                 return result
         else:
@@ -807,7 +799,7 @@ def _resolve_symbol(ctx, sym):
     raise Exception(f"Symbol '{pr_str(sym)}' not found")
 
 def _gen_name(ctx, base="___gen_"):
-    counter = ctx.lookup(_K_COUNTER, None)
+    counter = ctx.counter
     ctx = assoc(ctx, _K_COUNTER, counter + 1)
     return f"{base}{counter}", ctx
 
@@ -822,7 +814,7 @@ def _optimize(ctx, body, result):
     _rewrite_keyword_literals(ctx, body, result)
 
 def _rewrite_keyword_literals(ctx, body, result):
-    keyword_fn = _resolve_symbol(ctx, _S_KEYWORD).lookup(_K_PY_NAME, None)
+    keyword_fn = _resolve_symbol(ctx, _S_KEYWORD).py_name
     keywords = set()
 
     def var_name(kwd):
