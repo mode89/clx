@@ -321,6 +321,7 @@ _S_LET_STAR = symbol("let*")
 _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
 _S_AMPER = symbol("&")
+_S_KEYWORD = symbol("keyword")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -575,6 +576,16 @@ def _compile(form, ctx):
     elif isinstance(form, Symbol):
         py_name = _resolve_symbol(ctx, form).lookup(_K_PY_NAME, None)
         return _node(ast.Name, form, py_name, ast.Load()), [], ctx
+    elif isinstance(form, Keyword):
+        keyword_fn = ast.Name(
+            _resolve_symbol(ctx, _S_KEYWORD).py_name,
+            ast.Load(), lineno=0, col_offset=0)
+        _ns = ast.Constant(form.namespace, lineno=0, col_offset=0)
+        _name = ast.Constant(form.name, lineno=0, col_offset=0)
+        return \
+            ast.Call(keyword_fn, [_ns, _name], [], lineno=0, col_offset=0), \
+            [], \
+            ctx
     else:
         # Location information is not available for constants
         return ast.Constant(form, lineno=0, col_offset=0), [], ctx
@@ -813,6 +824,7 @@ def _basic_bindings():
         "even?": lambda x: x % 2 == 0,
         "odd?": lambda x: x % 2 == 1,
         "apply": apply,
+        "keyword": keyword,
         "vector": vector,
         "hash-map": hash_map,
     }

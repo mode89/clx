@@ -173,10 +173,14 @@ def test_eval_value():
     assert _eval("42") == 42
     assert _eval("1.23") == 1.23
     assert _eval("\"hello world\"") == "hello world"
+    assert _eval(":hello") is K("hello")
+    assert _eval(":hello/world") is K("hello", "world")
     assert _eval("[]") == V()
     assert _eval("[1 2 3]") == V(1, 2, 3)
+    assert _eval("[42 :foo \"bar\"]") == V(42, K("foo"), "bar")
     assert _eval("{}") == M()
     assert _eval("{1 2 3 4}") == M(1, 2, 3, 4)
+    assert _eval("{:foo 42 \"bar\" :baz}") == M(K("foo"), 42, "bar", K("baz"))
 
 def test_eval_def():
     res, ctx, glob = clx.eval_string("(def foo 42)")
