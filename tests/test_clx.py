@@ -217,18 +217,18 @@ def test_eval_def():
     assert glob[munge("user/foo")] == 42
 
 def test_eval_do():
-    assert clx.eval_string("(do)")[0] is None
-    assert clx.eval_string("(do 1 2 3)")[0] == 3
-    assert clx.eval_string(
+    assert _eval("(do)") is None
+    assert _eval("(do 1 2 3)") == 3
+    assert _eval(
         """
         (do (def foo 42)
             foo)
-        """)[0] == 42
+        """) == 42
 
 def test_eval_call():
-    assert clx.eval_string("(+ 1 2)")[0] == 3
-    assert clx.eval_string("(+ (def foo 3) (def bar 4))")[0] == 7
-    assert clx.eval_string(
+    assert _eval("(+ 1 2)") == 3
+    assert _eval("(+ (def foo 3) (def bar 4))") == 7
+    assert _eval(
         """
         (+ (do (def a 5)
                (def b 6)
@@ -236,18 +236,18 @@ def test_eval_call():
            (do (def d 7)
                (def e 8)
                (def f (+ a b c d e))))
-        """)[0] == 48
+        """) == 48
 
 def test_eval_let():
-    assert clx.eval_string("(let* [])")[0] is None
-    assert clx.eval_string("(let* [a 42])")[0] is None
-    assert clx.eval_string("(let* [a 1] a)")[0] == 1
-    assert clx.eval_string("(let* [a 2 b 3] (+ a b))")[0] == 5
-    assert clx.eval_string("(let* [a 4 b (+ a 5)] b)")[0] == 9
+    assert _eval("(let* [])") is None
+    assert _eval("(let* [a 42])") is None
+    assert _eval("(let* [a 1] a)") == 1
+    assert _eval("(let* [a 2 b 3] (+ a b))") == 5
+    assert _eval("(let* [a 4 b (+ a 5)] b)") == 9
     with pytest.raises(Exception, match=r"Symbol 'b' not found"):
-        clx.eval_string("(let* [a 1] b)")
+        _eval("(let* [a 1] b)")
     with pytest.raises(Exception, match=r"Symbol 'b' not found"):
-        clx.eval_string(
+        _eval(
             """
             (let* [a 1]
               (do (let* [b 2] b)
@@ -255,9 +255,9 @@ def test_eval_let():
             """)
 
 def test_eval_if():
-    assert clx.eval_string("(if true 1 2)")[0] == 1
-    assert clx.eval_string("(if false 1 2)")[0] == 2
-    assert clx.eval_string(
+    assert _eval("(if true 1 2)") == 1
+    assert _eval("(if false 1 2)") == 2
+    assert _eval(
         """
         (if (let* [a 1
                    b 2]
@@ -268,8 +268,8 @@ def test_eval_if():
           (let* [e 5
                  f 6]
             (+ e f)))
-        """)[0] == 7
-    assert clx.eval_string(
+        """) == 7
+    assert _eval(
         """
         (if (let* [a 1
                    b 2]
@@ -280,7 +280,7 @@ def test_eval_if():
           (let* [e 5
                  f 6]
             (+ e f)))
-        """)[0] == 11
+        """) == 11
 
 def test_eval_fn():
     assert _eval("(fn* [])")() is None
@@ -340,11 +340,11 @@ def test_resolve_symbol():
         resolve(ctx, S("user/baz"))
     with pytest.raises(Exception, match=r"Namespace 'bar' not found"):
         resolve(ctx, S("bar/foo"))
-    assert clx.eval_string(
+    assert _eval(
         """
         (def forty-two 42)
         forty-two
-        """)[0] == 42
+        """) == 42
 
 def test_apply():
     assert clx.apply(lambda: 42, []) == 42
