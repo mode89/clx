@@ -546,11 +546,18 @@ Binding = define_record("Binding", _K_PY_NAME)
 def eval_string(text):
     tokens = list(tokenize(text))
     _bindings, _globals = _basic_bindings()
+
+    def _def(name, value):
+        _globals[name] = value
+        return value
+    _globals["___def"] = _def
+
     ctx = Context(
         current_ns="user",
         namespaces=hash_map("user", Namespace(bindings=_bindings)),
         locals=hash_map(),
         counter=1000)
+
     while tokens:
         form, tokens = read_form(tokens)
         result, body, ctx = _compile(form, ctx)
@@ -558,8 +565,9 @@ def eval_string(text):
         result = ast.Expression(result, type_ignores=[])
         _transform_ast(ctx, body, result)
         exec(compile(body, "<none>", "exec"), _globals) # pylint: disable=exec-used
-    return eval(compile(result, "<none>", "eval"), _globals), \
-        ctx, _globals # pylint: disable=eval-used
+        result = eval(compile(result, "<none>", "eval"), _globals) # pylint: disable=eval-used
+
+    return result, ctx, _globals
 
 def _compile(form, ctx):
     if isinstance(form, PersistentList):
@@ -599,28 +607,32 @@ def _compile_def(form, ctx):
     _ns = ctx.current_ns
     py_name = munge(f"{_ns}/{name.name}")
     return \
-        _node(ast.Name, form, py_name, ast.Load()), \
-        body + [
-            _node(ast.Assign, form,
-                [_node(ast.Name, form, py_name, ast.Store())], value),
-        ], \
+        _node(ast.Call, form,
+            _node(ast.Name, form, "___def", ast.Load()),
+            [_node(ast.Constant, form, py_name), value], []), \
+        body, \
         assoc_in(ctx,
             list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
             Binding(py_name))
 
 def _compile_do(form, ctx):
-    body = []
+    stmts = []
     forms = form.rest()
-    result = None
+    result_name = None
     while forms:
         _f, forms = forms.first(), forms.rest()
-        result, fbody, ctx = _compile(_f, ctx)
-        body.extend(fbody)
+        f_result, f_stmts, ctx = _compile(_f, ctx)
+        stmts.extend(f_stmts)
+        result_name, ctx = _gen_name(ctx)
+        stmts.append(
+            _node(ast.Assign, form,
+                [_node(ast.Name, form, result_name, ast.Store())],
+                f_result))
     return \
-        result \
-            if result is not None \
+        _node(ast.Name, form, result_name, ast.Load()) \
+            if result_name is not None \
             else _node(ast.Constant, form, None), \
-        body, ctx
+        stmts, ctx
 
 def _compile_let(form, ctx):
     assert len(form) > 1, "let* expects at least 1 argument"

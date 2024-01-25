@@ -224,6 +224,14 @@ def test_eval_do():
         (do (def foo 42)
             foo)
         """) == 42
+    assert _eval(
+        """
+        (def foo
+          (fn* []
+            (def bar 42)))
+        (do (foo)
+            bar)
+        """) == 42
 
 def test_eval_call():
     assert _eval("(+ 1 2)") == 3
@@ -309,6 +317,14 @@ def test_eval_fn():
             (+ x y)))
         (foo 3)
         """) == 5
+    assert _eval(
+        """
+        (def foo
+          (fn* []
+            (def bar 42)))
+        (foo)
+        bar
+        """) == 42
 
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
