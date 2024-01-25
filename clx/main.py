@@ -320,6 +320,7 @@ _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
+_S_PYTHON = symbol("___python")
 _S_AMPER = symbol("&")
 _S_KEYWORD = symbol("keyword")
 _S_SYMBOL = symbol("symbol")
@@ -585,6 +586,8 @@ def _compile(form, ctx):
         if head == _S_QUOTE:
             assert len(form) == 2, "quote expects exactly 1 argument"
             return _node(ast.Constant, form, form[1]), [], ctx
+        if head == _S_PYTHON:
+            return _compile_python(form, ctx)
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
@@ -742,6 +745,24 @@ def _compile_fn(form, ctx):
             body,
             [])], \
         ctx.assoc(_K_LOCALS, old_locals)
+
+def _compile_python(form, ctx):
+    def _eval_entry(entry):
+        if isinstance(entry, Symbol):
+            return _resolve_symbol(ctx, entry).py_name
+        elif isinstance(entry, str):
+            return entry
+        else:
+            raise Exception("___python expects strings or symbols")
+    source = "".join(map(_eval_entry, form.rest()))
+    module = ast.parse(source)
+    if module.body and isinstance(module.body[-1], ast.Expr):
+        stmts = module.body[:-1]
+        result = module.body[-1].value
+    else:
+        stmts = module.body
+        result = _node(ast.Constant, form, None)
+    return result, stmts, ctx
 
 def _compile_call(form, ctx):
     args = []

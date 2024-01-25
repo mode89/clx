@@ -9,9 +9,9 @@
 - [ ] Macros
 - [ ] Lazy sequences
 - [ ] Host interop
+   - [x] Eval host code
    - [ ] Dot notation
    - [ ] `set!`
-   - [ ] Eval host code
 - [ ] Modules
   - [ ] Load files
   - [ ] Import host modules

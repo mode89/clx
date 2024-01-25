@@ -326,6 +326,37 @@ def test_eval_fn():
         bar
         """) == 42
 
+def test_eval_python():
+    assert _eval("(___python)") is None
+    assert _eval("(___python \"42\")") == 42
+    assert _eval(
+        """
+        (def foo 42)
+        (___python foo)
+        """) == 42
+    assert _eval(
+        """
+        (def a 1)
+        (def b 2)
+        (___python a " + " b)
+        """) == 3
+    assert _eval(
+        """
+        (let* [x 2
+               y 3]
+          (___python
+            \"z = 4\\n\"
+            x \" * \" y \" * z\"))
+        """) == 24
+    assert _eval(
+        """
+        (def foo
+          (fn* []
+            42))
+        (___python foo "()")
+        """) == 42
+    assert _eval("(___python \"a = 42\")") is None
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(
