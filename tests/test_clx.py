@@ -182,6 +182,29 @@ def test_eval_value():
     assert _eval("{1 2 3 4}") == M(1, 2, 3, 4)
     assert _eval("{:foo 42 \"bar\" :baz}") == M(K("foo"), 42, "bar", K("baz"))
 
+def test_eval_quote():
+    assert _eval("'42") == 42
+    assert _eval("'hello") == S("hello")
+    assert _eval("':world") == K("world")
+    assert _eval("'()") == L()
+    assert _eval("'(1 :two \"three\" four)") == \
+        L(1, K("two"), "three", S("four"))
+    assert _eval("'[]") == V()
+    assert _eval("'[1 :two \"three\" four]") == \
+        V(1, K("two"), "three", S("four"))
+    assert _eval("'{}") == M()
+    assert _eval("'{1 :two \"three\" four}") == \
+        M(1, K("two"), "three", S("four"))
+    assert _eval(
+        """
+        '(([1 :two] {\"three\" four})
+          [(5 :six) {seven \"eight\"}]
+          {:nine (ten 11) 12 [:thirteen \"fourteen\"]})
+        """) == \
+        L(L(V(1, K("two")), M("three", S("four"))),
+          V(L(5, K("six")), M(S("seven"), "eight")),
+          M(K("nine"), L(S("ten"), 11), 12, V(K("thirteen"), "fourteen")))
+
 def test_eval_def():
     res, ctx, glob = clx.eval_string("(def foo 42)")
     assert res == 42

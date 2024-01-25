@@ -322,6 +322,7 @@ _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
 _S_AMPER = symbol("&")
 _S_KEYWORD = symbol("keyword")
+_S_SYMBOL = symbol("symbol")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -377,7 +378,13 @@ def read_form(tokens):
     tstring = token.string
     if tstring == "'":
         form, _rest = read_form(tokens[1:])
-        return list_(_S_QUOTE, form), _rest
+        return \
+            with_meta(
+                list_(_S_QUOTE, form),
+                hash_map(
+                    _K_LINE, token.line,
+                    _K_COLUMN, token.column)), \
+            _rest
     elif tstring == "`":
         form, _rest = read_form(tokens[1:])
         return quasiquote(form), _rest
@@ -549,7 +556,7 @@ def eval_string(text):
         result, body, ctx = _compile(form, ctx)
         body = ast.Module(body, type_ignores=[])
         result = ast.Expression(result, type_ignores=[])
-        _optimize(ctx, body, result)
+        _transform_ast(ctx, body, result)
         exec(compile(body, "<none>", "exec"), _globals) # pylint: disable=exec-used
     return eval(compile(result, "<none>", "eval"), _globals), \
         ctx, _globals # pylint: disable=eval-used
@@ -567,6 +574,9 @@ def _compile(form, ctx):
             return _compile_if(form, ctx)
         if head == _S_FN_STAR:
             return _compile_fn(form, ctx)
+        if head == _S_QUOTE:
+            assert len(form) == 2, "quote expects exactly 1 argument"
+            return _node(ast.Constant, form, form[1]), [], ctx
         else:
             return _compile_call(form, ctx)
     elif isinstance(form, PersistentVector):
@@ -576,16 +586,6 @@ def _compile(form, ctx):
     elif isinstance(form, Symbol):
         py_name = _resolve_symbol(ctx, form).py_name
         return _node(ast.Name, form, py_name, ast.Load()), [], ctx
-    elif isinstance(form, Keyword):
-        keyword_fn = ast.Name(
-            _resolve_symbol(ctx, _S_KEYWORD).py_name,
-            ast.Load(), lineno=0, col_offset=0)
-        _ns = ast.Constant(form.namespace, lineno=0, col_offset=0)
-        _name = ast.Constant(form.name, lineno=0, col_offset=0)
-        return \
-            ast.Call(keyword_fn, [_ns, _name], [], lineno=0, col_offset=0), \
-            [], \
-            ctx
     else:
         # Location information is not available for constants
         return ast.Constant(form, lineno=0, col_offset=0), [], ctx
@@ -810,48 +810,74 @@ def _node(type_, form, *args):
     _n.col_offset = _meta.lookup(_K_COLUMN, None)
     return _n
 
-def _optimize(ctx, body, result):
-    _rewrite_keyword_literals(ctx, body, result)
+def _transform_ast(ctx, body, result):
+    _fix_constants(ctx, body, result)
 
-def _rewrite_keyword_literals(ctx, body, result):
-    keyword_fn = _resolve_symbol(ctx, _S_KEYWORD).py_name
-    keywords = set()
+CONSTANT_COUNTER = 1000
 
-    def var_name(kwd):
-        return f"___kw_{kwd.munged}"
+def _fix_constants(ctx, body, result):
+    consts = {}
+
+    def const_name(index):
+        return f"___const_{index}"
 
     class Transformer(ast.NodeTransformer):
-        def visit_Call(self, node): # pylint: disable=invalid-name
-            if isinstance(node.func, ast.Name) \
-                    and node.func.id == keyword_fn \
-                    and len(node.args) == 2 \
-                    and isinstance(node.args[0], ast.Constant) \
-                    and isinstance(node.args[1], ast.Constant):
-                args = node.args
-                _ns = args[0].value
-                _name = args[1].value
-                kwd = keyword(_ns, _name)
-                keywords.add(kwd)
-                return ast.Name(var_name(kwd), ast.Load(),
-                    lineno=node.lineno,
-                    col_offset=node.col_offset)
+        def visit_Constant(self, node):
+            if isinstance(node.value, (
+                    Keyword,
+                    Symbol,
+                    PersistentList,
+                    PersistentVector,
+                    PersistentMap)):
+                global CONSTANT_COUNTER # pylint: disable=global-statement
+                index = CONSTANT_COUNTER
+                CONSTANT_COUNTER += 1
+                consts[index] = _compile_quote(ctx, node.value)
+                return ast.Name(const_name(index), ast.Load(),
+                    lineno=0, col_offset=0)
             else:
                 self.generic_visit(node)
                 return node
 
     Transformer().visit(body)
     Transformer().visit(result)
+
     body.body[:0] = [
         ast.Assign(
-            [ast.Name(var_name(kw), ast.Store(), lineno=0, col_offset=0)],
-            ast.Call(
-                ast.Name(keyword_fn, ast.Load(), lineno=0, col_offset=0),
-                [ast.Constant(kw.namespace, lineno=0, col_offset=0),
-                 ast.Constant(kw.name, lineno=0, col_offset=0)],
-                [], lineno=0, col_offset=0),
+            [ast.Name(const_name(index),
+                ast.Store(), lineno=0, col_offset=0)],
+            value,
             lineno=0, col_offset=0)
-        for kw in keywords
+        for index, value in consts.items()
     ]
+
+def _compile_quote(ctx, value):
+    if isinstance(value, (Keyword, Symbol)):
+        ctor = _resolve_symbol(ctx,
+            _S_KEYWORD if isinstance(value, Keyword) else _S_SYMBOL).py_name
+        _ns = ast.Constant(value.namespace, lineno=0, col_offset=0)
+        _name = ast.Constant(value.name, lineno=0, col_offset=0)
+        return ast.Call(
+            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            [_ns, _name], [], lineno=0, col_offset=0)
+    elif isinstance(value, (PersistentList, PersistentVector)):
+        ctor = _resolve_symbol(ctx,
+            _S_LIST if isinstance(value, PersistentList) else _S_VECTOR) \
+            .py_name
+        return ast.Call(
+            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            [_compile_quote(ctx, v) for v in value],
+            [], lineno=0, col_offset=0)
+    elif isinstance(value, PersistentMap):
+        ctor = _resolve_symbol(ctx, _S_HASH_MAP).py_name
+        args = []
+        for key, val in value.items():
+            args.append(_compile_quote(ctx, key))
+            args.append(_compile_quote(ctx, val))
+        return ast.Call(
+            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            args, [], lineno=0, col_offset=0)
+    return ast.Constant(value, lineno=0, col_offset=0)
 
 def _basic_bindings():
     bindings = {
@@ -860,6 +886,8 @@ def _basic_bindings():
         "odd?": lambda x: x % 2 == 1,
         "apply": apply,
         "keyword": keyword,
+        "symbol": symbol,
+        "list": list_,
         "vector": vector,
         "hash-map": hash_map,
     }
