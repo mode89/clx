@@ -208,10 +208,13 @@ class PersistentList(Hashable, Sequence, IMeta, ISeq):
 _EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
 
 def list_(*elements):
-    _len = len(elements)
-    if _len == 0:
+    return _into_list(elements)
+
+def _into_list(coll):
+    if not coll:
         return _EMPTY_LIST
-    return PersistentList(pr.plist(elements), _len, _meta=None)
+    assert isinstance(coll, Iterable), "Expected an iterable"
+    return PersistentList(pr.plist(coll), len(coll), _meta=None)
 
 def is_list(obj):
     return isinstance(obj, PersistentList)
@@ -237,11 +240,18 @@ class PersistentVector(Hashable, Sequence, IMeta, ISeq):
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
     def first(self):
+        if len(self._impl) == 0:
+            return None
         return self._impl[0]
     def rest(self):
-        return PersistentVector(self._impl[1:], _meta=None)
+        return _into_list(self._impl).rest()
+
+_EMPTY_VECTOR = PersistentVector(pr.pvector(), _meta=None)
 
 def vec(coll):
+    if not coll:
+        return _EMPTY_VECTOR
+    assert isinstance(coll, Iterable), "Expected an iterable"
     return PersistentVector(pr.pvector(coll), _meta=None)
 
 def vector(*elements):
