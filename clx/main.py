@@ -56,6 +56,9 @@ class ISeq(ABC):
     @abstractmethod
     def rest(self):
         raise NotImplementedError()
+    def next(self):
+        _rest = self.rest()
+        return _rest if _rest else None
 
 class IAssociative(ABC):
     @abstractmethod
@@ -169,8 +172,9 @@ def is_simple_keyword(obj):
     return isinstance(obj, Keyword) and obj.namespace is None
 
 class PersistentList(Hashable, Sequence, IMeta, ISeq):
-    def __init__(self, impl, _meta):
+    def __init__(self, impl, length, _meta):
         self._impl = impl
+        self._length = length
         self.__meta__ = _meta
     def __eq__(self, other):
         return isinstance(other, PersistentList) \
@@ -178,20 +182,33 @@ class PersistentList(Hashable, Sequence, IMeta, ISeq):
     def __hash__(self):
         return hash(self._impl)
     def __len__(self):
-        return len(self._impl)
+        return self._length
+    def __iter__(self):
+        return iter(self._impl)
     def __getitem__(self, index):
         return self._impl[index]
     def with_meta(self, _meta):
-        return PersistentList(self._impl, _meta)
+        return PersistentList(self._impl, self._length, _meta)
     def first(self):
-        return self._impl[0]
+        if self._length == 0:
+            return None
+        return self._impl.first
     def rest(self):
-        return PersistentList(self._impl[1:], _meta=None)
+        if self._length <= 1:
+            return _EMPTY_LIST
+        return PersistentList(
+            self._impl.rest, self._length - 1, _meta=None)
     def cons(self, value):
-        return PersistentList(self._impl.cons(value), _meta=None)
+        return PersistentList(
+            self._impl.cons(value), self._length + 1, _meta=None)
+
+_EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
 
 def list_(*elements):
-    return PersistentList(pr.plist(elements), _meta=None)
+    _len = len(elements)
+    if _len == 0:
+        return _EMPTY_LIST
+    return PersistentList(pr.plist(elements), _len, _meta=None)
 
 def is_list(obj):
     return isinstance(obj, PersistentList)
