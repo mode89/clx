@@ -324,6 +324,61 @@ cls = {name}
         _ns)
     return _ns["cls"]
 
+class Cons(Hashable, Sequence, IMeta, ISeq):
+    def __init__(self, _first, _rest, _meta):
+        self._first = _first
+        self._rest = _rest
+        self.__meta__ = _meta
+    def __bool__(self):
+        return True
+    def __len__(self):
+        raise NotImplementedError()
+    def __hash__(self):
+        raise NotImplementedError()
+    def __iter__(self):
+        raise NotImplementedError()
+    def __getitem__(self, index):
+        raise NotImplementedError()
+    def with_meta(self, _meta):
+        return Cons(self._first, self._rest, _meta)
+    def first(self):
+        return self._first
+    def rest(self):
+        return self._rest
+    def conj(self, value):
+        return Cons(value, self, _meta=None)
+
+class LazySeq(Hashable, Sequence, IMeta, ISeq):
+    def __init__(self, _func, _seq, _meta):
+        self._lock = threading.Lock()
+        self._func = _func
+        self._seq = _seq
+        self.__meta__ = _meta
+    def __bool__(self):
+        return bool(self._force())
+    def __len__(self):
+        raise NotImplementedError()
+    def __hash__(self):
+        raise NotImplementedError()
+    def __iter__(self):
+        raise NotImplementedError()
+    def __getitem__(self, index):
+        raise NotImplementedError()
+    def with_meta(self, _meta):
+        return LazySeq(self._func, self._seq, _meta)
+    def first(self):
+        return self._force().first()
+    def rest(self):
+        return self._force().rest()
+    def cons(self, value):
+        return Cons(value, self, _meta=None)
+    def _force(self):
+        with self._lock:
+            if self._func is not None:
+                self._seq = self._func()
+                self._func = None
+            return self._seq
+
 #************************************************************
 # Constants
 #************************************************************
@@ -977,6 +1032,9 @@ def with_meta(obj, _meta):
 
 def cons(obj, coll):
     return coll.cons(obj)
+
+def lazy_seq(func):
+    return LazySeq(func, None, _meta=None)
 
 def first(coll):
     assert isinstance(coll, ISeq)

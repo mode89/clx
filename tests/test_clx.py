@@ -91,6 +91,25 @@ def test_list():
     assert L(1, 2).next() == L(2)
     assert L(1, 2).cons(3) == L(3, 1, 2)
 
+def test_lazy_seq():
+    def _numbers(realized, i=0):
+        realized.append(i)
+        return clx.lazy_seq(lambda: _numbers(realized, i + 1)).cons(i)
+    def nth(coll, n): # pylint: disable=invalid-name
+        for _ in range(n):
+            coll = coll.rest()
+        return coll.first()
+    realized = []
+    numbers = _numbers(realized)
+    assert numbers.first() == 0
+    assert realized == [0]
+    assert clx.second(numbers) == 1
+    assert realized == [0, 1]
+    assert nth(numbers, 10) == 10
+    assert realized == list(range(11))
+    assert nth(numbers, 10000) == 10000
+    assert realized == list(range(10001))
+
 def test_hash_map():
     _m0 = M()
     assert isinstance(_m0, clx.PersistentMap)
