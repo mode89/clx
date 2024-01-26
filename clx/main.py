@@ -783,7 +783,7 @@ def _compile_fn(form, ctx):
         assert is_simple_symbol(param), \
             "parameters of fn* must be simple symbols"
         if param == _S_AMPER:
-            assert len(params_form) == 2, \
+            assert params_form.next().next() is None, \
                 "fn* expects a single symbol after &"
             rest_param = second(params_form)
             assert is_simple_symbol(rest_param), \
@@ -1031,17 +1031,17 @@ def with_meta(obj, _meta):
     return obj.with_meta(_meta)
 
 def cons(obj, coll):
+    if coll is None:
+        coll = _EMPTY_LIST
     return coll.cons(obj)
 
 def lazy_seq(func):
     return LazySeq(func, None, _meta=None)
 
 def first(coll):
-    assert isinstance(coll, ISeq)
     return coll.first()
 
 def rest(coll):
-    assert isinstance(coll, ISeq)
     return coll.rest()
 
 def second(coll):
