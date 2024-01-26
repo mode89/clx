@@ -187,6 +187,8 @@ class PersistentList(Hashable, Sequence, IMeta, ISeq):
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            raise NotImplementedError() # PList's slice is slow
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentList(self._impl, self._length, _meta)
@@ -229,6 +231,8 @@ class PersistentVector(Hashable, Sequence, IMeta, ISeq):
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            raise NotImplementedError() # PVector's slice is slow
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
@@ -665,7 +669,8 @@ def _compile_let(form, ctx):
         "bindings of let* must have even number of elements"
     old_locals = ctx.locals
     body = []
-    for _name, value in zip(bindings[::2], bindings[1::2]):
+    for i in range(0, len(bindings), 2):
+        _name, value = bindings[i], bindings[i + 1]
         assert is_simple_symbol(_name), \
             "first element of each binding pair must be a symbol"
         value_expr, value_stmts, ctx = _compile(value, ctx)
