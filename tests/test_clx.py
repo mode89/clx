@@ -452,7 +452,7 @@ def test_apply():
         clx.apply(42, [])
     with pytest.raises(Exception, match=r"expects at least 2 arguments"):
         clx.apply(lambda x: x)
-    with pytest.raises(Exception, match=r"must be a sequence"):
+    with pytest.raises(Exception, match=r"must be iterable"):
         clx.apply(lambda x: x, 42)
 
 def test_get():

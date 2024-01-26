@@ -3,7 +3,7 @@ from abc import abstractmethod, ABC
 import ast
 from bisect import bisect_left
 from collections import namedtuple
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from functools import reduce
 import re
 import sys
@@ -1018,8 +1018,8 @@ def apply(func, *args):
     assert callable(func), "apply expects a function as the first argument"
     assert len(args) > 0, "apply expects at least 2 arguments"
     last_arg = args[-1]
-    assert isinstance(last_arg, Sequence), \
-        "last argument of apply must be a sequence"
+    assert isinstance(last_arg, Iterable), \
+        "last argument of apply must be iterable"
     return func(*args[:-1], *last_arg)
 
 def meta(obj):
