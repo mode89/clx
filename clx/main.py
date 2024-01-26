@@ -1064,26 +1064,20 @@ def fourth(coll):
     return coll.rest().rest().rest().first()
 
 def get(self, key, not_found=_UNDEFINED):
-    assert isinstance(self, IAssociative)
     value = self.lookup(key, not_found)
     if value is _UNDEFINED:
         raise KeyError(key)
     return value
 
 def assoc(obj, key, value):
-    assert isinstance(obj, IAssociative)
     return obj.assoc(key, value)
 
 def get_in(obj, path, not_found=_UNDEFINED):
-    assert isinstance(obj, IAssociative)
-    assert isinstance(path, ISeq)
     for key in path:
         obj = get(obj, key, not_found)
     return obj
 
 def assoc_in(obj, path, value):
-    assert isinstance(obj, IAssociative)
-    assert isinstance(path, ISeq)
     first_path = path.first()
     rest_path = path.rest()
     if rest_path:
