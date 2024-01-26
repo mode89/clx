@@ -480,10 +480,10 @@ def read_collection(
 
 def quasiquote(form):
     if is_list(form) and len(form) > 0:
-        head = form[0]
+        head = form.first()
         if head == _S_UNQUOTE:
             assert len(form) == 2, "unquote expects 1 argument"
-            return form[1]
+            return second(form)
         elif head == _S_SPLICE_UNQUOTE:
             raise Exception("splice-unquote not in list")
         else:
@@ -497,12 +497,12 @@ def quasiquote(form):
 
 def _quasiquote_sequence(form):
     def entry(_f):
-        if is_list(_f) and len(_f) > 0 and _f[0] == _S_UNQUOTE:
+        if is_list(_f) and len(_f) > 0 and _f.first() == _S_UNQUOTE:
             assert len(_f) == 2, "unquote expects 1 argument"
-            return list_(_S_LIST, _f[1])
-        elif is_list(_f) and len(_f) > 0 and _f[0] == _S_SPLICE_UNQUOTE:
+            return list_(_S_LIST, second(_f))
+        elif is_list(_f) and len(_f) > 0 and _f.first() == _S_SPLICE_UNQUOTE:
             assert len(_f) == 2, "splice-unquote expects 1 argument"
-            return _f[1]
+            return second(_f)
         else:
             return list_(_S_LIST, quasiquote(_f))
     return cons(_S_CONCAT, list_(*map(entry, form)))
@@ -590,7 +590,7 @@ def eval_string(text):
 
 def _compile(form, ctx):
     if isinstance(form, PersistentList):
-        head = form[0]
+        head = form.first()
         if head == _S_DEF:
             return _compile_def(form, ctx)
         if head == _S_DO:
@@ -603,7 +603,7 @@ def _compile(form, ctx):
             return _compile_fn(form, ctx)
         if head == _S_QUOTE:
             assert len(form) == 2, "quote expects exactly 1 argument"
-            return _node(ast.Constant, form, form[1]), [], ctx
+            return _node(ast.Constant, form, second(form)), [], ctx
         if head == _S_PYTHON:
             return _compile_python(form, ctx)
         else:
@@ -621,10 +621,10 @@ def _compile(form, ctx):
 
 def _compile_def(form, ctx):
     assert len(form) == 3, "def expects 2 arguments"
-    name = form[1]
+    name = second(form)
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
-    value, body, ctx = _compile(form[2], ctx)
+    value, body, ctx = _compile(third(form), ctx)
     _ns = ctx.current_ns
     py_name = munge(f"{_ns}/{name.name}")
     return \
@@ -658,7 +658,7 @@ def _compile_do(form, ctx):
 def _compile_let(form, ctx):
     assert len(form) > 1, "let* expects at least 1 argument"
     assert len(form) < 4, "let* expects at most 2 arguments"
-    bindings = form[1]
+    bindings = second(form)
     assert is_vector(bindings), \
         "let* expects a vector as the first argument"
     assert len(bindings) % 2 == 0, \
@@ -677,7 +677,7 @@ def _compile_let(form, ctx):
                 [_node(ast.Name, _name, py_name, ast.Store())], value_expr))
         ctx = assoc_in(ctx, list_(_K_LOCALS, _name.name), Binding(py_name))
     if len(form) == 3:
-        body_expr, body_stmts, ctx = _compile(form[2], ctx)
+        body_expr, body_stmts, ctx = _compile(third(form), ctx)
         body.extend(body_stmts)
     else:
         body_expr = _node(ast.Constant, form, None)
@@ -685,7 +685,7 @@ def _compile_let(form, ctx):
 
 def _compile_if(form, ctx):
     assert len(form) == 4, "if expects 3 arguments"
-    test, then, else_ = form[1], form[2], form[3]
+    test, then, else_ = second(form), third(form), fourth(form)
     test_expr, test_stmts, ctx = _compile(test, ctx)
     then_expr, then_stmts, ctx = _compile(then, ctx)
     else_expr, else_stmts, ctx = _compile(else_, ctx)
@@ -710,7 +710,7 @@ def _compile_if(form, ctx):
 def _compile_fn(form, ctx):
     assert len(form) > 1, "fn* expects at least 1 argument"
     assert len(form) < 4, "fn* expects at most 2 arguments"
-    params_form = form[1]
+    params_form = second(form)
     assert isinstance(params_form, PersistentVector), \
         "fn* expects a vector of parameters as the first argument"
     fname, ctx = _gen_name(ctx, "___fn_")
@@ -725,7 +725,7 @@ def _compile_fn(form, ctx):
         if param == _S_AMPER:
             assert len(params_form) == 2, \
                 "fn* expects a single symbol after &"
-            rest_param = params_form[1]
+            rest_param = second(params_form)
             assert is_simple_symbol(rest_param), \
                 "rest parameter of fn* must be a simple symbol"
             ctx = assoc_in(ctx,
@@ -739,7 +739,7 @@ def _compile_fn(form, ctx):
         params_form = params_form.rest()
 
     if len(form) == 3:
-        body_form = form[2]
+        body_form = third(form)
         body_expr, body_stmts, ctx = _compile(body_form, ctx)
         body = body_stmts + [_node(ast.Return, form, body_expr)]
     else:
@@ -980,6 +980,15 @@ def first(coll):
 def rest(coll):
     assert isinstance(coll, ISeq)
     return coll.rest()
+
+def second(coll):
+    return coll.rest().first()
+
+def third(coll):
+    return coll.rest().rest().first()
+
+def fourth(coll):
+    return coll.rest().rest().rest().first()
 
 def get(self, key, not_found=_UNDEFINED):
     assert isinstance(self, IAssociative)
