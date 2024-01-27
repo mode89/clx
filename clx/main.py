@@ -55,11 +55,11 @@ class ISeq(ABC):
     def first(self):
         raise NotImplementedError()
     @abstractmethod
+    def next(self):
+        raise NotImplementedError()
+    @abstractmethod
     def rest(self):
         raise NotImplementedError()
-    def next(self):
-        _rest = self.rest()
-        return _rest if _rest else None
 
 class IAssociative(ABC):
     @abstractmethod
@@ -193,19 +193,21 @@ class PersistentList(Hashable, Sequence, IMeta, ISeq):
     def with_meta(self, _meta):
         return PersistentList(self._impl, self._length, _meta)
     def first(self):
-        if self._length == 0:
-            return None
         return self._impl.first
+    def next(self):
+        if self._length <= 1:
+            return None
+        return self.rest()
     def rest(self):
         if self._length <= 1:
             return _EMPTY_LIST
-        return PersistentList(
-            self._impl.rest, self._length - 1, _meta=None)
+        return PersistentList(self._impl.rest, self._length - 1, _meta=None)
     def cons(self, value):
         return PersistentList(
             self._impl.cons(value), self._length + 1, _meta=None)
 
 _EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
+_EMPTY_LIST.first = lambda: None
 
 def list_(*elements):
     return _into_list(elements)
@@ -240,13 +242,14 @@ class PersistentVector(Hashable, Sequence, IMeta, ISeq):
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
     def first(self):
-        if len(self._impl) == 0:
-            return None
         return self._impl[0]
+    def next(self):
+        return _into_list(self._impl).next()
     def rest(self):
         return _into_list(self._impl).rest()
 
 _EMPTY_VECTOR = PersistentVector(pr.pvector(), _meta=None)
+_EMPTY_VECTOR.first = lambda: None
 
 def vec(coll):
     if not coll:
@@ -336,6 +339,7 @@ cls = {name}
 
 class Cons(Hashable, Sequence, IMeta, ISeq):
     def __init__(self, _first, _rest, _meta):
+        assert _rest is not None, "rest of a Cons cannot be None"
         self._first = _first
         self._rest = _rest
         self.__meta__ = _meta
@@ -353,6 +357,8 @@ class Cons(Hashable, Sequence, IMeta, ISeq):
         return Cons(self._first, self._rest, _meta)
     def first(self):
         return self._first
+    def next(self):
+        return self._rest.next()
     def rest(self):
         return self._rest
     def conj(self, value):
@@ -378,6 +384,8 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):
         return self._force().first()
+    def next(self):
+        return self._force().next()
     def rest(self):
         return self._force().rest()
     def cons(self, value):
@@ -1050,6 +1058,9 @@ def lazy_seq(func):
 
 def first(coll):
     return coll.first()
+
+def next_(coll):
+    return coll.next()
 
 def rest(coll):
     return coll.rest()

@@ -98,6 +98,7 @@ def test_vector():
     assert len(v) == 0
     assert v.first() is None
     assert v.rest() is L()
+    assert v.next() is None
     with pytest.raises(IndexError):
         v[0] # pylint: disable=pointless-statement
     v1 = V(1) # pylint: disable=invalid-name
@@ -105,6 +106,7 @@ def test_vector():
     assert len(v1) == 1
     assert v1.first() == 1
     assert v1.rest() is L()
+    assert v1.next() is None
     assert v1[0] == 1
     with pytest.raises(IndexError):
         v1[1] # pylint: disable=pointless-statement
@@ -113,6 +115,7 @@ def test_vector():
     assert len(v23) == 2
     assert v23.first() == 2
     assert v23.rest() == L(3)
+    assert v23.next() == L(3)
     assert v23[0] == 2
     assert v23[1] == 3
     with pytest.raises(IndexError):
