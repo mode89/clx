@@ -69,7 +69,7 @@ def test_list():
     assert L().first() is None
     assert L().rest() is L()
     assert L().next() is None
-    assert L().cons(1) == L(1)
+    assert L().conj(1) == L(1)
     assert L() != L(1)
     assert L().with_meta(M(1, 2)).__meta__ == M(1, 2)
     assert L().with_meta(M(1, 2)) is not L()
@@ -82,14 +82,14 @@ def test_list():
     assert L(1).first() == 1
     assert L(1).rest() is L()
     assert L(1).next() is None
-    assert L(1).cons(2) == L(2, 1)
+    assert L(1).conj(2) == L(2, 1)
     assert L(1, 2) == L(1, 2)
     assert len(L(1, 2)) == 2
     assert bool(L(1, 2)) is True
     assert L(1, 2).first() == 1
     assert L(1, 2).rest() == L(2)
     assert L(1, 2).next() == L(2)
-    assert L(1, 2).cons(3) == L(3, 1, 2)
+    assert L(1, 2).conj(3) == L(3, 1, 2)
 
 def test_vector():
     v = V() # pylint: disable=invalid-name

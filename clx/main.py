@@ -69,6 +69,11 @@ class IAssociative(ABC):
     def assoc(self, key, value):
         raise NotImplementedError()
 
+class ICollection(ABC):
+    @abstractmethod
+    def conj(self, value):
+        raise NotImplementedError()
+
 class Symbol(Hashable, IMeta):
     def __init__(self, _namespace, _name, _meta):
         self.name = sys.intern(_name)
@@ -172,7 +177,12 @@ def is_keyword(obj):
 def is_simple_keyword(obj):
     return isinstance(obj, Keyword) and obj.namespace is None
 
-class PersistentList(Hashable, Sequence, IMeta, ISeq):
+class PersistentList(
+        Hashable,
+        Sequence,
+        IMeta,
+        ISeq,
+        ICollection):
     def __init__(self, impl, length, _meta):
         self._impl = impl
         self._length = length
@@ -202,7 +212,7 @@ class PersistentList(Hashable, Sequence, IMeta, ISeq):
         if self._length <= 1:
             return _EMPTY_LIST
         return PersistentList(self._impl.rest, self._length - 1, _meta=None)
-    def cons(self, value):
+    def conj(self, value):
         return PersistentList(
             self._impl.cons(value), self._length + 1, _meta=None)
 
@@ -614,8 +624,8 @@ def pr_str(obj, readably=False):
     if isinstance(obj, PersistentMap):
         ret = reduce(
             lambda acc, kv:
-                cons(pr_str(kv[0], readably),
-                    cons(pr_str(kv[1], readably), acc)),
+                acc.conj(pr_str(kv[1], readably))
+                    .conj(pr_str(kv[0], readably)),
             obj.items(),
             list_())
         return "{" + " ".join(ret) + "}"
