@@ -50,6 +50,11 @@ class IMeta(ABC):
     def with_meta(self, _meta):
         raise NotImplementedError()
 
+class ICounted(ABC):
+    @abstractmethod
+    def count_(self):
+        raise NotImplementedError()
+
 class ISeq(ABC):
     @abstractmethod
     def first(self):
@@ -181,6 +186,7 @@ class PersistentList(
         Hashable,
         Sequence,
         IMeta,
+        ICounted,
         ISeq,
         ICollection):
     def __init__(self, impl, length, _meta):
@@ -202,6 +208,8 @@ class PersistentList(
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentList(self._impl, self._length, _meta)
+    def count_(self):
+        return self._length
     def first(self):
         return self._impl.first
     def next(self):
@@ -231,7 +239,7 @@ def _into_list(coll):
 def is_list(obj):
     return isinstance(obj, PersistentList)
 
-class PersistentVector(Hashable, Sequence, IMeta, ISeq):
+class PersistentVector(Hashable, Sequence, IMeta, ICounted, ISeqable):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PVector), "Expected a PVector"
         self._impl = impl
@@ -257,6 +265,8 @@ class PersistentVector(Hashable, Sequence, IMeta, ISeq):
         return _into_list(self._impl).next()
     def rest(self):
         return _into_list(self._impl).rest()
+    def count_(self):
+        return len(self._impl)
 
 _EMPTY_VECTOR = PersistentVector(pr.pvector(), _meta=None)
 _EMPTY_VECTOR.first = lambda: None
@@ -273,7 +283,12 @@ def vector(*elements):
 def is_vector(obj):
     return isinstance(obj, PersistentVector)
 
-class PersistentMap(Hashable, Mapping, IMeta, IAssociative):
+class PersistentMap(
+        Hashable,
+        Mapping,
+        IMeta,
+        ICounted,
+        IAssociative):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PMap), "Expected a PMap"
         self._impl = impl
@@ -291,6 +306,8 @@ class PersistentMap(Hashable, Mapping, IMeta, IAssociative):
         return self._impl[key]
     def with_meta(self, _meta):
         return PersistentMap(self._impl, _meta)
+    def count_(self):
+        return len(self._impl)
     def lookup(self, key, not_found):
         return self._impl.get(key, not_found)
     def assoc(self, key, value):
@@ -1057,6 +1074,12 @@ def meta(obj):
 def with_meta(obj, _meta):
     assert isinstance(obj, IMeta)
     return obj.with_meta(_meta)
+
+def is_counted(x): # pylint: disable=invalid-name
+    return isinstance(x, ICounted)
+
+def count(x): # pylint: disable=invalid-name
+    return x.count_()
 
 def cons(obj, coll):
     if coll is None:
