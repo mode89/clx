@@ -203,8 +203,10 @@ class PersistentList(
         self._length = length
         self.__meta__ = _meta
     def __eq__(self, other):
-        return isinstance(other, PersistentList) \
-            and self._impl == other._impl
+        return self is other \
+            or (isinstance(other, PersistentList) \
+                and self._impl == other._impl) \
+            or _equiv_sequential(self, other)
     def __hash__(self):
         return hash(self._impl)
     def __len__(self):
@@ -263,8 +265,10 @@ class PersistentVector(
         self._impl = impl
         self.__meta__ = _meta
     def __eq__(self, other):
-        return isinstance(other, PersistentVector) \
-            and self._impl == other._impl
+        return self is other \
+            or (isinstance(other, PersistentVector) \
+                and self._impl == other._impl) \
+            or _equiv_sequential(self, other)
     def __hash__(self):
         return hash(self._impl)
     def __len__(self):
@@ -395,6 +399,12 @@ class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
         raise NotImplementedError()
     def __hash__(self):
         raise NotImplementedError()
+    def __eq__(self, other):
+        return self is other \
+            or (isinstance(other, Cons) \
+                and self._first == other._first \
+                and self._rest == other._rest) \
+            or _equiv_sequential(self, other)
     def __iter__(self):
         raise NotImplementedError()
     def __getitem__(self, index):
@@ -416,6 +426,9 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
         self._func = _func
         self._seq = _seq
         self.__meta__ = _meta
+    def __eq__(self, other):
+        return self is other \
+            or _equiv_sequential(self, other)
     def __bool__(self):
         return bool(self.seq())
     def __len__(self):
@@ -442,6 +455,24 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
                 self._seq = self._func()
                 self._func = None
             return self._seq
+
+def _equiv_sequential(x, y): # pylint: disable=invalid-name
+    assert isinstance(x, ISequential), "expected a sequential"
+    if isinstance(y, ISequential):
+        x, y = seq(x), seq(y)
+        while True:
+            if x is None:
+                return y is None
+            elif y is None:
+                return False
+            elif x is y:
+                return True
+            elif first(x) != first(y):
+                return False
+            else:
+                x, y = next_(x), next_(y)
+    else:
+        return False
 
 #************************************************************
 # Constants

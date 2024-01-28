@@ -13,6 +13,22 @@ M = clx.hash_map
 def _eval(text):
     return clx.eval_string(text)[0]
 
+def _lazy_range(*args):
+    assert len(args) <= 2
+    if len(args) == 0:
+        start = 0
+        end = None
+    elif len(args) == 1:
+        start = 0
+        end = args[0]
+    elif len(args) == 2:
+        start = args[0]
+        end = args[1]
+    def helper(i):
+        return cons(i, lazy_seq(lambda: helper(i + 1))) \
+            if end is None or i < end else None
+    return lazy_seq(lambda: helper(start))
+
 def test_keyword():
     hello = K("hello")
     assert isinstance(hello, clx.Keyword)
@@ -71,7 +87,6 @@ def test_list():
     assert L().rest() is L()
     assert L().next() is None
     assert L().conj(1) == L(1)
-    assert L() != L(1)
     assert L().with_meta(M(1, 2)).__meta__ == M(1, 2)
     assert L().with_meta(M(1, 2)) is not L()
     assert L().with_meta(M(1, 2)) == L()
@@ -79,7 +94,6 @@ def test_list():
     assert L(1) is not L()
     assert len(L(1)) == 1
     assert bool(L(1)) is True
-    assert L(1) == L(1)
     assert L(1).first() == 1
     assert L(1).rest() is L()
     assert L(1).next() is None
@@ -91,6 +105,19 @@ def test_list():
     assert L(1, 2).rest() == L(2)
     assert L(1, 2).next() == L(2)
     assert L(1, 2).conj(3) == L(3, 1, 2)
+    assert L() is not None
+    assert L() != 42
+    assert L() == V()
+    assert L() != M()
+    assert L() == _lazy_range(0)
+    assert L() != L(1)
+    assert L() != L(1, 2)
+    assert L(1, 2, 3) != L(1, 2)
+    assert L(1, 2, 3) == L(1, 2, 3)
+    assert L(1, 2, 3) == V(1, 2, 3)
+    assert L(1, 2, 3) == _lazy_range(1, 4)
+    assert L(1, 2, 3) != [1, 2, 3]
+    assert L(1, 2, 3) != (1, 2, 3)
 
 def test_vector():
     v = V() # pylint: disable=invalid-name
@@ -103,7 +130,6 @@ def test_vector():
     with pytest.raises(IndexError):
         v[0] # pylint: disable=pointless-statement
     v1 = V(1) # pylint: disable=invalid-name
-    assert v1 == V(1)
     assert len(v1) == 1
     assert first(v1) == 1
     assert rest(v1) is L()
@@ -121,6 +147,42 @@ def test_vector():
     assert v23[1] == 3
     with pytest.raises(IndexError):
         v23[2] # pylint: disable=pointless-statement
+    assert V() is not None
+    assert V() != 42
+    assert V() == L()
+    assert V() != M()
+    assert V() == _lazy_range(0)
+    assert V() != V(1)
+    assert V() != V(1, 2)
+    assert V(1, 2, 3) != V(1, 2)
+    assert V(1, 2, 3) == V(1, 2, 3)
+    assert V(1, 2, 3) == L(1, 2, 3)
+    assert V(1, 2, 3) == _lazy_range(1, 4)
+    assert V(1, 2, 3) != [1, 2, 3]
+    assert V(1, 2, 3) != (1, 2, 3)
+
+def test_cons():
+    assert cons(1, None).first() == 1
+    assert cons(1, None).rest() is L()
+    assert cons(1, None).next() is None
+    assert cons(1, L(2, 3)).first() == 1
+    assert cons(1, L(2, 3)).rest() == L(2, 3)
+    assert cons(1, L(2, 3)).next() == L(2, 3)
+    assert cons(1, V(2, 3)).first() == 1
+    assert cons(1, V(2, 3)).rest() == L(2, 3)
+    assert cons(1, V(2, 3)).next() == L(2, 3)
+    assert cons(1, lazy_seq(lambda: None)).first() == 1
+    assert cons(1, lazy_seq(lambda: None)).next() is None
+    assert cons(1, lazy_seq(lambda: L(2, 3))).first() == 1
+    assert cons(1, lazy_seq(lambda: L(2, 3))).next() == L(2, 3)
+    assert cons(1, L(2, 3)) is not None
+    assert cons(1, L(2, 3)) != 42
+    assert cons(1, L(2, 3)) == L(1, 2, 3)
+    assert cons(1, L(2, 3)) == V(1, 2, 3)
+    assert cons(1, L(2, 3)) == _lazy_range(1, 4)
+    inf = _lazy_range()
+    assert cons(42, inf) == cons(42, inf)
+    assert cons(42, inf) != cons(43, inf)
 
 def test_lazy_seq():
     def nth(coll, n): # pylint: disable=invalid-name
@@ -179,6 +241,17 @@ def test_lazy_seq():
     assert first(recur_lazy(L(42))) == 42
     assert next_(recur_lazy(L(42))) is None
     assert rest(recur_lazy(L(42))) is L()
+
+    inf = _lazy_range()
+    assert lazy_seq(lambda: inf) == lazy_seq(lambda: inf)
+    assert _lazy_range(0) == _lazy_range(0)
+    assert _lazy_range(0) != _lazy_range(1)
+    assert _lazy_range(1) != _lazy_range(0)
+    assert _lazy_range(1) == _lazy_range(1)
+    assert _lazy_range(1) == L(0)
+    assert _lazy_range(1) == V(0)
+    assert _lazy_range(3) == L(0, 1, 2)
+    assert _lazy_range(3) == V(0, 1, 2)
 
 def test_seq():
     assert seq(None) is None
