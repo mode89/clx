@@ -448,7 +448,7 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
     def rest(self):
         return rest(self._force())
     def seq(self):
-        return self._force()
+        return seq(self._force())
     def _force(self):
         with self._lock:
             if self._func is not None:
