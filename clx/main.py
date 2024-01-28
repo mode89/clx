@@ -3,7 +3,7 @@ from abc import abstractmethod, ABC
 import ast
 from bisect import bisect_left
 from collections import namedtuple
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Hashable, Iterator, Iterable, Mapping, Sequence
 from functools import reduce
 import re
 import sys
@@ -55,7 +55,12 @@ class ICounted(ABC):
     def count_(self):
         raise NotImplementedError()
 
-class ISeq(ABC):
+class ISeqable(ABC):
+    @abstractmethod
+    def seq(self):
+        raise NotImplementedError()
+
+class ISeq(ISeqable, ABC):
     @abstractmethod
     def first(self):
         raise NotImplementedError()
@@ -224,17 +229,20 @@ class PersistentList(
         if self._length <= 1:
             return _EMPTY_LIST
         return PersistentList(self._impl.rest, self._length - 1, _meta=None)
+    def seq(self):
+        return self
     def conj(self, value):
         return PersistentList(
             self._impl.cons(value), self._length + 1, _meta=None)
 
 _EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
 _EMPTY_LIST.first = lambda: None
+_EMPTY_LIST.seq = lambda: None
 
 def list_(*elements):
-    return _into_list(elements)
+    return _list_from_iterable(elements)
 
-def _into_list(coll):
+def _list_from_iterable(coll):
     if not coll:
         return _EMPTY_LIST
     assert isinstance(coll, Iterable), "Expected an iterable"
@@ -269,17 +277,13 @@ class PersistentVector(
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
-    def first(self):
-        return self._impl[0]
-    def next(self):
-        return _into_list(self._impl).next()
-    def rest(self):
-        return _into_list(self._impl).rest()
     def count_(self):
         return len(self._impl)
+    def seq(self):
+        return _list_from_iterable(self._impl)
 
 _EMPTY_VECTOR = PersistentVector(pr.pvector(), _meta=None)
-_EMPTY_VECTOR.first = lambda: None
+_EMPTY_VECTOR.seq = lambda: None
 
 def vec(coll):
     if not coll:
@@ -298,6 +302,7 @@ class PersistentMap(
         Mapping,
         IMeta,
         ICounted,
+        ISeqable,
         IAssociative):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PMap), "Expected a PMap"
@@ -318,6 +323,10 @@ class PersistentMap(
         return PersistentMap(self._impl, _meta)
     def count_(self):
         return len(self._impl)
+    def seq(self):
+        if len(self._impl) == 0:
+            return None
+        raise NotImplementedError()
     def lookup(self, key, not_found):
         return self._impl.get(key, not_found)
     def assoc(self, key, value):
@@ -376,7 +385,7 @@ cls = {name}
 
 class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _first, _rest, _meta):
-        assert _rest is not None, "rest of a Cons cannot be None"
+        assert isinstance(_rest, ISeq), "rest of Cons must be a seq"
         self._first = _first
         self._rest = _rest
         self.__meta__ = _meta
@@ -395,11 +404,11 @@ class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def first(self):
         return self._first
     def next(self):
-        return self._rest.next()
+        return self._rest.seq()
     def rest(self):
         return self._rest
-    def conj(self, value):
-        return Cons(value, self, _meta=None)
+    def seq(self):
+        return self
 
 class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _func, _seq, _meta):
@@ -408,7 +417,7 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
         self._seq = _seq
         self.__meta__ = _meta
     def __bool__(self):
-        return bool(self._force())
+        return bool(self.seq())
     def __len__(self):
         raise NotImplementedError()
     def __hash__(self):
@@ -420,13 +429,13 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
     def with_meta(self, _meta):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):
-        return self._force().first()
+        return first(self._force())
     def next(self):
-        return self._force().next()
+        return next_(self._force())
     def rest(self):
-        return self._force().rest()
-    def cons(self, value):
-        return Cons(value, self, _meta=None)
+        return rest(self._force())
+    def seq(self):
+        return self._force()
     def _force(self):
         with self._lock:
             if self._func is not None:
@@ -834,11 +843,11 @@ def _compile_fn(form, ctx):
     pos_params = []
     rest_param = None
     while params_form:
-        param = params_form.first()
+        param = first(params_form)
         assert is_simple_symbol(param), \
             "parameters of fn* must be simple symbols"
         if param == _S_AMPER:
-            assert params_form.next().next() is None, \
+            assert next_(next_(params_form)) is None, \
                 "fn* expects a single symbol after &"
             rest_param = second(params_form)
             assert is_simple_symbol(rest_param), \
@@ -851,7 +860,7 @@ def _compile_fn(form, ctx):
         ctx = assoc_in(ctx,
             list_(_K_LOCALS, param.name),
             Binding(munge(param.name)))
-        params_form = params_form.rest()
+        params_form = rest(params_form)
 
     if len(form) == 3:
         body_form = third(form)
@@ -1093,29 +1102,65 @@ def count(x): # pylint: disable=invalid-name
 
 def cons(obj, coll):
     if coll is None:
-        coll = _EMPTY_LIST
-    return coll.cons(obj)
+        return list_(obj)
+    elif isinstance(coll, ISeq):
+        return Cons(obj, coll, _meta=None)
+    else:
+        return Cons(obj, seq(coll), _meta=None)
 
 def lazy_seq(func):
     return LazySeq(func, None, _meta=None)
 
+def seq(coll):
+    if isinstance(coll, ISeqable):
+        return coll.seq()
+    elif coll is None:
+        return None
+    elif isinstance(coll, Iterable):
+        return iterator_seq(iter(coll)).seq()
+    else:
+        raise Exception("expected a seqable object")
+
+def iterator_seq(it): # pylint: disable=invalid-name
+    assert isinstance(it, Iterator), "iterator-seq expects an iterator"
+    def _seq():
+        value = next(it, _UNDEFINED)
+        return cons(value, lazy_seq(_seq)) \
+            if value is not _UNDEFINED else None
+    return lazy_seq(_seq)
+
+def is_seq(obj):
+    return isinstance(obj, ISeq)
+
+def is_seqable(obj):
+    return obj is None or isinstance(obj, (ISeqable, Iterable))
+
 def first(coll):
+    coll = seq(coll)
+    if coll is None:
+        return None
     return coll.first()
 
 def next_(coll):
+    coll = seq(coll)
+    if coll is None:
+        return None
     return coll.next()
 
 def rest(coll):
+    coll = seq(coll)
+    if coll is None:
+        return _EMPTY_LIST
     return coll.rest()
 
 def second(coll):
-    return coll.rest().first()
+    return first(next_(coll))
 
 def third(coll):
-    return coll.rest().rest().first()
+    return first(next_(next_(coll)))
 
 def fourth(coll):
-    return coll.rest().rest().rest().first()
+    return first(next_(next_(next_(coll))))
 
 def get(self, key, not_found=_UNDEFINED):
     value = self.lookup(key, not_found)

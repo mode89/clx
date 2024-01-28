@@ -1,7 +1,8 @@
 import pytest
 
 import clx.main as clx
-from clx.main import assoc, get, munge
+from clx.main import first, second, rest, next_, seq, lazy_seq, cons, \
+    assoc, get, munge
 
 K = clx.keyword
 S = clx.symbol
@@ -96,49 +97,124 @@ def test_vector():
     assert isinstance(v, clx.PersistentVector)
     assert v is V()
     assert len(v) == 0
-    assert v.first() is None
-    assert v.rest() is L()
-    assert v.next() is None
+    assert first(v) is None
+    assert rest(v) is L()
+    assert next_(v) is None
     with pytest.raises(IndexError):
         v[0] # pylint: disable=pointless-statement
     v1 = V(1) # pylint: disable=invalid-name
     assert v1 == V(1)
     assert len(v1) == 1
-    assert v1.first() == 1
-    assert v1.rest() is L()
-    assert v1.next() is None
+    assert first(v1) == 1
+    assert rest(v1) is L()
+    assert next_(v1) is None
     assert v1[0] == 1
     with pytest.raises(IndexError):
         v1[1] # pylint: disable=pointless-statement
     v23 = V(2, 3)
     assert v23 is not V()
     assert len(v23) == 2
-    assert v23.first() == 2
-    assert v23.rest() == L(3)
-    assert v23.next() == L(3)
+    assert first(v23) == 2
+    assert rest(v23) == L(3)
+    assert next_(v23) == L(3)
     assert v23[0] == 2
     assert v23[1] == 3
     with pytest.raises(IndexError):
         v23[2] # pylint: disable=pointless-statement
 
 def test_lazy_seq():
-    def _numbers(realized, i=0):
-        realized.append(i)
-        return clx.lazy_seq(lambda: _numbers(realized, i + 1)).cons(i)
     def nth(coll, n): # pylint: disable=invalid-name
         for _ in range(n):
             coll = coll.rest()
         return coll.first()
-    realized = []
-    numbers = _numbers(realized)
-    assert numbers.first() == 0
-    assert realized == [0]
-    assert clx.second(numbers) == 1
-    assert realized == [0, 1]
+
+    def _numbers(_realized, i):
+        _realized.append(i)
+        return clx.cons(i, lazy_seq(lambda: _numbers(_realized, i + 1)))
+    realized_numbers = []
+    numbers = lazy_seq(lambda: _numbers(realized_numbers, 0))
+    assert first(numbers) == 0
+    assert realized_numbers == [0]
+    assert second(numbers) == 1
+    assert realized_numbers == [0, 1]
     assert nth(numbers, 10) == 10
-    assert realized == list(range(11))
+    assert realized_numbers == list(range(11))
     assert nth(numbers, 10000) == 10000
-    assert realized == list(range(10001))
+    assert realized_numbers == list(range(10001))
+
+    def _range(_realized, end, i):
+        if i < end:
+            _realized.append(i)
+            return clx.cons(i,
+                lazy_seq(lambda: _range(_realized, end, i + 1)))
+        return None
+    realized_range = []
+    range_ = lazy_seq(lambda: _range(realized_range, 3, 0))
+    assert first(range_) == 0
+    assert realized_range == [0]
+    assert second(range_) == 1
+    assert realized_range == [0, 1]
+    assert nth(range_, 2) == 2
+    assert realized_range == [0, 1, 2]
+    assert nth(range_, 3) is None
+    assert realized_range == [0, 1, 2]
+    assert nth(range_, 4) is None
+    assert realized_range == [0, 1, 2]
+    assert first(next_(next_(range_))) == 2
+    assert first(next_(next_(next_(range_)))) is None
+    assert first(next_(next_(next_(next_(range_))))) is None
+
+    def recur_lazy(coll):
+        return lazy_seq(
+            lambda: lazy_seq(
+                lambda: lazy_seq(
+                    lambda: lazy_seq(
+                        lambda: lazy_seq(
+                            lambda: coll)))))
+    assert not bool(recur_lazy(L()))
+    assert first(recur_lazy(L())) is None
+    assert next_(recur_lazy(L())) is None
+    assert rest(recur_lazy(L())) is L()
+    assert bool(recur_lazy(L(42)))
+    assert first(recur_lazy(L(42))) == 42
+    assert next_(recur_lazy(L(42))) is None
+    assert rest(recur_lazy(L(42))) is L()
+
+def test_seq():
+    assert seq(None) is None
+    assert seq(L()) is None
+    assert seq(L(1, 2)).first() == 1
+    assert seq(L(1, 2)).rest().first() == 2
+    assert seq(L(1, 2)).rest().next() is None
+    assert seq(V()) is None
+    assert seq(V(1, 2)).first() == 1
+    assert seq(V(1, 2)).rest().first() == 2
+    assert seq(V(1, 2)).rest().next() is None
+    assert seq(M()) is None
+    assert seq([]) is None
+    assert seq([1, 2]).first() == 1
+    assert seq([1, 2]).rest().first() == 2
+    assert seq([1, 2]).rest().next() is None
+
+def test_is_seq():
+    assert clx.is_seq(None) is False
+    assert clx.is_seq(L()) is True
+    assert clx.is_seq(V()) is False
+    assert clx.is_seq(M()) is False
+    assert clx.is_seq([]) is False
+    assert clx.is_seq(()) is False
+    assert clx.is_seq({}) is False
+    assert clx.is_seq(42) is False
+
+def test_is_seqable():
+    assert clx.is_seqable(None) is True
+    assert clx.is_seqable(L()) is True
+    assert clx.is_seqable(V()) is True
+    assert clx.is_seqable(M()) is True
+    assert clx.is_seqable([]) is True
+    assert clx.is_seqable(()) is True
+    assert clx.is_seqable({}) is True
+    assert clx.is_seqable(42) is False
 
 def test_hash_map():
     _m0 = M()
@@ -498,3 +574,6 @@ def test_assoc_in():
     assert clx.assoc_in(M("a", 1), L("b"), 2) == M("a", 1, "b", 2)
     with pytest.raises(KeyError):
         clx.assoc_in(M("a", 1), L("b", "c"), 2)
+
+def test_first():
+    assert clx.first(None) is None
