@@ -286,12 +286,12 @@ class PersistentMap(Hashable, Mapping, IMeta, IAssociative):
     def assoc(self, key, value):
         return PersistentMap(self._impl.set(key, value), _meta=None)
 
-EMPTY_MAP = PersistentMap(pr.pmap(), _meta=None)
+_EMPTY_MAP = PersistentMap(pr.pmap(), _meta=None)
 
 def hash_map(*elements):
     assert len(elements) % 2 == 0, "hash-map expects even number of elements"
     if len(elements) == 0:
-        return EMPTY_MAP
+        return _EMPTY_MAP
     else:
         return PersistentMap(
             pr.pmap(dict(zip(elements[::2], elements[1::2]))),
