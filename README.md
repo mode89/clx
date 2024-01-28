@@ -6,8 +6,8 @@
 - [x] Conditions
 - [x] Functions
 - [x] Quoting
+- [x] Lazy sequences
 - [ ] Macros
-- [ ] Lazy sequences
 - [ ] Host interop
    - [x] Eval host code
    - [ ] Dot notation
@@ -15,6 +15,7 @@
 - [ ] Modules
   - [ ] Load files
   - [ ] Import host modules
+- [ ] Core
 - [ ] Error handling
 - [ ] Packaging
   - [ ] Integration with setuptools/toml
