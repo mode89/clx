@@ -568,9 +568,17 @@ def read_form(tokens):
         form, _rest = read_form(tokens[1:])
         return list_(_S_SPLICE_UNQUOTE, form), _rest
     elif tstring == "^":
-        _meta, rest1 = read_form(tokens[1:])
+        meta_data, rest1 = read_form(tokens[1:])
         form, rest2 = read_form(rest1)
-        return list_(_S_WITH_META, form, _meta), rest2
+        line_col = hash_map(_K_LINE, token.line, _K_COLUMN, token.column)
+        return \
+            with_meta(
+                list_(
+                    with_meta(_S_WITH_META, line_col),
+                    form,
+                    with_meta(meta_data, line_col)),
+                line_col), \
+            rest2
     elif tstring == "(":
         return read_collection(tokens, list_, "(", ")")
     elif tstring == "[":
@@ -1090,6 +1098,7 @@ def _basic_bindings():
         "+": lambda *args: sum(args),
         "even?": lambda x: x % 2 == 0,
         "odd?": lambda x: x % 2 == 1,
+        "with-meta": with_meta,
         "apply": apply,
         "keyword": keyword,
         "symbol": symbol,
@@ -1118,11 +1127,12 @@ def apply(func, *args):
     return func(*args[:-1], *last_arg)
 
 def meta(obj):
-    assert isinstance(obj, IMeta)
-    return obj.__meta__
+    return obj.__meta__ if isinstance(obj, IMeta) else None
 
 def with_meta(obj, _meta):
-    assert isinstance(obj, IMeta)
+    assert isinstance(obj, IMeta), "with-meta expects an IMeta object"
+    assert isinstance(_meta, PersistentMap), \
+        "with-meta expects a PersistentMap as the second argument"
     return obj.with_meta(_meta)
 
 def is_counted(x): # pylint: disable=invalid-name

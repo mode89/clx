@@ -586,6 +586,18 @@ def test_eval_python():
         """) == 42
     assert _eval("(___python \"a = 42\")") is None
 
+def test_meta():
+    assert clx.meta(None) is None
+    assert clx.meta(True) is None
+    assert clx.meta(42) is None
+    with pytest.raises(Exception, match=r"expects.*IMeta"):
+        clx.with_meta(42, M())
+    with pytest.raises(Exception, match=r"expects.*PersistentMap"):
+        clx.with_meta(L(), 42)
+    foo = _eval("(def foo ^{:bar 42} '())") # pylint: disable=disallowed-name
+    assert foo == L()
+    assert clx.meta(foo) == M(K("bar"), 42)
+
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(
