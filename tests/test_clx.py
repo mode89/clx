@@ -651,3 +651,21 @@ def test_assoc_in():
 
 def test_first():
     assert clx.first(None) is None
+
+def test_concat():
+    concat = clx.concat
+    assert concat() == L()
+    assert concat(None) == L()
+    assert concat(None, None) == L()
+    assert concat(L()) == L()
+    assert concat(L(), L()) == L()
+    assert concat(L(1)) == L(1)
+    assert concat(L(1, 2, 3)) == L(1, 2, 3)
+    assert concat(L(1), L(2)) == L(1, 2)
+    assert concat(L(1), L(2), L(3)) == L(1, 2, 3)
+    assert concat(L(1, 2), L(3, 4)) == L(1, 2, 3, 4)
+    assert concat(L(1, 2), L(3, 4), L(5, 6)) == L(1, 2, 3, 4, 5, 6)
+    assert concat(L(1, 2), None, L(3, 4), None, L(5, 6)) == L(1, 2, 3, 4, 5, 6)
+    assert concat(L(1, 2), None, V(3, 4), None, [5, 6]) == L(1, 2, 3, 4, 5, 6)
+    assert concat(_lazy_range(1, 1500), range(1500, 3000)) == \
+        seq(range(1, 3000))

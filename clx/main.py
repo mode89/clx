@@ -1215,3 +1215,17 @@ def assoc_in(obj, path, value):
         return obj.assoc(first_path, assoc_in(child0, rest_path, value))
     else:
         return obj.assoc(first_path, value)
+
+def concat(*colls):
+    num_colls = len(colls)
+    if num_colls == 0:
+        return _EMPTY_LIST
+    elif num_colls == 1:
+        return lazy_seq(lambda: colls[0])
+    else:
+        coll0 = colls[0]
+        colls = colls[1:]
+        def _seq():
+            return cons(first(coll0), concat(rest(coll0), *colls)) \
+                if seq(coll0) else concat(*colls)
+        return lazy_seq(_seq)
