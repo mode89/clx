@@ -79,6 +79,9 @@ class ICollection(ABC):
     def conj(self, value):
         raise NotImplementedError()
 
+class ISequential(ABC):
+    pass
+
 class Symbol(Hashable, IMeta):
     def __init__(self, _namespace, _name, _meta):
         self.name = sys.intern(_name)
@@ -188,6 +191,7 @@ class PersistentList(
         IMeta,
         ICounted,
         ISeq,
+        ISequential,
         ICollection):
     def __init__(self, impl, length, _meta):
         self._impl = impl
@@ -239,7 +243,13 @@ def _into_list(coll):
 def is_list(obj):
     return isinstance(obj, PersistentList)
 
-class PersistentVector(Hashable, Sequence, IMeta, ICounted, ISeqable):
+class PersistentVector(
+        Hashable,
+        Sequence,
+        IMeta,
+        ICounted,
+        ISeqable,
+        ISequential):
     def __init__(self, impl, _meta):
         assert isinstance(impl, pr.PVector), "Expected a PVector"
         self._impl = impl
@@ -364,7 +374,7 @@ cls = {name}
         _ns)
     return _ns["cls"]
 
-class Cons(Hashable, Sequence, IMeta, ISeq):
+class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _first, _rest, _meta):
         assert _rest is not None, "rest of a Cons cannot be None"
         self._first = _first
@@ -391,7 +401,7 @@ class Cons(Hashable, Sequence, IMeta, ISeq):
     def conj(self, value):
         return Cons(value, self, _meta=None)
 
-class LazySeq(Hashable, Sequence, IMeta, ISeq):
+class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _func, _seq, _meta):
         self._lock = threading.Lock()
         self._func = _func
