@@ -527,7 +527,7 @@ FLOAT_RE = re.compile(r"-?[0-9]+\.[0-9]+$")
 STRING_RE = re.compile(r"\"(?:[\\].|[^\\\"])*\"$")
 
 def read_string(text):
-    tokens = list(tokenize(text))
+    tokens = seq(tokenize(text))
     form, _rest = read_form(tokens)
     return form
 
@@ -547,10 +547,12 @@ def tokenize(text):
         yield Token(string=token, line=line_id, column=column)
 
 def read_form(tokens):
-    token = tokens[0]
+    token = first(tokens)
+    assert isinstance(token, Token), "expected a token"
+    rtokens = rest(tokens)
     tstring = token.string
     if tstring == "'":
-        form, _rest = read_form(tokens[1:])
+        form, _rest = read_form(rtokens)
         return \
             with_meta(
                 list_(_S_QUOTE, form),
@@ -559,16 +561,16 @@ def read_form(tokens):
                     _K_COLUMN, token.column)), \
             _rest
     elif tstring == "`":
-        form, _rest = read_form(tokens[1:])
+        form, _rest = read_form(rtokens)
         return quasiquote(form), _rest
     elif tstring == "~":
-        form, _rest = read_form(tokens[1:])
+        form, _rest = read_form(rtokens)
         return list_(_S_UNQUOTE, form), _rest
     elif tstring == "~@":
-        form, _rest = read_form(tokens[1:])
+        form, _rest = read_form(rtokens)
         return list_(_S_SPLICE_UNQUOTE, form), _rest
     elif tstring == "^":
-        meta_data, rest1 = read_form(tokens[1:])
+        meta_data, rest1 = read_form(rtokens)
         form, rest2 = read_form(rest1)
         line_col = hash_map(_K_LINE, token.line, _K_COLUMN, token.column)
         return \
@@ -586,9 +588,10 @@ def read_form(tokens):
     elif tstring == "{":
         return read_collection(tokens, hash_map, "{", "}")
     else:
-        return read_atom(token), tokens[1:]
+        return read_atom(token), rtokens
 
 def read_atom(token):
+    assert isinstance(token, Token), "expected a token"
     tstring = token.string
     if re.match(INT_RE, tstring):
         return int(tstring)
@@ -624,21 +627,25 @@ def read_collection(
         ctor,
         start,
         end):
-    token0 = tokens[0]
+    token0 = first(tokens)
+    assert isinstance(token0, Token), "expected a token"
     assert token0.string == start, f"Expected '{start}'"
-    tokens = tokens[1:]
+    tokens = rest(tokens)
     elements = []
-    while tokens[0].string != end:
+    while True:
+        token = first(tokens)
+        if token is None:
+            raise Exception(f"Expected '{end}'")
+        assert isinstance(token, Token), "expected a token"
+        if token.string == end:
+            return with_meta(
+                ctor(*elements),
+                hash_map(
+                    _K_LINE, token0.line,
+                    _K_COLUMN, token0.column)), \
+                rest(tokens)
         element, tokens = read_form(tokens)
         elements.append(element)
-        if len(tokens) == 0:
-            raise Exception(f"Expected '{end}'")
-    return with_meta(
-        ctor(*elements),
-        hash_map(
-            _K_LINE, token0.line,
-            _K_COLUMN, token0.column)), \
-        tokens[1:]
 
 def quasiquote(form):
     if is_list(form) and len(form) > 0:
