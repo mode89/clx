@@ -1203,13 +1203,15 @@ def third(coll):
 def fourth(coll):
     return first(next_(next_(next_(coll))))
 
-def get(self, key, not_found=_UNDEFINED):
-    value = self.lookup(key, not_found)
-    if value is _UNDEFINED:
-        raise KeyError(key)
-    return value
+def get(obj, key, not_found=None):
+    if isinstance(obj, IAssociative):
+        return obj.lookup(key, not_found)
+    else:
+        return not_found
 
 def assoc(obj, key, value):
+    if obj is None:
+        return hash_map(key, value)
     return obj.assoc(key, value)
 
 def get_in(obj, path, not_found=_UNDEFINED):
@@ -1218,13 +1220,13 @@ def get_in(obj, path, not_found=_UNDEFINED):
     return obj
 
 def assoc_in(obj, path, value):
-    first_path = path.first()
-    rest_path = path.rest()
-    if rest_path:
-        child0 = get(obj, first_path)
-        return obj.assoc(first_path, assoc_in(child0, rest_path, value))
+    path0 = first(path)
+    path = next_(path)
+    if path:
+        child0 = get(obj, path0)
+        return assoc(obj, path0, assoc_in(child0, path, value))
     else:
-        return obj.assoc(first_path, value)
+        return assoc(obj, path0, value)
 
 def concat(*colls):
     num_colls = len(colls)

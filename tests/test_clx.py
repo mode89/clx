@@ -651,15 +651,20 @@ def test_get():
     _m = M("a", 1, "b", 2)
     assert get(_m, "a") == 1
     assert get(_m, "b") == 2
-    with pytest.raises(KeyError):
-        get(_m, "c")
+    assert get(_m, "c") is None
     assert get(_m, "c", 3) == 3
+    assert get(41, "a") is None
+    assert get(42, "b", 9001) == 9001
+
+def test_assoc():
+    assert assoc(None, "a", 1) == M("a", 1)
+    assert assoc(M("a", 2), "a", 3) == M("a", 3)
+    assert assoc(M("a", 4), "b", 5) == M("a", 4, "b", 5)
 
 def test_assoc_in():
     assert clx.assoc_in(M("a", M("b", 1)), L("a", "b"), 2) == M("a", M("b", 2))
-    assert clx.assoc_in(M("a", 1), L("b"), 2) == M("a", 1, "b", 2)
-    with pytest.raises(KeyError):
-        clx.assoc_in(M("a", 1), L("b", "c"), 2)
+    assert clx.assoc_in(M("a", 3), L("b"), 4) == M("a", 3, "b", 4)
+    assert clx.assoc_in(M("a", 5), L("b", "c"), 6) == M("a", 5, "b", M("c", 6))
 
 def test_first():
     assert clx.first(None) is None
