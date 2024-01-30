@@ -8,6 +8,7 @@ from functools import reduce
 import re
 import sys
 import threading
+import types
 
 import pyrsistent as pr
 
@@ -1134,13 +1135,24 @@ def apply(func, *args):
     return func(*args[:-1], *last_arg)
 
 def meta(obj):
-    return obj.__meta__ if isinstance(obj, IMeta) else None
+    return getattr(obj, "__meta__", None)
 
 def with_meta(obj, _meta):
-    assert isinstance(obj, IMeta), "with-meta expects an IMeta object"
     assert isinstance(_meta, PersistentMap), \
         "with-meta expects a PersistentMap as the second argument"
-    return obj.with_meta(_meta)
+    if isinstance(obj, IMeta):
+        return obj.with_meta(_meta)
+    elif isinstance(obj, types.FunctionType):
+        clone = types.FunctionType(
+            obj.__code__,
+            obj.__globals__,
+            obj.__name__,
+            obj.__defaults__,
+            obj.__closure__)
+        clone.__meta__ = _meta
+        return clone
+    else:
+        raise Exception("object does not support metadata")
 
 def is_counted(x): # pylint: disable=invalid-name
     return isinstance(x, ICounted)

@@ -590,13 +590,26 @@ def test_meta():
     assert clx.meta(None) is None
     assert clx.meta(True) is None
     assert clx.meta(42) is None
-    with pytest.raises(Exception, match=r"expects.*IMeta"):
+    with pytest.raises(Exception, match=r"does not support metadata"):
         clx.with_meta(42, M())
     with pytest.raises(Exception, match=r"expects.*PersistentMap"):
         clx.with_meta(L(), 42)
     foo = _eval("(def foo ^{:bar 42} '())") # pylint: disable=disallowed-name
     assert foo == L()
     assert clx.meta(foo) == M(K("bar"), 42)
+    bar = lambda: 42 # pylint: disable=disallowed-name,unnecessary-lambda-assignment
+    bar_with_meta = clx.with_meta(bar, M(K("quux"), 43))
+    assert bar() == 42
+    assert bar_with_meta() == 42
+    assert clx.meta(bar) is None
+    assert clx.meta(bar_with_meta) == M(K("quux"), 43)
+    def fred():
+        return 43
+    fred_with_meta = clx.with_meta(fred, M("foo", 42))
+    assert fred() == 43
+    assert fred_with_meta() == 43
+    assert clx.meta(fred) is None
+    assert clx.meta(fred_with_meta) == M("foo", 42)
 
 def test_resolve_symbol():
     resolve = clx._resolve_symbol # pylint: disable=protected-access
