@@ -1154,6 +1154,9 @@ def with_meta(obj, _meta):
     else:
         raise Exception("object does not support metadata")
 
+def vary_meta(obj, f, *args): # pylint: disable=invalid-name
+    return with_meta(obj, f(meta(obj), *args))
+
 def is_counted(x): # pylint: disable=invalid-name
     return isinstance(x, ICounted)
 

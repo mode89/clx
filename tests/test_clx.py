@@ -609,6 +609,8 @@ def test_meta():
     assert fred() == 43
     assert fred_with_meta() == 43
     assert clx.meta(fred) is None
+    assert clx.meta(clx.vary_meta(fred_with_meta, assoc, K("bar"), 44)) == \
+        M("foo", 42, K("bar"), 44)
     assert clx.meta(fred_with_meta) == M("foo", 42)
 
 def test_resolve_symbol():
