@@ -701,3 +701,19 @@ def test_concat():
     assert concat(L(1, 2), None, V(3, 4), None, [5, 6]) == L(1, 2, 3, 4, 5, 6)
     assert concat(_lazy_range(1, 1500), range(1500, 3000)) == \
         seq(range(1, 3000))
+
+def test_merge():
+    assert clx.merge() is None
+    assert clx.merge(None) is None
+    assert clx.merge(None, None) is None
+    assert clx.merge(M()) == M()
+    assert clx.merge(M(), None) == M()
+    assert clx.merge(None, M()) == M()
+    assert clx.merge(M(), M()) == M()
+    assert clx.merge(M("a", 1)) == M("a", 1)
+    assert clx.merge(M("a", 1), None) == M("a", 1)
+    assert clx.merge(None, M("a", 1)) == M("a", 1)
+    assert clx.merge(M("a", 1), M("b", 2)) == M("a", 1, "b", 2)
+    assert clx.merge(M("a", 1), M("a", 2)) == M("a", 2)
+    assert clx.merge(M("a", 1), M("a", 2), M("a", 3)) == M("a", 3)
+    assert clx.merge(M("a", 1), M("b", 2), M("a", 3)) == M("a", 3, "b", 2)

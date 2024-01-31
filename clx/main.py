@@ -4,7 +4,7 @@ import ast
 from bisect import bisect_left
 from collections import namedtuple
 from collections.abc import Hashable, Iterator, Iterable, Mapping, Sequence
-from functools import reduce
+import functools
 import re
 import sys
 import threading
@@ -336,6 +336,8 @@ class PersistentMap(
         return self._impl.get(key, not_found)
     def assoc(self, key, value):
         return PersistentMap(self._impl.set(key, value), _meta=None)
+    def merge(self, *other):
+        return PersistentMap(self._impl.update(*other), _meta=None)
 
 _EMPTY_MAP = PersistentMap(pr.pmap(), _meta=None)
 
@@ -705,7 +707,7 @@ def pr_str(obj, readably=False):
             " ".join(map(lambda x: pr_str(x, readably), obj)) + \
             "]"
     if isinstance(obj, PersistentMap):
-        ret = reduce(
+        ret = functools.reduce(
             lambda acc, kv:
                 acc.conj(pr_str(kv[1], readably))
                     .conj(pr_str(kv[0], readably)),
@@ -1263,3 +1265,13 @@ def concat(*colls):
             return cons(first(coll0), concat(rest(coll0), *colls)) \
                 if seq(coll0) else concat(*colls)
         return lazy_seq(_seq)
+
+def merge(*maps):
+    def helper(m1, m2): # pylint: disable=invalid-name
+        if m1 is None:
+            return m2
+        elif m2 is None:
+            return m1
+        else:
+            return m1.merge(m2)
+    return functools.reduce(helper, maps, None)
