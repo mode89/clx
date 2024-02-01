@@ -205,7 +205,7 @@ class PersistentList(
         self.__meta__ = _meta
     def __eq__(self, other):
         return self is other \
-            or (isinstance(other, PersistentList) \
+            or (type(other) is PersistentList \
                 and self._impl == other._impl) \
             or _equiv_sequential(self, other)
     def __hash__(self):
@@ -215,7 +215,7 @@ class PersistentList(
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, index):
-        if isinstance(index, slice):
+        if type(index) is slice:
             raise NotImplementedError() # PList's slice is slow
         return self._impl[index]
     def with_meta(self, _meta):
@@ -231,12 +231,12 @@ class PersistentList(
     def rest(self):
         if self._length <= 1:
             return _EMPTY_LIST
-        return PersistentList(self._impl.rest, self._length - 1, _meta=None)
+        return PersistentList(self._impl.rest, self._length - 1, None)
     def seq(self):
         return self
     def conj(self, value):
         return PersistentList(
-            self._impl.cons(value), self._length + 1, _meta=None)
+            self._impl.cons(value), self._length + 1, None)
 
 _EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
 _EMPTY_LIST.first = lambda: None
@@ -248,11 +248,10 @@ def list_(*elements):
 def _list_from_iterable(coll):
     if not coll:
         return _EMPTY_LIST
-    assert isinstance(coll, Iterable), "Expected an iterable"
-    return PersistentList(pr.plist(coll), len(coll), _meta=None)
+    return PersistentList(pr.plist(coll), len(coll), None)
 
 def is_list(obj):
-    return isinstance(obj, PersistentList)
+    return type(obj) is PersistentList
 
 class PersistentVector(
         Hashable,
