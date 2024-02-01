@@ -5,7 +5,6 @@ pkgs.mkShell {
     (pkgs.python3.withPackages (ps: with ps; [
       mypy
       pylint
-      pyrsistent
       pytest
       pytest-cov
     ]))

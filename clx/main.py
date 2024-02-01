@@ -10,8 +10,6 @@ import sys
 import threading
 import types
 
-import pyrsistent as pr
-
 _UNDEFINED = object()
 
 #************************************************************
