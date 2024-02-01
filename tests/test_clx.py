@@ -292,12 +292,20 @@ def test_is_seqable():
     assert clx.is_seqable(42) is False
 
 def test_hash_map():
-    _m0 = M()
-    assert isinstance(_m0, clx.PersistentMap)
-    _m1 = assoc(_m0, "a", 1)
-    assert _m0 is M()
-    assert isinstance(_m1, clx.PersistentMap)
-    assert get(_m1, "a") == 1
+    m0 = M() # pylint: disable=invalid-name
+    m1 = assoc(m0, "a", 1) # pylint: disable=invalid-name
+    m2 = assoc(m1, "b", 2) # pylint: disable=invalid-name
+    m3 = m2.merge(M("c", 3, "d", 4)) # pylint: disable=invalid-name
+    assert type(m0) is clx.PersistentMap
+    assert m0 is M()
+    assert type(m1) is clx.PersistentMap
+    assert get(m1, "a") == 1
+    assert m1 == M("a", 1)
+    assert type(m2) is clx.PersistentMap
+    assert m2 == M("a", 1, "b", 2)
+    assert type(m3) is clx.PersistentMap
+    assert m3 == M("a", 1, "b", 2, "c", 3, "d", 4)
+
 
 def test_record():
     record = clx.define_record("TestRecord", K("a"), K("b"))

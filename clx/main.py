@@ -316,14 +316,15 @@ class PersistentMap(
         ISeqable,
         IAssociative):
     def __init__(self, impl, _meta):
-        assert isinstance(impl, pr.PMap), "Expected a PMap"
         self._impl = impl
         self.__meta__ = _meta
     def __eq__(self, other):
-        return isinstance(other, PersistentMap) \
-            and self._impl == other._impl
+        if type(other) is PersistentMap:
+            return self._impl == other._impl
+        else:
+            raise NotImplementedError()
     def __hash__(self):
-        return hash(self._impl)
+        raise NotImplementedError()
     def __len__(self):
         return len(self._impl)
     def __iter__(self):
@@ -341,23 +342,25 @@ class PersistentMap(
     def lookup(self, key, not_found):
         return self._impl.get(key, not_found)
     def assoc(self, key, value):
-        return PersistentMap(self._impl.set(key, value), _meta=None)
-    def merge(self, *other):
-        return PersistentMap(self._impl.update(*other), _meta=None)
+        copy = self._impl.copy()
+        copy[key] = value
+        return PersistentMap(copy, None)
+    def merge(self, other):
+        copy = self._impl.copy()
+        copy.update(other)
+        return PersistentMap(copy, None)
 
-_EMPTY_MAP = PersistentMap(pr.pmap(), _meta=None)
+_EMPTY_MAP = PersistentMap({}, None)
 
 def hash_map(*elements):
-    assert len(elements) % 2 == 0, "hash-map expects even number of elements"
-    if len(elements) == 0:
+    num = len(elements)
+    assert num % 2 == 0, "hash-map expects even number of elements"
+    if num == 0:
         return _EMPTY_MAP
-    else:
-        return PersistentMap(
-            pr.pmap(dict(zip(elements[::2], elements[1::2]))),
-            _meta=None)
+    return PersistentMap(dict(zip(elements[::2], elements[1::2])), None)
 
 def is_hash_map(obj):
-    return isinstance(obj, PersistentMap)
+    return type(obj) is PersistentMap
 
 class IRecord(IAssociative, ABC):
     pass
