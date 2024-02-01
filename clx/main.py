@@ -262,12 +262,11 @@ class PersistentVector(
         ISeqable,
         ISequential):
     def __init__(self, impl, _meta):
-        assert isinstance(impl, pr.PVector), "Expected a PVector"
         self._impl = impl
         self.__meta__ = _meta
     def __eq__(self, other):
         return self is other \
-            or (isinstance(other, PersistentVector) \
+            or (type(other) is PersistentVector \
                 and self._impl == other._impl) \
             or _equiv_sequential(self, other)
     def __hash__(self):
@@ -277,7 +276,7 @@ class PersistentVector(
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, index):
-        if isinstance(index, slice):
+        if type(index) is slice:
             raise NotImplementedError() # PVector's slice is slow
         return self._impl[index]
     def with_meta(self, _meta):
@@ -293,14 +292,13 @@ _EMPTY_VECTOR.seq = lambda: None
 def vec(coll):
     if not coll:
         return _EMPTY_VECTOR
-    assert isinstance(coll, Iterable), "Expected an iterable"
-    return PersistentVector(pr.pvector(coll), _meta=None)
+    return PersistentVector(pr.pvector(coll), None)
 
 def vector(*elements):
     return vec(elements)
 
 def is_vector(obj):
-    return isinstance(obj, PersistentVector)
+    return type(obj) is PersistentVector
 
 class PersistentMap(
         Hashable,
