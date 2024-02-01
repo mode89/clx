@@ -199,56 +199,68 @@ class PersistentList(
         ISeq,
         ISequential,
         ICollection):
-    def __init__(self, impl, length, _meta):
-        self._impl = impl
+    def __init__(self, _first, _rest, length, _meta):
+        self._first = _first
+        self._rest = _rest
         self._length = length
         self.__meta__ = _meta
     def __eq__(self, other):
-        return self is other \
-            or (type(other) is PersistentList \
-                and self._impl == other._impl) \
-            or _equiv_sequential(self, other)
+        if self is other:
+            return True
+        elif type(other) is PersistentList:
+            if self._length != other._length:
+                return False
+            else:
+                lst1, lst2 = self, other
+                while lst1._length > 0:
+                    if lst1._first != lst2._first:
+                        return False
+                    lst1, lst2 = lst1._rest, lst2._rest
+                return True
+        else:
+            return _equiv_sequential(self, other)
     def __hash__(self):
-        return hash(self._impl)
+        raise NotImplementedError()
     def __len__(self):
         return self._length
     def __iter__(self):
-        return iter(self._impl)
+        lst = self
+        while lst._length > 0:
+            yield lst._first
+            lst = lst._rest
     def __getitem__(self, index):
-        if type(index) is slice:
-            raise NotImplementedError() # PList's slice is slow
-        return self._impl[index]
+        raise NotImplementedError()
     def with_meta(self, _meta):
-        return PersistentList(self._impl, self._length, _meta)
+        return PersistentList(self._first, self._rest, self._length, _meta)
     def count_(self):
         return self._length
     def first(self):
-        return self._impl.first
+        return self._first
     def next(self):
         if self._length <= 1:
             return None
-        return self.rest()
+        return self._rest
     def rest(self):
-        if self._length <= 1:
-            return _EMPTY_LIST
-        return PersistentList(self._impl.rest, self._length - 1, None)
+        return self._rest
     def seq(self):
         return self
     def conj(self, value):
-        return PersistentList(
-            self._impl.cons(value), self._length + 1, None)
+        return PersistentList(value, self, self._length + 1, None)
 
-_EMPTY_LIST = PersistentList(pr.plist(), 0, _meta=None)
-_EMPTY_LIST.first = lambda: None
+_EMPTY_LIST = PersistentList(None, None, 0, None)
+_EMPTY_LIST.rest = lambda: _EMPTY_LIST
 _EMPTY_LIST.seq = lambda: None
 
 def list_(*elements):
     return _list_from_iterable(elements)
 
-def _list_from_iterable(coll):
-    if not coll:
-        return _EMPTY_LIST
-    return PersistentList(pr.plist(coll), len(coll), None)
+def _list_from_iterable(iterable):
+    _list = iterable if isinstance(iterable, list) else list(iterable)
+    result = _EMPTY_LIST
+    for elem in reversed(_list):
+        result = PersistentList(
+            elem, result, result._length + 1, None) # pylint: disable=protected-access
+    return result
 
 def is_list(obj):
     return type(obj) is PersistentList

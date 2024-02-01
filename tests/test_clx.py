@@ -118,6 +118,7 @@ def test_list():
     assert L(1, 2, 3) == _lazy_range(1, 4)
     assert L(1, 2, 3) != [1, 2, 3]
     assert L(1, 2, 3) != (1, 2, 3)
+    assert list(iter(L(1, 2, 3))) == [1, 2, 3]
 
 def test_vector():
     v = V() # pylint: disable=invalid-name
