@@ -281,29 +281,26 @@ class PersistentVector(
                 and self._impl == other._impl) \
             or _equiv_sequential(self, other)
     def __hash__(self):
-        return hash(self._impl)
+        raise NotImplementedError()
     def __len__(self):
         return len(self._impl)
     def __iter__(self):
         return iter(self._impl)
     def __getitem__(self, index):
-        if type(index) is slice:
-            raise NotImplementedError() # PVector's slice is slow
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
     def count_(self):
         return len(self._impl)
     def seq(self):
-        return _list_from_iterable(self._impl)
+        return _list_from_iterable(self._impl).seq()
 
-_EMPTY_VECTOR = PersistentVector(pr.pvector(), _meta=None)
+_EMPTY_VECTOR = PersistentVector([], _meta=None)
 _EMPTY_VECTOR.seq = lambda: None
 
 def vec(coll):
-    if not coll:
-        return _EMPTY_VECTOR
-    return PersistentVector(pr.pvector(coll), None)
+    lst = list(coll)
+    return PersistentVector(lst, None) if lst else _EMPTY_VECTOR
 
 def vector(*elements):
     return vec(elements)
