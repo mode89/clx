@@ -594,9 +594,10 @@ def test_meta():
         clx.with_meta(42, M())
     with pytest.raises(Exception, match=r"expects.*PersistentMap"):
         clx.with_meta(L(), 42)
-    foo = _eval("(def foo ^{:bar 42} '())") # pylint: disable=disallowed-name
-    assert foo == L()
-    assert clx.meta(foo) == M(K("bar"), 42)
+    quux = clx.read_string("(def ^{:foo 42} ^{:bar 43} quux :fred)")
+    assert quux.count_() == 3
+    assert clx.meta(second(quux)).get(K("foo")) == 42
+    assert clx.meta(second(quux)).get(K("bar")) == 43
     bar = lambda: 42 # pylint: disable=disallowed-name,unnecessary-lambda-assignment
     bar_with_meta = clx.with_meta(bar, M(K("quux"), 43))
     assert bar() == 42

@@ -573,17 +573,9 @@ def read_form(tokens):
         form, _rest = read_form(rtokens)
         return list_(_S_SPLICE_UNQUOTE, form), _rest
     elif tstring == "^":
-        meta_data, rest1 = read_form(rtokens)
+        _meta, rest1 = read_form(rtokens)
         form, rest2 = read_form(rest1)
-        line_col = hash_map(_K_LINE, token.line, _K_COLUMN, token.column)
-        return \
-            with_meta(
-                list_(
-                    with_meta(_S_WITH_META, line_col),
-                    form,
-                    with_meta(meta_data, line_col)),
-                line_col), \
-            rest2
+        return vary_meta(form, merge, _meta), rest2
     elif tstring == "(":
         return read_collection(tokens, list_, "(", ")")
     elif tstring == "[":
