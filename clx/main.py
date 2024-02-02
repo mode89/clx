@@ -608,13 +608,7 @@ def read_form(tokens):
     tstring = token.string
     if tstring == "'":
         form, _rest = read_form(rtokens)
-        return \
-            with_meta(
-                list_(_S_QUOTE, form),
-                hash_map(
-                    _K_LINE, token.line,
-                    _K_COLUMN, token.column)), \
-            _rest
+        return list_(_S_QUOTE, form), _rest
     elif tstring == "`":
         form, _rest = read_form(rtokens)
         return quasiquote(form), _rest
@@ -657,11 +651,7 @@ def read_atom(token):
     elif tstring[0] == ":":
         return keyword(tstring[1:])
     else:
-        return with_meta(
-            symbol(tstring),
-            hash_map(
-                _K_LINE, token.line,
-                _K_COLUMN, token.column))
+        return symbol(tstring)
 
 def unescape(text):
     return text \
@@ -685,11 +675,12 @@ def read_collection(
             raise Exception(f"Expected '{end}'")
         assert isinstance(token, Token), "expected a token"
         if token.string == end:
-            return with_meta(
-                ctor(*elements),
-                hash_map(
-                    _K_LINE, token0.line,
-                    _K_COLUMN, token0.column)), \
+            return \
+                with_meta(
+                    ctor(*elements),
+                    hash_map(
+                        _K_LINE, token0.line,
+                        _K_COLUMN, token0.column)), \
                 rest(tokens)
         element, tokens = read_form(tokens)
         elements.append(element)
@@ -754,6 +745,8 @@ Context = define_record("Context",
     _K_CURRENT_NS,
     _K_NAMESPACES,
     _K_LOCALS,
+    _K_LINE,
+    _K_COLUMN,
     _K_COUNTER) # for generating unique names
 Namespace = define_record("Namespace", _K_BINDINGS)
 Binding = define_record("Binding", _K_PY_NAME)
@@ -771,6 +764,8 @@ def eval_string(text):
         current_ns="user",
         namespaces=hash_map("user", Namespace(bindings=_bindings)),
         locals=hash_map(),
+        line=1,
+        column=1,
         counter=1000)
 
     while tokens:
@@ -784,6 +779,22 @@ def eval_string(text):
 
     return result, ctx, _globals
 
+def _push_source_location(f): # pylint: disable=invalid-name
+    def _wrapper(form, ctx):
+        _meta = meta(form)
+        push_location = get(_meta, _K_LINE) is not None
+        if push_location:
+            old_line, old_column = ctx.line, ctx.column
+            ctx = assoc(ctx,
+                _K_LINE, get(_meta, _K_LINE),
+                _K_COLUMN, get(_meta, _K_COLUMN))
+        expr, stmts, ctx = f(form, ctx)
+        if push_location:
+            ctx = assoc(ctx, _K_LINE, old_line, _K_COLUMN, old_column)
+        return expr, stmts, ctx
+    return _wrapper
+
+@_push_source_location
 def _compile(form, ctx):
     if isinstance(form, PersistentList):
         head = form.first()
@@ -799,7 +810,7 @@ def _compile(form, ctx):
             return _compile_fn(form, ctx)
         if head == _S_QUOTE:
             assert len(form) == 2, "quote expects exactly 1 argument"
-            return _node(ast.Constant, form, second(form)), [], ctx
+            return _node(ast.Constant, ctx, second(form)), [], ctx
         if head == _S_PYTHON:
             return _compile_python(form, ctx)
         else:
@@ -810,10 +821,10 @@ def _compile(form, ctx):
         return _compile_map(form, ctx)
     elif isinstance(form, Symbol):
         py_name = _resolve_symbol(ctx, form).py_name
-        return _node(ast.Name, form, py_name, ast.Load()), [], ctx
+        return _node(ast.Name, ctx, py_name, ast.Load()), [], ctx
     else:
-        # Location information is not available for constants
-        return ast.Constant(form, lineno=0, col_offset=0), [], ctx
+        return ast.Constant(form, lineno=ctx.line, col_offset=ctx.column), \
+            [], ctx
 
 def _compile_def(form, ctx):
     assert len(form) == 3, "def expects 2 arguments"
@@ -824,9 +835,9 @@ def _compile_def(form, ctx):
     _ns = ctx.current_ns
     py_name = munge(f"{_ns}/{name.name}")
     return \
-        _node(ast.Call, form,
-            _node(ast.Name, form, "___def", ast.Load()),
-            [_node(ast.Constant, form, py_name), value], []), \
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, "___def", ast.Load()),
+            [_node(ast.Constant, ctx, py_name), value], []), \
         body, \
         assoc_in(ctx,
             list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
@@ -842,13 +853,13 @@ def _compile_do(form, ctx):
         stmts.extend(f_stmts)
         result_name, ctx = _gen_name(ctx)
         stmts.append(
-            _node(ast.Assign, form,
-                [_node(ast.Name, form, result_name, ast.Store())],
+            _node(ast.Assign, ctx,
+                [_node(ast.Name, ctx, result_name, ast.Store())],
                 f_result))
     return \
-        _node(ast.Name, form, result_name, ast.Load()) \
+        _node(ast.Name, ctx, result_name, ast.Load()) \
             if result_name is not None \
-            else _node(ast.Constant, form, None), \
+            else _node(ast.Constant, ctx, None), \
         stmts, ctx
 
 def _compile_let(form, ctx):
@@ -870,14 +881,14 @@ def _compile_let(form, ctx):
         py_name, ctx = _gen_name(ctx, f"{munged}_")
         body.extend(value_stmts)
         body.append(
-            _node(ast.Assign, _name,
-                [_node(ast.Name, _name, py_name, ast.Store())], value_expr))
+            _node(ast.Assign, ctx,
+                [_node(ast.Name, ctx, py_name, ast.Store())], value_expr))
         ctx = assoc_in(ctx, list_(_K_LOCALS, _name.name), Binding(py_name))
     if len(form) == 3:
         body_expr, body_stmts, ctx = _compile(third(form), ctx)
         body.extend(body_stmts)
     else:
-        body_expr = _node(ast.Constant, form, None)
+        body_expr = _node(ast.Constant, ctx, None)
     return body_expr, body, ctx.assoc(_K_LOCALS, old_locals)
 
 def _compile_if(form, ctx):
@@ -887,18 +898,18 @@ def _compile_if(form, ctx):
     then_expr, then_stmts, ctx = _compile(then, ctx)
     else_expr, else_stmts, ctx = _compile(else_, ctx)
     result_name, ctx = _gen_name(ctx, "___if_result_")
-    result_store = _node(ast.Name, form, result_name, ast.Store())
-    result_load = _node(ast.Name, form, result_name, ast.Load())
+    result_store = _node(ast.Name, ctx, result_name, ast.Store())
+    result_load = _node(ast.Name, ctx, result_name, ast.Load())
     return \
         result_load, \
         test_stmts + [
-            _node(ast.If, form,
+            _node(ast.If, ctx,
                 test_expr,
                 then_stmts + [
-                    _node(ast.Assign, form, [result_store], then_expr)
+                    _node(ast.Assign, ctx, [result_store], then_expr)
                 ],
                 else_stmts + [
-                    _node(ast.Assign, form, [result_store], else_expr)
+                    _node(ast.Assign, ctx, [result_store], else_expr)
                 ]
             ),
         ], \
@@ -938,16 +949,16 @@ def _compile_fn(form, ctx):
     if len(form) == 3:
         body_form = third(form)
         body_expr, body_stmts, ctx = _compile(body_form, ctx)
-        body = body_stmts + [_node(ast.Return, form, body_expr)]
+        body = body_stmts + [_node(ast.Return, ctx, body_expr)]
     else:
-        body = [_node(ast.Pass, form)]
+        body = [_node(ast.Pass, ctx)]
 
     def _arg(_p):
-        return _node(ast.arg, _p, munge(_p.name))
+        return _node(ast.arg, ctx, munge(_p.name))
 
     return \
-        _node(ast.Name, form, fname, ast.Load()), \
-        [_node(ast.FunctionDef, form,
+        _node(ast.Name, ctx, fname, ast.Load()), \
+        [_node(ast.FunctionDef, ctx,
             fname,
             ast.arguments(
                 posonlyargs=[_arg(p) for p in pos_params],
@@ -976,7 +987,7 @@ def _compile_python(form, ctx):
         result = module.body[-1].value
     else:
         stmts = module.body
-        result = _node(ast.Constant, form, None)
+        result = _node(ast.Constant, ctx, None)
     return result, stmts, ctx
 
 def _compile_call(form, ctx):
@@ -988,7 +999,7 @@ def _compile_call(form, ctx):
         body.extend(arg_body)
     _f, f_body, ctx = _compile(form.first(), ctx)
     body.extend(f_body)
-    return _node(ast.Call, form, _f, args, []), body, ctx
+    return _node(ast.Call, ctx, _f, args, []), body, ctx
 
 def _compile_vector(form, ctx):
     el_exprs = []
@@ -999,8 +1010,8 @@ def _compile_vector(form, ctx):
         stmts.extend(el_stmts)
     py_vector = _resolve_symbol(ctx, _S_VECTOR).py_name
     return \
-        _node(ast.Call, form,
-            _node(ast.Name, form, py_vector, ast.Load()),
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, py_vector, ast.Load()),
             el_exprs,
             []), \
         stmts, \
@@ -1018,8 +1029,8 @@ def _compile_map(form, ctx):
         stmts.extend(value_stmts)
     py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).py_name
     return \
-        _node(ast.Call, form,
-            _node(ast.Name, form, py_hash_map, ast.Load()),
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, py_hash_map, ast.Load()),
             args,
             []), \
         stmts, \
@@ -1051,11 +1062,10 @@ def _gen_name(ctx, base="___gen_"):
     ctx = assoc(ctx, _K_COUNTER, counter + 1)
     return f"{base}{counter}", ctx
 
-def _node(type_, form, *args):
+def _node(type_, ctx, *args):
     _n = type_(*args)
-    _meta = meta(form)
-    _n.lineno = _meta.lookup(_K_LINE, None)
-    _n.col_offset = _meta.lookup(_K_COLUMN, None)
+    _n.lineno = ctx.line
+    _n.col_offset = ctx.column
     return _n
 
 def _transform_ast(ctx, body, result):

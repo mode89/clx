@@ -349,8 +349,6 @@ def test_read_string():
     assert clx.read_string(":hello/world") is K("hello", "world")
     assert clx.read_string("hello") == S("hello")
     assert clx.read_string("hello/world") == S("hello", "world")
-    assert clx.meta(clx.read_string("     \n  foo/bar")) == \
-        M(K("line"), 2, K("column"), 3)
     assert clx.read_string("(1 2 3)") == L(1, 2, 3)
     with pytest.raises(Exception, match=r"Expected '\)'"):
         clx.read_string("(1 2 3")
@@ -650,6 +648,8 @@ def test_resolve_symbol():
         locals=M(
             "a", 5,
             "bar", 6),
+        line=None,
+        column=None,
         counter=0)
     assert resolve(ctx, S("a")) == 5
     assert resolve(ctx, S("bar")) == 6
