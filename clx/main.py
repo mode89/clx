@@ -80,7 +80,7 @@ class IAssociative(ABC):
     def lookup(self, key, not_found):
         raise NotImplementedError()
     @abstractmethod
-    def assoc(self, key, value):
+    def assoc(self, *kvs):
         raise NotImplementedError()
 
 class ICollection(ABC):
@@ -381,9 +381,10 @@ class PersistentMap(
         raise NotImplementedError()
     def lookup(self, key, not_found):
         return self._impl.get(key, not_found)
-    def assoc(self, key, value):
+    def assoc(self, *kvs):
         copy = self._impl.copy()
-        copy[key] = value
+        for key, value in zip(kvs[::2], kvs[1::2]):
+            copy[key] = value
         return PersistentMap(copy, None)
     def merge(self, other):
         copy = self._impl.copy()
@@ -432,8 +433,11 @@ class {name}(IRecord):
     {init_fields}
   def lookup(self, field, not_found):
     return getattr(self, field.munged, not_found)
-  def assoc(self, field, value):
-    return assoc_methods[field](self, value)
+  def assoc(self, *kvs):
+    obj = self
+    for k, v in zip(kvs[::2], kvs[1::2]):
+      obj = assoc_methods[k](obj, v)
+    return obj
 cls = {name}
         """,
         _ns)
@@ -1254,10 +1258,11 @@ def get(obj, key, not_found=None):
     else:
         return not_found
 
-def assoc(obj, key, value):
+def assoc(obj, *kvs):
+    assert len(kvs) % 2 == 0, "assoc expects even number of arguments"
     if obj is None:
-        return hash_map(key, value)
-    return obj.assoc(key, value)
+        return hash_map(*kvs)
+    return obj.assoc(*kvs)
 
 def get_in(obj, path, not_found=_UNDEFINED):
     for key in path:

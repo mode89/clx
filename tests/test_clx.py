@@ -296,6 +296,7 @@ def test_hash_map():
     m1 = assoc(m0, "a", 1) # pylint: disable=invalid-name
     m2 = assoc(m1, "b", 2) # pylint: disable=invalid-name
     m3 = m2.merge(M("c", 3, "d", 4)) # pylint: disable=invalid-name
+    m4 = assoc(m3, "a", 5, "b", 6) # pylint: disable=invalid-name
     assert type(m0) is clx.PersistentMap
     assert m0 is M()
     assert type(m1) is clx.PersistentMap
@@ -305,7 +306,8 @@ def test_hash_map():
     assert m2 == M("a", 1, "b", 2)
     assert type(m3) is clx.PersistentMap
     assert m3 == M("a", 1, "b", 2, "c", 3, "d", 4)
-
+    assert type(m4) is clx.PersistentMap
+    assert m4 == M("a", 5, "b", 6, "c", 3, "d", 4)
 
 def test_record():
     record = clx.define_record("TestRecord", K("a"), K("b"))
@@ -325,6 +327,12 @@ def test_record():
     assert get(_r3, K("b")) == 4
     assert get(_r1, K("a")) == 1
     assert get(_r1, K("b")) == 2
+    _r4 = assoc(_r3, K("a"), 5, K("b"), 6)
+    assert isinstance(_r4, record)
+    assert get(_r3, K("a")) == 1
+    assert get(_r3, K("b")) == 4
+    assert get(_r4, K("a")) == 5
+    assert get(_r4, K("b")) == 6
 
 def test_read_string():
     assert clx.read_string("1") == 1
@@ -685,6 +693,7 @@ def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)
     assert assoc(M("a", 2), "a", 3) == M("a", 3)
     assert assoc(M("a", 4), "b", 5) == M("a", 4, "b", 5)
+    assert assoc(M("a", 6), "b", 7, "a", 8) == M("a", 8, "b", 7)
 
 def test_assoc_in():
     assert clx.assoc_in(M("a", M("b", 1)), L("a", "b"), 2) == M("a", M("b", 2))
