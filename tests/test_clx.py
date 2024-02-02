@@ -51,7 +51,7 @@ def test_keyword():
     assert K(S("baz")) is K("baz")
     assert K(S("foo/bar")) is K("foo/bar")
     assert K(K("quux")) is K("quux")
-    assert str(K("foo/bar")) == "Keyword(foo, bar)"
+    assert str(K("foo/bar")) == ":foo/bar"
     assert K(None, "foo") is K("foo")
 
 def test_symbol():
@@ -76,7 +76,7 @@ def test_symbol():
     assert S(S("quux")) == S("quux")
     assert clx.is_simple_symbol(S("foo"))
     assert not clx.is_simple_symbol(S("foo/bar"))
-    assert str(S("foo/bar")) == "Symbol(foo, bar)"
+    assert str(S("foo/bar")) == "foo/bar"
 
 def test_list():
     assert isinstance(L(), clx.PersistentList)
