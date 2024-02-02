@@ -476,7 +476,7 @@ class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def seq(self):
         return self
 
-class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
+class LazySeq(Hashable, IMeta, ISeq, ISequential):
     def __init__(self, _func, _seq, _meta):
         self._lock = threading.Lock()
         self._func = _func
@@ -487,14 +487,13 @@ class LazySeq(Hashable, Sequence, IMeta, ISeq, ISequential):
             or _equiv_sequential(self, other)
     def __bool__(self):
         return bool(self.seq())
-    def __len__(self):
-        raise NotImplementedError()
     def __hash__(self):
         raise NotImplementedError()
     def __iter__(self):
-        raise NotImplementedError()
-    def __getitem__(self, index):
-        raise NotImplementedError()
+        s = self.seq() # pylint: disable=invalid-name
+        while s is not None:
+            yield s.first()
+            s = s.next() # pylint: disable=invalid-name
     def with_meta(self, _meta):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):

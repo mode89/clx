@@ -254,6 +254,7 @@ def test_lazy_seq():
     assert _lazy_range(3) == L(0, 1, 2)
     assert _lazy_range(3) == V(0, 1, 2)
     assert lazy_seq(L) == L()
+    assert list(_lazy_range(3)) == [0, 1, 2]
 
 def test_seq():
     assert seq(None) is None
