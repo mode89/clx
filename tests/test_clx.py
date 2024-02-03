@@ -631,7 +631,6 @@ def test_meta():
     assert clx.meta(fred_with_meta) == M("foo", 42)
 
 def test_resolve_symbol():
-    resolve = clx._resolve_symbol # pylint: disable=protected-access
     ctx = clx.Context(
         current_ns="user",
         namespaces=M(
@@ -645,23 +644,23 @@ def test_resolve_symbol():
                     bindings=M(
                         "quux", 3,
                         "fred", 4))),
-        locals=M(
-            "a", 5,
-            "bar", 6),
-        line=None,
-        column=None,
         counter=0)
-    assert resolve(ctx, S("a")) == 5
-    assert resolve(ctx, S("bar")) == 6
-    assert resolve(ctx, S("foo")) == 1
-    assert resolve(ctx, S("baz/quux")) == 3
-    assert resolve(ctx, S("baz/fred")) == 4
-    assert resolve(ctx, S("user/foo")) == 1
-    assert resolve(ctx, S("user/bar")) == 2
+    lctx = clx.LocalContext(
+        locals=M("a", 5, "bar", 6),
+        line=None,
+        column=None)
+    resolve = lambda x: clx._resolve_symbol(ctx, lctx, x) # pylint: disable=protected-access
+    assert resolve(S("a")) == 5
+    assert resolve(S("bar")) == 6
+    assert resolve(S("foo")) == 1
+    assert resolve(S("baz/quux")) == 3
+    assert resolve(S("baz/fred")) == 4
+    assert resolve(S("user/foo")) == 1
+    assert resolve(S("user/bar")) == 2
     with pytest.raises(Exception, match=r"Symbol 'user/baz' not found"):
-        resolve(ctx, S("user/baz"))
+        resolve(S("user/baz"))
     with pytest.raises(Exception, match=r"Namespace 'bar' not found"):
-        resolve(ctx, S("bar/foo"))
+        resolve(S("bar/foo"))
     assert _eval(
         """
         (def forty-two 42)
