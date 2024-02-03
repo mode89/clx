@@ -529,6 +529,10 @@ def _equiv_sequential(x, y): # pylint: disable=invalid-name
     else:
         return False
 
+class ResolveError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
 #************************************************************
 # Constants
 #************************************************************
@@ -551,6 +555,7 @@ _S_PYTHON = symbol("___python")
 _S_AMPER = symbol("&")
 _S_KEYWORD = symbol("keyword")
 _S_SYMBOL = symbol("symbol")
+_S_APPLY = symbol("apply")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -558,8 +563,10 @@ _K_CURRENT_NS = keyword("current-ns")
 _K_NAMESPACES = keyword("namespaces")
 _K_LOCALS = keyword("locals")
 _K_COUNTER = keyword("counter")
+_K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
 _K_BINDINGS = keyword("bindings")
+_K_MACRO_QMARK = keyword("macro?")
 
 #************************************************************
 # Reader
@@ -694,7 +701,7 @@ def quasiquote(form):
         elif head == _S_SPLICE_UNQUOTE:
             raise Exception("splice-unquote not in list")
         else:
-            return _quasiquote_sequence(form)
+            return list_(_S_APPLY, _S_LIST, _quasiquote_sequence(form))
     if is_vector(form) and len(form) > 0:
         return list_(_S_VEC, _quasiquote_sequence(form))
     elif is_symbol(form):
@@ -712,7 +719,7 @@ def _quasiquote_sequence(form):
             return second(_f)
         else:
             return list_(_S_LIST, quasiquote(_f))
-    return cons(_S_CONCAT, list_(*map(entry, form)))
+    return list_(_S_CONCAT, *map(entry, form))
 
 #************************************************************
 # Printer
@@ -744,6 +751,7 @@ def escape(text):
 Context = define_record("Context",
     _K_CURRENT_NS,
     _K_NAMESPACES,
+    _K_PY_GLOBALS,
     _K_COUNTER) # for generating unique names
 # Local context defines state that is local to a single form.
 LocalContext = define_record("LocalContext",
@@ -765,6 +773,7 @@ def eval_string(text):
     ctx = Context(
         current_ns="user",
         namespaces=hash_map("user", Namespace(bindings=_bindings)),
+        py_globals=_globals,
         counter=1000)
     lctx = LocalContext(
         locals=hash_map(),
@@ -777,13 +786,43 @@ def eval_string(text):
         body = ast.Module(body, type_ignores=[])
         result = ast.Expression(result, type_ignores=[])
         _transform_ast(ctx, body, result)
+        print(ast.unparse(body))
         exec(compile(body, "<none>", "exec"), _globals) # pylint: disable=exec-used
+        print(ast.unparse(result))
         result = eval(compile(result, "<none>", "eval"), _globals) # pylint: disable=eval-used
 
     return result, ctx, _globals
 
+def macroexpand(form, ctx):
+    while True:
+        _form = macroexpand1(form, ctx)
+        if _form is form:
+            return form
+        form = _form
+
+def macroexpand1(form, ctx):
+    if is_list(form): # pylint: disable=too-many-nested-blocks
+        head = form.first()
+        if is_symbol(head):
+            try:
+                binding = _resolve_symbol(ctx, None, head)
+                py_name = binding.py_name
+                if py_name in ctx.py_globals:
+                    obj = ctx.py_globals[py_name]
+                    if is_macro(obj):
+                        return obj(*form.rest())
+                else:
+                    if get(binding, _K_MACRO_QMARK):
+                        raise Exception(
+                            f"macro '{head}' is defined, "
+                            "but hasn't been evaluated yet")
+            except ResolveError:
+                pass
+    return form
+
 def _compile(form, lctx, ctx):
     lctx = _update_source_location(form, lctx)
+    form = macroexpand(form, ctx)
     if isinstance(form, PersistentList):
         head = form.first()
         if head == _S_DEF:
@@ -951,9 +990,8 @@ def _compile_fn(form, lctx, ctx):
     def _arg(_p):
         return _node(ast.arg, lctx, munge(_p.name))
 
-    return \
-        _node(ast.Name, lctx, fname, ast.Load()), \
-        [_node(ast.FunctionDef, lctx,
+    stmts = [
+        _node(ast.FunctionDef, lctx,
             fname,
             ast.arguments(
                 posonlyargs=[_arg(p) for p in pos_params],
@@ -964,8 +1002,18 @@ def _compile_fn(form, lctx, ctx):
                 defaults=[],
             ),
             body,
-            [])], \
-        ctx
+            [])
+    ]
+
+    if get(meta(form), _K_MACRO_QMARK):
+        stmts.append(
+            _node(ast.Assign, lctx,
+                [_node(ast.Attribute, lctx,
+                    _node(ast.Name, lctx, fname, ast.Load()),
+                    "___macro", ast.Store())],
+                _node(ast.Constant, lctx, True)))
+
+    return _node(ast.Name, lctx, fname, ast.Load()), stmts, ctx
 
 def _compile_python(form, lctx, ctx):
     def _eval_entry(entry):
@@ -1051,8 +1099,8 @@ def _resolve_symbol(ctx, lctx, sym):
             if result is not None:
                 return result
         else:
-            raise Exception(f"Namespace '{sym.namespace}' not found")
-    raise Exception(f"Symbol '{pr_str(sym)}' not found")
+            raise ResolveError(f"Namespace '{sym.namespace}' not found")
+    raise ResolveError(f"Symbol '{pr_str(sym)}' not found")
 
 def _gen_name(ctx, base="___gen_"):
     counter = ctx.counter
@@ -1112,14 +1160,14 @@ def _compile_quote(ctx, value):
             _S_KEYWORD if isinstance(value, Keyword) else _S_SYMBOL).py_name
         _ns = ast.Constant(value.namespace, lineno=0, col_offset=0)
         _name = ast.Constant(value.name, lineno=0, col_offset=0)
-        return ast.Call(
+        tree = ast.Call(
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
             [_ns, _name], [], lineno=0, col_offset=0)
     elif isinstance(value, (PersistentList, PersistentVector)):
         ctor = _resolve_symbol(ctx, None,
             _S_LIST if isinstance(value, PersistentList) else _S_VECTOR) \
             .py_name
-        return ast.Call(
+        tree = ast.Call(
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
             [_compile_quote(ctx, v) for v in value],
             [], lineno=0, col_offset=0)
@@ -1129,10 +1177,18 @@ def _compile_quote(ctx, value):
         for key, val in value.items():
             args.append(_compile_quote(ctx, key))
             args.append(_compile_quote(ctx, val))
-        return ast.Call(
+        tree = ast.Call(
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
             args, [], lineno=0, col_offset=0)
-    return ast.Constant(value, lineno=0, col_offset=0)
+    else:
+        tree = ast.Constant(value, lineno=0, col_offset=0)
+    if meta(value) is not None:
+        tree = ast.Call(
+            ast.Name(_resolve_symbol(ctx, None, _S_WITH_META).py_name,
+                ast.Load(), lineno=0, col_offset=0),
+            [tree, _compile_quote(ctx, meta(value))],
+            [], lineno=0, col_offset=0)
+    return tree
 
 def _basic_bindings():
     bindings = {
@@ -1146,6 +1202,7 @@ def _basic_bindings():
         "list": list_,
         "vector": vector,
         "hash-map": hash_map,
+        "concat": concat,
     }
     _bindings = hash_map()
     _globals = {}
@@ -1189,6 +1246,9 @@ def with_meta(obj, _meta):
 
 def vary_meta(obj, f, *args): # pylint: disable=invalid-name
     return with_meta(obj, f(meta(obj), *args))
+
+def is_macro(obj):
+    return callable(obj) and getattr(obj, "___macro", False)
 
 def is_counted(x): # pylint: disable=invalid-name
     return isinstance(x, ICounted)

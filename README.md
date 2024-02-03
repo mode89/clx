@@ -7,7 +7,7 @@
 - [x] Functions
 - [x] Quoting
 - [x] Lazy sequences
-- [ ] Macros
+- [x] Macros
 - [ ] Host interop
    - [x] Eval host code
    - [ ] Dot notation

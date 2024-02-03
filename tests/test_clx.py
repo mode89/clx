@@ -365,13 +365,13 @@ def test_quasiquote():
     assert clx.read_string("`()") == L()
     assert clx.read_string("`a") == L(S("quote"), S("a"))
     assert clx.read_string("`~a") == S("a")
+    lconcat = lambda *args: L(S("apply"), S("list"), L(S("concat"), *args))
     assert clx.read_string("`(a)") == \
-        L(S("concat"), L(S("list"), L(S("quote"), S("a"))))
-    assert clx.read_string("`(~a)") == \
-        L(S("concat"), L(S("list"), S("a")))
-    assert clx.read_string("`(~@a)") == L(S("concat"), S("a"))
+        lconcat(L(S("list"), L(S("quote"), S("a"))))
+    assert clx.read_string("`(~a)") == lconcat(L(S("list"), S("a")))
+    assert clx.read_string("`(~@a)") == lconcat(S("a"))
     assert clx.read_string("`(1 a ~b ~@c)") == \
-        L(S("concat"),
+        lconcat(
             L(S("list"), 1),
             L(S("list"), L(S("quote"), S("a"))),
             L(S("list"), S("b")),
@@ -571,6 +571,47 @@ def test_eval_fn():
         bar
         """) == 42
 
+def test_macros():
+    assert clx.is_macro(_eval("(def foo (fn* [] 42))")) is False
+    assert clx.is_macro(_eval("(def foo ^{:macro? true} (fn* [] 42))"))
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* []
+            (list '+ 1 2)))
+        (foo)
+        """) == 3
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* []
+            '(+ 3 4 5)))
+        (foo)
+        """) == 12
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* [x]
+            (list '+ x x)))
+        (foo 42)
+        """) == 84
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* [x]
+            `(+ ~x 1 ~x ~x 2)))
+        (foo 7)
+        """) == 24
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* [x y]
+            (let* [x2 [x x]
+                   y3 [y y y]]
+              `(+ ~@x2 4 ~@y3))))
+        (foo 1 2)
+        """) == 12
+
 def test_eval_python():
     assert _eval("(___python)") is None
     assert _eval("(___python \"42\")") == 42
@@ -614,7 +655,7 @@ def test_meta():
     assert quux.count_() == 3
     assert clx.meta(second(quux)).get(K("foo")) == 42
     assert clx.meta(second(quux)).get(K("bar")) == 43
-    bar = lambda: 42 # pylint: disable=disallowed-name,unnecessary-lambda-assignment
+    bar = lambda: 42 # pylint: disable=disallowed-name
     bar_with_meta = clx.with_meta(bar, M(K("quux"), 43))
     assert bar() == 42
     assert bar_with_meta() == 42
@@ -644,6 +685,7 @@ def test_resolve_symbol():
                     bindings=M(
                         "quux", 3,
                         "fred", 4))),
+        py_globals={},
         counter=0)
     lctx = clx.LocalContext(
         locals=M("a", 5, "bar", 6),
