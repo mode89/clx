@@ -1367,3 +1367,7 @@ def merge(*maps):
         else:
             return m1.merge(m2)
     return functools.reduce(helper, maps, None)
+
+def slurp(path):
+    with open(path, "r", encoding="utf-8") as file:
+        return file.read()
