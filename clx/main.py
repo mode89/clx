@@ -761,37 +761,56 @@ LocalContext = define_record("LocalContext",
 Namespace = define_record("Namespace", _K_BINDINGS)
 Binding = define_record("Binding", _K_PY_NAME)
 
-def eval_string(text):
-    tokens = list(tokenize(text))
-    _bindings, _globals = _basic_bindings()
+def _init_context(namespaces):
+    _globals = {}
 
     def _def(name, value):
         _globals[name] = value
         return value
     _globals["___def"] = _def
 
-    ctx = Context(
-        current_ns="user",
-        namespaces=hash_map("user", Namespace(bindings=_bindings)),
-        py_globals=_globals,
-        counter=1000)
-    lctx = LocalContext(
-        locals=hash_map(),
-        line=1,
-        column=1)
+    _namespaces = hash_map("user", Namespace(hash_map()))
+    for ns_name, ns_bindings in namespaces.items():
+        _bindings = hash_map()
+        for name, value in ns_bindings.items():
+            py_name = munge(f"{ns_name}/{name}")
+            _bindings = assoc(_bindings, name, Binding(py_name))
+            _globals[py_name] = value
+        _namespaces = assoc_in(_namespaces,
+            list_(ns_name, _K_BINDINGS), _bindings)
 
+    return \
+        Context(
+            current_ns="user",
+            namespaces=_namespaces,
+            py_globals=_globals,
+            counter=10000), \
+        LocalContext(
+            locals=hash_map(),
+            line=1,
+            column=1)
+
+def _load_string(ctx, lctx, file_name, text):
+    tokens = list(tokenize(text))
     while tokens:
         form, tokens = read_form(tokens)
-        result, body, ctx = _compile(form, lctx, ctx)
-        body = ast.Module(body, type_ignores=[])
-        result = ast.Expression(result, type_ignores=[])
-        _transform_ast(ctx, body, result)
-        print(ast.unparse(body))
-        exec(compile(body, "<none>", "exec"), _globals) # pylint: disable=exec-used
-        print(ast.unparse(result))
-        result = eval(compile(result, "<none>", "eval"), _globals) # pylint: disable=eval-used
+        result, ctx = _eval_form(ctx, lctx, file_name, form)
+    return result, ctx
 
-    return result, ctx, _globals
+def _eval_form(ctx, lctx, file_name, form):
+    result, body, ctx = _compile(form, lctx, ctx)
+    body = ast.Module(body, type_ignores=[])
+    result = ast.Expression(result, type_ignores=[])
+    _transform_ast(ctx, body, result)
+    exec( # pylint: disable=exec-used
+        compile(body, file_name, "exec"), ctx.py_globals)
+    return eval( # pylint: disable=eval-used
+        compile(result, file_name, "eval"), ctx.py_globals), \
+        ctx
+
+def _load_file(ctx, path):
+    lctx = LocalContext(hash_map(), True, 1, 1)
+    return _load_string(ctx, lctx, path, slurp(path))
 
 def macroexpand(form, ctx):
     while True:
@@ -1189,28 +1208,6 @@ def _compile_quote(ctx, value):
             [tree, _compile_quote(ctx, meta(value))],
             [], lineno=0, col_offset=0)
     return tree
-
-def _basic_bindings():
-    bindings = {
-        "+": lambda *args: sum(args),
-        "even?": lambda x: x % 2 == 0,
-        "odd?": lambda x: x % 2 == 1,
-        "with-meta": with_meta,
-        "apply": apply,
-        "keyword": keyword,
-        "symbol": symbol,
-        "list": list_,
-        "vector": vector,
-        "hash-map": hash_map,
-        "concat": concat,
-    }
-    _bindings = hash_map()
-    _globals = {}
-    for name, value in bindings.items():
-        munged = munge(f"user/{name}")
-        _bindings = _bindings.assoc(name, Binding(munged))
-        _globals[munged] = value
-    return _bindings, _globals
 
 #************************************************************
 # Core

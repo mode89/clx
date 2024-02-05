@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import pytest
 
 import clx.main as clx
@@ -10,8 +11,25 @@ L = clx.list_
 V = clx.vector
 M = clx.hash_map
 
+def _make_test_context():
+    return clx._init_context({
+        "user": {
+            "+": lambda *args: sum(args),
+            "even?": lambda x: x % 2 == 0,
+            "odd?": lambda x: x % 2 == 1,
+            "with-meta": clx.with_meta,
+            "apply": clx.apply,
+            "keyword": clx.keyword,
+            "symbol": clx.symbol,
+            "list": clx.list_,
+            "vector": clx.vector,
+            "hash-map": clx.hash_map,
+            "concat": clx.concat,
+        }})
+
 def _eval(text):
-    return clx.eval_string(text)[0]
+    ctx, lctx = _make_test_context()
+    return clx._load_string(ctx, lctx, "<string>", text)[0]
 
 def _lazy_range(*args):
     assert len(args) <= 2
@@ -451,7 +469,8 @@ def test_eval_quote():
           M(K("nine"), L(S("ten"), 11), 12, V(K("thirteen"), "fourteen")))
 
 def test_eval_def():
-    res, ctx, glob = clx.eval_string("(def foo 42)")
+    ctx, lctx = _make_test_context()
+    res, ctx = clx._load_string(ctx, lctx, "<string>", "(def foo 42)")
     assert res == 42
     assert clx.get_in(ctx,
         L(K("namespaces"),
@@ -459,7 +478,7 @@ def test_eval_def():
           K("bindings"),
           "foo",
           K("py-name"))) == munge("user/foo")
-    assert glob[munge("user/foo")] == 42
+    assert ctx.py_globals[munge("user/foo")] == 42
 
 def test_eval_do():
     assert _eval("(do)") is None
@@ -691,7 +710,7 @@ def test_resolve_symbol():
         locals=M("a", 5, "bar", 6),
         line=None,
         column=None)
-    resolve = lambda x: clx._resolve_symbol(ctx, lctx, x) # pylint: disable=protected-access
+    resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
     assert resolve(S("a")) == 5
     assert resolve(S("bar")) == 6
     assert resolve(S("foo")) == 1
@@ -782,3 +801,8 @@ def test_merge():
 def test_slurp():
     with open("tests/hello-world.clj", encoding="utf-8") as file:
         assert clx.slurp("tests/hello-world.clj") == file.read()
+
+def test_load_file():
+    ctx, _ = _make_test_context()
+    hello_world, ctx = clx._load_file(ctx, "tests/hello-world.clj")
+    assert hello_world() is K("hello-world")
