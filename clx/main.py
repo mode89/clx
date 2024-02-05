@@ -845,29 +845,8 @@ def _compile(form, lctx, ctx):
     form = macroexpand(form, ctx)
     if isinstance(form, PersistentList):
         head = form.first()
-        if head == _S_DEF:
-            return _compile_def(form, lctx, ctx)
-        elif head == _S_DO:
-            return _compile_do(form, lctx, ctx)
-        elif head == _S_LET_STAR:
-            return _compile_let(form, lctx, ctx)
-        elif head == _S_IF:
-            return _compile_if(form, lctx, ctx)
-        elif head == _S_FN_STAR:
-            return _compile_fn(form, lctx, ctx)
-        elif head == _S_QUOTE:
-            assert len(form) == 2, "quote expects exactly 1 argument"
-            return _node(ast.Constant, lctx, second(form)), [], ctx
-        elif head == _S_IN_NS:
-            assert len(form) == 2, "in-ns expects exactly 1 argument"
-            _ns = second(form)
-            assert is_symbol(_ns), "in-ns expects a symbol"
-            return _node(ast.Constant, lctx, None), [], \
-                assoc(ctx, _K_CURRENT_NS, _ns.name)
-        elif head == _S_PYTHON:
-            return _compile_python(form, lctx, ctx)
-        else:
-            return _compile_call(form, lctx, ctx)
+        compiler = _SPECIAL_FORM_COMPILERS.get(head, _compile_call)
+        return compiler(form, lctx, ctx)
     elif isinstance(form, PersistentVector):
         return _compile_vector(form, lctx, ctx)
     elif isinstance(form, PersistentMap):
@@ -1041,6 +1020,17 @@ def _compile_fn(form, lctx, ctx):
 
     return _node(ast.Name, lctx, fname, ast.Load()), stmts, ctx
 
+def _compile_quote(form, lctx, ctx):
+    assert len(form) == 2, "quote expects exactly 1 argument"
+    return _node(ast.Constant, lctx, second(form)), [], ctx
+
+def _compile_in_ns(form, lctx, ctx):
+    assert len(form) == 2, "in-ns expects exactly 1 argument"
+    _ns = second(form)
+    assert is_symbol(_ns), "in-ns expects a symbol"
+    return _node(ast.Constant, lctx, None), [], \
+        assoc(ctx, _K_CURRENT_NS, _ns.name)
+
 def _compile_python(form, lctx, ctx):
     def _eval_entry(entry):
         if isinstance(entry, Symbol):
@@ -1058,6 +1048,17 @@ def _compile_python(form, lctx, ctx):
         stmts = module.body
         result = _node(ast.Constant, lctx, None)
     return result, stmts, ctx
+
+_SPECIAL_FORM_COMPILERS = {
+    _S_DEF: _compile_def,
+    _S_DO: _compile_do,
+    _S_LET_STAR: _compile_let,
+    _S_IF: _compile_if,
+    _S_FN_STAR: _compile_fn,
+    _S_QUOTE: _compile_quote,
+    _S_IN_NS: _compile_in_ns,
+    _S_PYTHON: _compile_python
+}
 
 def _compile_call(form, lctx, ctx):
     args = []
@@ -1161,7 +1162,7 @@ def _fix_constants(ctx, body, result):
                 global CONSTANT_COUNTER # pylint: disable=global-statement
                 index = CONSTANT_COUNTER
                 CONSTANT_COUNTER += 1
-                consts[index] = _compile_quote(ctx, node.value)
+                consts[index] = _compile_constant(ctx, node.value)
                 return ast.Name(const_name(index), ast.Load(),
                     lineno=0, col_offset=0)
             else:
@@ -1180,7 +1181,7 @@ def _fix_constants(ctx, body, result):
         for index, value in consts.items()
     ]
 
-def _compile_quote(ctx, value):
+def _compile_constant(ctx, value):
     if isinstance(value, (Keyword, Symbol)):
         ctor = _resolve_symbol(ctx, None,
             _S_KEYWORD if isinstance(value, Keyword) else _S_SYMBOL).py_name
@@ -1195,14 +1196,14 @@ def _compile_quote(ctx, value):
             .py_name
         tree = ast.Call(
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
-            [_compile_quote(ctx, v) for v in value],
+            [_compile_constant(ctx, v) for v in value],
             [], lineno=0, col_offset=0)
     elif isinstance(value, PersistentMap):
         ctor = _resolve_symbol(ctx, None, _S_HASH_MAP).py_name
         args = []
         for key, val in value.items():
-            args.append(_compile_quote(ctx, key))
-            args.append(_compile_quote(ctx, val))
+            args.append(_compile_constant(ctx, key))
+            args.append(_compile_constant(ctx, val))
         tree = ast.Call(
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
             args, [], lineno=0, col_offset=0)
@@ -1212,7 +1213,7 @@ def _compile_quote(ctx, value):
         tree = ast.Call(
             ast.Name(_resolve_symbol(ctx, None, _S_WITH_META).py_name,
                 ast.Load(), lineno=0, col_offset=0),
-            [tree, _compile_quote(ctx, meta(value))],
+            [tree, _compile_constant(ctx, meta(value))],
             [], lineno=0, col_offset=0)
     return tree
 
