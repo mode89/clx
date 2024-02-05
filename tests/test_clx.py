@@ -755,6 +755,24 @@ def test_get():
     assert get(41, "a") is None
     assert get(42, "b", 9001) == 9001
 
+def test_get_in():
+    get_in = clx.get_in
+    assert get_in(None, None) is None
+    assert get_in(None, L("a")) is None
+    assert get_in(None, L("a", "b")) is None
+    assert get_in(M(), None) is M()
+    assert get_in(M(), L("a")) is None
+    assert get_in(M(), L("a", "b")) is None
+    assert get_in(M("a", 1), None) == M("a", 1)
+    assert get_in(M("a", 1), L("a")) == 1
+    assert get_in(M("a", 1), L("b")) is None
+    assert get_in(M("a", 1), L("b", "c")) is None
+    assert get_in(M("a", M("b", 2)), L("a")) == M("b", 2)
+    assert get_in(M("a", M("b", 2)), L("a", "b")) == 2
+    assert get_in(M("a", M("b", 2)), L("a", "c")) is None
+    assert get_in(M("a", M("b", 2)), L("b", "c"), 3) == 3
+    assert get_in(M("a", M("b", 2)), L("a", "b", "c")) is None
+
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)
     assert assoc(M("a", 2), "a", 3) == M("a", 3)

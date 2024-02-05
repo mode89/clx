@@ -1335,7 +1335,9 @@ def assoc(obj, *kvs):
         return hash_map(*kvs)
     return obj.assoc(*kvs)
 
-def get_in(obj, path, not_found=_UNDEFINED):
+def get_in(obj, path, not_found=None):
+    if path is None:
+        return obj
     for key in path:
         obj = get(obj, key, not_found)
     return obj
