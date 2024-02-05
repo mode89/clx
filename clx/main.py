@@ -569,6 +569,7 @@ _K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
 _K_BINDINGS = keyword("bindings")
 _K_MACRO_QMARK = keyword("macro?")
+_K_TOP_LEVEL_Q = keyword("top-level?")
 
 #************************************************************
 # Reader
@@ -758,6 +759,7 @@ Context = define_record("Context",
 # Local context defines state that is local to a single form.
 LocalContext = define_record("LocalContext",
     _K_LOCALS,
+    _K_TOP_LEVEL_Q,
     _K_LINE,
     _K_COLUMN)
 Namespace = define_record("Namespace", _K_BINDINGS)
@@ -789,6 +791,7 @@ def _init_context(namespaces):
             counter=10000), \
         LocalContext(
             locals=hash_map(),
+            top_level_QMARK_=True,
             line=1,
             column=1)
 
@@ -936,8 +939,10 @@ def _compile_if(form, lctx, ctx):
     assert len(form) == 4, "if expects 3 arguments"
     test, then, else_ = second(form), third(form), fourth(form)
     test_expr, test_stmts, ctx = _compile(test, lctx, ctx)
-    then_expr, then_stmts, ctx = _compile(then, lctx, ctx)
-    else_expr, else_stmts, ctx = _compile(else_, lctx, ctx)
+    then_expr, then_stmts, ctx = _compile(then,
+        lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
+    else_expr, else_stmts, ctx = _compile(else_,
+        lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
     result_name, ctx = _gen_name(ctx, "___if_result_")
     result_store = _node(ast.Name, lctx, result_name, ast.Store())
     result_load = _node(ast.Name, lctx, result_name, ast.Load())
@@ -988,7 +993,8 @@ def _compile_fn(form, lctx, ctx):
 
     if len(form) == 3:
         body_form = third(form)
-        body_expr, body_stmts, ctx = _compile(body_form, lctx, ctx)
+        body_expr, body_stmts, ctx = _compile(
+            body_form, lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
         body = body_stmts + [_node(ast.Return, lctx, body_expr)]
     else:
         body = [_node(ast.Pass, lctx)]
@@ -1026,6 +1032,7 @@ def _compile_quote(form, lctx, ctx):
     return _node(ast.Constant, lctx, second(form)), [], ctx
 
 def _compile_in_ns(form, lctx, ctx):
+    assert lctx.top_level_QMARK_, "in-ns allowed only at top level"
     assert len(form) == 2, "in-ns expects exactly 1 argument"
     _ns = second(form)
     assert is_symbol(_ns), "in-ns expects a symbol"

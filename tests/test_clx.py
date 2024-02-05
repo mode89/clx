@@ -484,6 +484,7 @@ def test_eval_def():
           "foo",
           K("py-name"))) == munge("user/foo")
     assert ctx.py_globals[munge("user/foo")] == 42
+    assert _eval("(def foo (___local_context :top-level?))") is True
 
 def test_eval_do():
     assert _eval("(do)") is None
@@ -501,6 +502,7 @@ def test_eval_do():
         (do (foo)
             bar)
         """) == 42
+    assert _eval("(do (___local_context :top-level?))") is True
 
 def test_eval_call():
     assert _eval("(+ 1 2)") == 3
@@ -530,6 +532,7 @@ def test_eval_let():
               (do (let* [b 2] b)
                   b))
             """)
+    assert _eval("(let* [a (___local_context :top-level?)] a)") is True
 
 def test_eval_if():
     assert _eval("(if true 1 2)") == 1
@@ -558,6 +561,9 @@ def test_eval_if():
                  f 6]
             (+ e f)))
         """) == 11
+    assert _eval("(if (___local_context :top-level?) 1 2)") == 1
+    assert _eval("(if true (___local_context :top-level?) 42)") is False
+    assert _eval("(if false 42 (___local_context :top-level?))") is False
 
 def test_eval_fn():
     assert _eval("(fn* [])")() is None
@@ -594,11 +600,21 @@ def test_eval_fn():
         (foo)
         bar
         """) == 42
+    assert _eval(
+        """
+        (def foo
+          (fn* []
+            (___local_context :top-level?)))
+        (foo)
+        """) is False
 
 def test_in_ns():
-    ctx, lctx = _make_test_context()
-    _, ctx = clx._load_string(ctx, lctx, "<string>", "(in-ns foo)")
+    ctx0, lctx0 = _make_test_context()
+    _, ctx = clx._load_string(ctx0, lctx0, "<string>", "(in-ns foo)")
     assert ctx.current_ns == "foo"
+    lctx = lctx0.assoc(K("top-level?"), False)
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        clx._load_string(ctx0, lctx, "<string>", "(in-ns bar)")
 
 def test_macros():
     assert clx.is_macro(_eval("(def foo (fn* [] 42))")) is False
@@ -718,6 +734,7 @@ def test_resolve_symbol():
         counter=0)
     lctx = clx.LocalContext(
         locals=M("a", 5, "bar", 6),
+        top_level_QMARK_=True,
         line=None,
         column=None)
     resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
