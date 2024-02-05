@@ -590,6 +590,11 @@ def test_eval_fn():
         bar
         """) == 42
 
+def test_in_ns():
+    ctx, lctx = _make_test_context()
+    _, ctx = clx._load_string(ctx, lctx, "<string>", "(in-ns foo)")
+    assert ctx.current_ns == "foo"
+
 def test_macros():
     assert clx.is_macro(_eval("(def foo (fn* [] 42))")) is False
     assert clx.is_macro(_eval("(def foo ^{:macro? true} (fn* [] 42))"))

@@ -551,6 +551,7 @@ _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
+_S_IN_NS = symbol("in-ns")
 _S_PYTHON = symbol("___python")
 _S_AMPER = symbol("&")
 _S_KEYWORD = symbol("keyword")
@@ -846,18 +847,24 @@ def _compile(form, lctx, ctx):
         head = form.first()
         if head == _S_DEF:
             return _compile_def(form, lctx, ctx)
-        if head == _S_DO:
+        elif head == _S_DO:
             return _compile_do(form, lctx, ctx)
-        if head == _S_LET_STAR:
+        elif head == _S_LET_STAR:
             return _compile_let(form, lctx, ctx)
-        if head == _S_IF:
+        elif head == _S_IF:
             return _compile_if(form, lctx, ctx)
-        if head == _S_FN_STAR:
+        elif head == _S_FN_STAR:
             return _compile_fn(form, lctx, ctx)
-        if head == _S_QUOTE:
+        elif head == _S_QUOTE:
             assert len(form) == 2, "quote expects exactly 1 argument"
             return _node(ast.Constant, lctx, second(form)), [], ctx
-        if head == _S_PYTHON:
+        elif head == _S_IN_NS:
+            assert len(form) == 2, "in-ns expects exactly 1 argument"
+            _ns = second(form)
+            assert is_symbol(_ns), "in-ns expects a symbol"
+            return _node(ast.Constant, lctx, None), [], \
+                assoc(ctx, _K_CURRENT_NS, _ns.name)
+        elif head == _S_PYTHON:
             return _compile_python(form, lctx, ctx)
         else:
             return _compile_call(form, lctx, ctx)
