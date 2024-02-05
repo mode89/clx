@@ -429,6 +429,11 @@ def test_munge():
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
 
+def test_trace_local_context():
+    assert _eval("(___local_context :line)") == 1
+    assert _eval("(___local_context :column)") == 1
+    assert _eval("(___local_context :top-level?)") is True
+
 def test_eval_value():
     assert _eval("nil") is None
     assert _eval("true") is True

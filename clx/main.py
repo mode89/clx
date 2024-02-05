@@ -553,6 +553,7 @@ _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
 _S_IN_NS = symbol("in-ns")
 _S_PYTHON = symbol("___python")
+_S_LOCAL_CONTEXT = symbol("___local_context")
 _S_AMPER = symbol("&")
 _S_KEYWORD = symbol("keyword")
 _S_SYMBOL = symbol("symbol")
@@ -1049,6 +1050,10 @@ def _compile_python(form, lctx, ctx):
         result = _node(ast.Constant, lctx, None)
     return result, stmts, ctx
 
+def _trace_local_context(_form, lctx, ctx):
+    path = _form.rest()
+    return _node(ast.Constant, lctx, get_in(lctx, path)), [], ctx
+
 _SPECIAL_FORM_COMPILERS = {
     _S_DEF: _compile_def,
     _S_DO: _compile_do,
@@ -1057,7 +1062,8 @@ _SPECIAL_FORM_COMPILERS = {
     _S_FN_STAR: _compile_fn,
     _S_QUOTE: _compile_quote,
     _S_IN_NS: _compile_in_ns,
-    _S_PYTHON: _compile_python
+    _S_PYTHON: _compile_python,
+    _S_LOCAL_CONTEXT: _trace_local_context,
 }
 
 def _compile_call(form, lctx, ctx):
