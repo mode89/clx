@@ -1,9 +1,10 @@
 # pylint: disable=protected-access
-import pytest
 import threading
 
-import clx.main as clx
-from clx.main import first, second, rest, next_, seq, lazy_seq, cons, \
+import pytest
+
+import clx.bootstrap as clx
+from clx.bootstrap import first, second, rest, next_, seq, lazy_seq, cons, \
     assoc, get, munge
 
 K = clx.keyword
