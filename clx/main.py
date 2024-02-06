@@ -529,6 +529,26 @@ def _equiv_sequential(x, y):
     else:
         return False
 
+
+class Atom:
+    def __init__(self, value):
+        self._lock = threading.Lock()
+        self._value = value
+    def deref(self):
+        with self._lock:
+            return self._value
+    def reset(self, new_value):
+        with self._lock:
+            self._value = new_value
+            return new_value
+    def swap(self, f, *args): # pylint: disable=invalid-name
+        with self._lock:
+            self._value = f(self._value, *args)
+            return self._value
+
+def atom(value):
+    return Atom(value)
+
 class ResolveError(Exception):
     def __init__(self, message):
         super().__init__(message)

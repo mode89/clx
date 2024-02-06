@@ -851,3 +851,13 @@ def test_load_file():
     ctx, _ = _make_test_context()
     hello_world, ctx = clx._load_file(ctx, "tests/hello-world.clj")
     assert hello_world() is K("hello-world")
+
+def test_atom():
+    a = clx.atom(42)
+    assert a.deref() == 42
+    assert a.reset(43) == 43
+    assert a.deref() == 43
+    assert a.swap(lambda x: x + 1) == 44
+    assert a.deref() == 44
+    assert a.swap(lambda x, y: x + y, 2) == 46
+    assert a.deref() == 46
