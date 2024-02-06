@@ -139,7 +139,7 @@ def test_list():
     assert list(iter(L(1, 2, 3))) == [1, 2, 3]
 
 def test_vector():
-    v = V() # pylint: disable=invalid-name
+    v = V()
     assert isinstance(v, clx.PersistentVector)
     assert v is V()
     assert len(v) == 0
@@ -148,7 +148,7 @@ def test_vector():
     assert next_(v) is None
     with pytest.raises(IndexError):
         v[0] # pylint: disable=pointless-statement
-    v1 = V(1) # pylint: disable=invalid-name
+    v1 = V(1)
     assert len(v1) == 1
     assert first(v1) == 1
     assert rest(v1) is L()
@@ -204,7 +204,7 @@ def test_cons():
     assert cons(42, inf) != cons(43, inf)
 
 def test_lazy_seq():
-    def nth(coll, n): # pylint: disable=invalid-name
+    def nth(coll, n):
         for _ in range(n):
             coll = coll.rest()
         return coll.first()
@@ -311,11 +311,11 @@ def test_is_seqable():
     assert clx.is_seqable(42) is False
 
 def test_hash_map():
-    m0 = M() # pylint: disable=invalid-name
-    m1 = assoc(m0, "a", 1) # pylint: disable=invalid-name
-    m2 = assoc(m1, "b", 2) # pylint: disable=invalid-name
-    m3 = m2.merge(M("c", 3, "d", 4)) # pylint: disable=invalid-name
-    m4 = assoc(m3, "a", 5, "b", 6) # pylint: disable=invalid-name
+    m0 = M()
+    m1 = assoc(m0, "a", 1)
+    m2 = assoc(m1, "b", 2)
+    m3 = m2.merge(M("c", 3, "d", 4))
+    m4 = assoc(m3, "a", 5, "b", 6)
     assert type(m0) is clx.PersistentMap
     assert m0 is M()
     assert type(m1) is clx.PersistentMap

@@ -46,7 +46,7 @@ def munge(chars):
 
 class IPrintable(ABC):
     @abstractmethod
-    def pr(self, readably): # pylint: disable=invalid-name
+    def pr(self, readably):
         raise NotImplementedError()
 
 class IMeta(ABC):
@@ -490,10 +490,10 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
     def __hash__(self):
         raise NotImplementedError()
     def __iter__(self):
-        s = self.seq() # pylint: disable=invalid-name
+        s = self.seq()
         while s is not None:
             yield s.first()
-            s = s.next() # pylint: disable=invalid-name
+            s = s.next()
     def with_meta(self, _meta):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):
@@ -511,7 +511,7 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
                 self._func = None
             return self._seq
 
-def _equiv_sequential(x, y): # pylint: disable=invalid-name
+def _equiv_sequential(x, y):
     assert isinstance(x, ISequential), "expected a sequential"
     if isinstance(y, ISequential):
         x, y = seq(x), seq(y)
@@ -1262,16 +1262,16 @@ def with_meta(obj, _meta):
     else:
         raise Exception("object does not support metadata")
 
-def vary_meta(obj, f, *args): # pylint: disable=invalid-name
+def vary_meta(obj, f, *args):
     return with_meta(obj, f(meta(obj), *args))
 
 def is_macro(obj):
     return callable(obj) and getattr(obj, "___macro", False)
 
-def is_counted(x): # pylint: disable=invalid-name
+def is_counted(x):
     return isinstance(x, ICounted)
 
-def count(x): # pylint: disable=invalid-name
+def count(x):
     return x.count_()
 
 def cons(obj, coll):
@@ -1295,7 +1295,7 @@ def seq(coll):
     else:
         raise Exception("expected a seqable object")
 
-def iterator_seq(it): # pylint: disable=invalid-name
+def iterator_seq(it):
     assert isinstance(it, Iterator), "iterator-seq expects an iterator"
     def _seq():
         value = next(it, _UNDEFINED)
@@ -1379,7 +1379,7 @@ def concat(*colls):
         return lazy_seq(_seq)
 
 def merge(*maps):
-    def helper(m1, m2): # pylint: disable=invalid-name
+    def helper(m1, m2):
         if m1 is None:
             return m2
         elif m2 is None:

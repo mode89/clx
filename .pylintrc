@@ -3,6 +3,7 @@ disable=
   broad-exception-raised,
   fixme,
   implicit-str-concat,
+  invalid-name,
   missing-class-docstring,
   missing-function-docstring,
   missing-module-docstring,
