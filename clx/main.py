@@ -37,8 +37,62 @@ _MUNGE_TABLE = {
     "$": "_DOLLAR_"
 }
 
-def munge(chars):
-    return "".join(_MUNGE_TABLE.get(c, c) for c in chars)
+_SPECIAL_NAMES = {
+    "abs",
+    "all",
+    "and",
+    "any",
+    "as",
+    "assert",
+    "async",
+    "await",
+    "break",
+    "class",
+    "continue",
+    "def",
+    "del",
+    "dict",
+    "elif",
+    "else",
+    "except",
+    "False",
+    "filter",
+    "finally",
+    "for",
+    "from",
+    "global",
+    "globals",
+    "if",
+    "import",
+    "in",
+    "is",
+    "lambda",
+    "list",
+    "locals",
+    "map",
+    "None",
+    "or",
+    "print",
+    "return",
+    "set",
+    "sorted",
+    "str",
+    "sum",
+    "True",
+    "try",
+    "while",
+    "with",
+    "yield",
+    "zip",
+}
+
+def munge(name):
+    if name in _SPECIAL_NAMES:
+        return f"{name}_"
+    if name[-1] == "_":
+        if name[:-1] in _SPECIAL_NAMES:
+            raise Exception(f"name '{name}' is reserved")
+    return "".join(_MUNGE_TABLE.get(c, c) for c in name)
 
 #************************************************************
 # Types

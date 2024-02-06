@@ -428,6 +428,10 @@ def test_munge():
     assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
+    assert munge("globals") == "globals_"
+    assert munge("def") == "def_"
+    with pytest.raises(Exception, match=r"reserved"):
+        munge("def_")
 
 def test_trace_local_context():
     assert _eval("(___local_context :line)") == 1
