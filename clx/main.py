@@ -1368,6 +1368,9 @@ def assoc(obj, *kvs):
         return hash_map(*kvs)
     return obj.assoc(*kvs)
 
+def update(obj, key, f, *args):
+    return assoc(obj, key, f(get(obj, key), *args))
+
 def get_in(obj, path, not_found=None):
     if path is None:
         return obj

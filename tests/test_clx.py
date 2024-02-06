@@ -806,6 +806,12 @@ def test_assoc_in():
     assert clx.assoc_in(M("a", 3), L("b"), 4) == M("a", 3, "b", 4)
     assert clx.assoc_in(M("a", 5), L("b", "c"), 6) == M("a", 5, "b", M("c", 6))
 
+def test_update():
+    inc = lambda x: x + 1 if x is not None else 1
+    assert clx.update(M("a", 1), "a", inc) == M("a", 2)
+    assert clx.update(M("a", 2), "b", inc) == M("a", 2, "b", 1)
+    assert clx.update(M("a", 3), "a", lambda x, y: x + y, 4) == M("a", 7)
+
 def test_first():
     assert clx.first(None) is None
 
