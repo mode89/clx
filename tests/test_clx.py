@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import pytest
+import threading
 
 import clx.main as clx
 from clx.main import first, second, rest, next_, seq, lazy_seq, cons, \
@@ -12,8 +13,17 @@ V = clx.vector
 M = clx.hash_map
 
 def _make_test_context():
+    box = [None]
+    def set_box(value):
+        box[0] = value
+        return value
+    def get_box():
+        return box[0]
+
     return clx._init_context({
         "user": {
+            "set-box": set_box,
+            "get-box": get_box,
             "+": lambda *args: sum(args),
             "even?": lambda x: x % 2 == 0,
             "odd?": lambda x: x % 2 == 1,
@@ -28,8 +38,8 @@ def _make_test_context():
         }})
 
 def _eval(text):
-    ctx, lctx = _make_test_context()
-    return clx._load_string(ctx, lctx, "<string>", text)[0]
+    ctx = _make_test_context()
+    return clx._load_string(ctx, "<string>", text)
 
 def _lazy_range(*args):
     assert len(args) <= 2
@@ -454,7 +464,7 @@ def test_eval_value():
     assert _eval("{1 2 3 4}") == M(1, 2, 3, 4)
     assert _eval("{:foo 42 \"bar\" :baz}") == M(K("foo"), 42, "bar", K("baz"))
 
-def test_eval_quote():
+def test_quote():
     assert _eval("'42") == 42
     assert _eval("'hello") == S("hello")
     assert _eval("':world") == K("world")
@@ -477,20 +487,19 @@ def test_eval_quote():
           V(L(5, K("six")), M(S("seven"), "eight")),
           M(K("nine"), L(S("ten"), 11), 12, V(K("thirteen"), "fourteen")))
 
-def test_eval_def():
-    ctx, lctx = _make_test_context()
-    res, ctx = clx._load_string(ctx, lctx, "<string>", "(def foo 42)")
+def test_def():
+    ctx = _make_test_context()
+    res = clx._load_string(ctx, "<string>", "(def foo 42)")
     assert res == 42
-    assert clx.get_in(ctx,
-        L(K("namespaces"),
-          "user",
+    assert clx.get_in(ctx.shared.namespaces.deref(),
+        L("user",
           K("bindings"),
           "foo",
           K("py-name"))) == munge("user/foo")
-    assert ctx.py_globals[munge("user/foo")] == 42
+    assert ctx.shared.py_globals[munge("user/foo")] == 42
     assert _eval("(def foo (___local_context :top-level?))") is True
 
-def test_eval_do():
+def test_do():
     assert _eval("(do)") is None
     assert _eval("(do 1 2 3)") == 3
     assert _eval(
@@ -500,15 +509,12 @@ def test_eval_do():
         """) == 42
     assert _eval(
         """
-        (def foo
-          (fn* []
-            (def bar 42)))
-        (do (foo)
-            bar)
-        """) == 42
+        (do (set-box 9001)
+            (get-box))
+        """) == 9001
     assert _eval("(do (___local_context :top-level?))") is True
 
-def test_eval_call():
+def test_call():
     assert _eval("(+ 1 2)") == 3
     assert _eval("(+ (def foo 3) (def bar 4))") == 7
     assert _eval(
@@ -521,7 +527,7 @@ def test_eval_call():
                (def f (+ a b c d e))))
         """) == 48
 
-def test_eval_let():
+def test_let():
     assert _eval("(let* [])") is None
     assert _eval("(let* [a 42])") is None
     assert _eval("(let* [a 1] a)") == 1
@@ -538,7 +544,7 @@ def test_eval_let():
             """)
     assert _eval("(let* [a (___local_context :top-level?)] a)") is True
 
-def test_eval_if():
+def test_if():
     assert _eval("(if true 1 2)") == 1
     assert _eval("(if false 1 2)") == 2
     assert _eval(
@@ -569,7 +575,7 @@ def test_eval_if():
     assert _eval("(if true (___local_context :top-level?) 42)") is False
     assert _eval("(if false 42 (___local_context :top-level?))") is False
 
-def test_eval_fn():
+def test_fn():
     assert _eval("(fn* [])")() is None
     assert _eval("(fn* [] 1)")() == 1
     assert _eval("(fn* [x] 2)")(3) == 2
@@ -600,10 +606,10 @@ def test_eval_fn():
         """
         (def foo
           (fn* []
-            (def bar 42)))
+            (set-box 43)))
         (foo)
-        bar
-        """) == 42
+        (get-box)
+        """) == 43
     assert _eval(
         """
         (def foo
@@ -613,12 +619,31 @@ def test_eval_fn():
         """) is False
 
 def test_in_ns():
-    ctx0, lctx0 = _make_test_context()
-    _, ctx = clx._load_string(ctx0, lctx0, "<string>", "(in-ns foo)")
-    assert ctx.current_ns == "foo"
-    lctx = lctx0.assoc(K("top-level?"), False)
+    ctx = _make_test_context()
+    clx._load_string(ctx, "<string>", "(in-ns foo)")
+    assert ctx.current_ns.deref() == "foo"
+
+    ctx = _make_test_context()
+    ctx = clx.assoc_in(ctx, L(K("local"), K("top-level?")), False)
     with pytest.raises(Exception, match=r"allowed only at top level"):
-        clx._load_string(ctx0, lctx, "<string>", "(in-ns bar)")
+        clx._load_string(ctx, "<string>", "(in-ns bar)")
+
+    ctx = _make_test_context()
+    assert clx._load_string(ctx, "<string>",
+        """
+        (in-ns foo)
+        (def bar 42)
+        bar
+        """) == 42
+
+    ctx = _make_test_context()
+    assert clx._load_string(ctx, "<string>",
+        """
+        (in-ns foo)
+        (def bar 43)
+        (in-ns baz)
+        foo/bar
+        """) == 43
 
 def test_macros():
     assert clx.is_macro(_eval("(def foo (fn* [] 42))")) is False
@@ -661,7 +686,7 @@ def test_macros():
         (foo 1 2)
         """) == 12
 
-def test_eval_python():
+def test_python():
     assert _eval("(___python)") is None
     assert _eval("(___python \"42\")") == 42
     assert _eval(
@@ -722,26 +747,31 @@ def test_meta():
 
 def test_resolve_symbol():
     ctx = clx.Context(
-        current_ns="user",
-        namespaces=M(
-            "user",
-                clx.Namespace(
-                    bindings=M(
-                        "foo", 1,
-                        "bar", 2)),
-            "baz",
-                clx.Namespace(
-                    bindings=M(
-                        "quux", 3,
-                        "fred", 4))),
-        py_globals={},
-        counter=0)
-    lctx = clx.LocalContext(
-        locals=M("a", 5, "bar", 6),
-        top_level_QMARK_=True,
-        line=None,
-        column=None)
-    resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
+        shared=clx.SharedContext(
+            lock=threading.Lock(),
+            namespaces=clx.Box(M(
+                "user",
+                    clx.Namespace(
+                        bindings=M(
+                            "foo", 1,
+                            "bar", 2)),
+                "baz",
+                    clx.Namespace(
+                        bindings=M(
+                            "quux", 3,
+                            "fred", 4)))),
+            py_globals={},
+            counter=clx.Box(0),
+        ),
+        local=clx.LocalContext(
+            env=M("a", 5, "bar", 6),
+            top_level_QMARK_=True,
+            line=None,
+            column=None,
+        ),
+        current_ns=clx.Box("user"),
+    )
+    resolve = lambda x: clx._resolve_symbol(ctx, x)
     assert resolve(S("a")) == 5
     assert resolve(S("bar")) == 6
     assert resolve(S("foo")) == 1
@@ -753,11 +783,6 @@ def test_resolve_symbol():
         resolve(S("user/baz"))
     with pytest.raises(Exception, match=r"Namespace 'bar' not found"):
         resolve(S("bar/foo"))
-    assert _eval(
-        """
-        (def forty-two 42)
-        forty-two
-        """) == 42
 
 def test_apply():
     assert clx.apply(lambda: 42, []) == 42
@@ -858,8 +883,8 @@ def test_slurp():
         assert clx.slurp("tests/hello-world.clj") == file.read()
 
 def test_load_file():
-    ctx, _ = _make_test_context()
-    hello_world, ctx = clx._load_file(ctx, "tests/hello-world.clj")
+    ctx = _make_test_context()
+    hello_world = clx._load_file(ctx, "tests/hello-world.clj")
     assert hello_world() is K("hello-world")
 
 def test_atom():

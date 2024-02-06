@@ -583,7 +583,6 @@ def _equiv_sequential(x, y):
     else:
         return False
 
-
 class Atom:
     def __init__(self, value):
         self._lock = threading.Lock()
@@ -595,13 +594,25 @@ class Atom:
         with self._lock:
             self._value = new_value
             return new_value
-    def swap(self, f, *args): # pylint: disable=invalid-name
+    def swap(self, f, *args):
         with self._lock:
             self._value = f(self._value, *args)
             return self._value
 
 def atom(value):
     return Atom(value)
+
+class Box:
+    def __init__(self, value):
+        self._value = value
+    def deref(self):
+        return self._value
+    def reset(self, new_value):
+        self._value = new_value
+        return new_value
+    def swap(self, f, *args):
+        self._value = f(self._value, *args)
+        return self._value
 
 class ResolveError(Exception):
     def __init__(self, message):
@@ -637,13 +648,16 @@ _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
 _K_CURRENT_NS = keyword("current-ns")
 _K_NAMESPACES = keyword("namespaces")
-_K_LOCALS = keyword("locals")
+_K_ENV = keyword("env")
 _K_COUNTER = keyword("counter")
 _K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
 _K_BINDINGS = keyword("bindings")
 _K_MACRO_QMARK = keyword("macro?")
 _K_TOP_LEVEL_Q = keyword("top-level?")
+_K_SHARED = keyword("shared")
+_K_LOCAL = keyword("local")
+_K_LOCK = keyword("lock")
 
 #************************************************************
 # Reader
@@ -825,17 +839,26 @@ def escape(text):
 # Evaluation
 #************************************************************
 
+# Tracks state of the current evaluation thread
 Context = define_record("Context",
+    _K_SHARED,
+    _K_LOCAL,
     _K_CURRENT_NS,
+)
+# Tracks state shared across multiple evaluation threads
+SharedContext = define_record("SharedContext",
+    _K_LOCK,
     _K_NAMESPACES,
     _K_PY_GLOBALS,
-    _K_COUNTER) # for generating unique names
-# Local context defines state that is local to a single form.
+    _K_COUNTER, # for generating unique names
+)
+# Local context defines state that is local to a single form
 LocalContext = define_record("LocalContext",
-    _K_LOCALS,
+    _K_ENV,
     _K_TOP_LEVEL_Q,
     _K_LINE,
-    _K_COLUMN)
+    _K_COLUMN,
+)
 Namespace = define_record("Namespace", _K_BINDINGS)
 Binding = define_record("Binding", _K_PY_NAME)
 
@@ -857,56 +880,58 @@ def _init_context(namespaces):
         _namespaces = assoc_in(_namespaces,
             list_(ns_name, _K_BINDINGS), _bindings)
 
-    return \
-        Context(
-            current_ns="user",
-            namespaces=_namespaces,
+    return Context(
+        shared=SharedContext(
+            lock=threading.Lock(),
+            namespaces=Box(_namespaces),
             py_globals=_globals,
-            counter=10000), \
-        LocalContext(
-            locals=hash_map(),
+            counter=Box(10000)),
+        local=LocalContext(
+            env=hash_map(),
             top_level_QMARK_=True,
             line=1,
-            column=1)
+            column=1),
+        current_ns=Box("user"),
+    )
 
-def _load_string(ctx, lctx, file_name, text):
+def _load_string(ctx, file_name, text):
     tokens = list(tokenize(text))
     while tokens:
         form, tokens = read_form(tokens)
-        result, ctx = _eval_form(ctx, lctx, file_name, form)
-    return result, ctx
+        result = _eval_form(ctx, file_name, form)
+    return result
 
-def _eval_form(ctx, lctx, file_name, form):
-    result, body, ctx = _compile(form, lctx, ctx)
-    body = ast.Module(body, type_ignores=[])
-    result = ast.Expression(result, type_ignores=[])
-    _transform_ast(ctx, body, result)
-    exec( # pylint: disable=exec-used
-        compile(body, file_name, "exec"), ctx.py_globals)
-    return eval( # pylint: disable=eval-used
-        compile(result, file_name, "eval"), ctx.py_globals), \
-        ctx
+def _eval_form(ctx, file_name, form):
+    with ctx.shared.lock:
+        result, body = _compile(ctx, form)
+        body = ast.Module(body, type_ignores=[])
+        result = ast.Expression(result, type_ignores=[])
+        _transform_ast(ctx, body, result)
+        exec( # pylint: disable=exec-used
+            compile(body, file_name, "exec"), ctx.shared.py_globals)
+        return eval( # pylint: disable=eval-used
+            compile(result, file_name, "eval"), ctx.shared.py_globals)
 
 def _load_file(ctx, path):
     lctx = LocalContext(hash_map(), True, 1, 1)
-    return _load_string(ctx, lctx, path, slurp(path))
+    return _load_string(assoc(ctx, _K_LOCAL, lctx), path, slurp(path))
 
-def macroexpand(form, ctx):
+def macroexpand(ctx, form):
     while True:
-        _form = macroexpand1(form, ctx)
+        _form = macroexpand1(ctx, form)
         if _form is form:
             return form
         form = _form
 
-def macroexpand1(form, ctx):
+def macroexpand1(ctx, form):
     if is_list(form): # pylint: disable=too-many-nested-blocks
         head = form.first()
         if is_symbol(head):
             try:
-                binding = _resolve_symbol(ctx, None, head)
+                binding = _resolve_symbol(ctx, head)
                 py_name = binding.py_name
-                if py_name in ctx.py_globals:
-                    obj = ctx.py_globals[py_name]
+                if py_name in ctx.shared.py_globals:
+                    obj = ctx.shared.py_globals[py_name]
                     if is_macro(obj):
                         return obj(*form.rest())
                 else:
@@ -918,70 +943,75 @@ def macroexpand1(form, ctx):
                 pass
     return form
 
-def _compile(form, lctx, ctx):
-    lctx = _update_source_location(form, lctx)
-    form = macroexpand(form, ctx)
+def _compile(ctx, form):
+    ctx = _update_source_location(ctx, form)
+    form = macroexpand(ctx, form)
     if isinstance(form, PersistentList):
         head = form.first()
         compiler = _SPECIAL_FORM_COMPILERS.get(head, _compile_call)
-        return compiler(form, lctx, ctx)
+        return compiler(ctx, form)
     elif isinstance(form, PersistentVector):
-        return _compile_vector(form, lctx, ctx)
+        return _compile_vector(ctx, form)
     elif isinstance(form, PersistentMap):
-        return _compile_map(form, lctx, ctx)
+        return _compile_map(ctx, form)
     elif isinstance(form, Symbol):
-        py_name = _resolve_symbol(ctx, lctx, form).py_name
-        return _node(ast.Name, lctx, py_name, ast.Load()), [], ctx
+        py_name = _resolve_symbol(ctx, form).py_name
+        return _node(ast.Name, ctx, py_name, ast.Load()), []
     else:
-        return ast.Constant(
-                form, lineno=lctx.line, col_offset=lctx.column), \
-            [], ctx
+        return \
+            ast.Constant(
+                form,
+                lineno=ctx.local.line,
+                col_offset=ctx.local.column), \
+            []
 
-def _update_source_location(form, lctx):
+def _update_source_location(ctx, form):
     _meta = meta(form)
     line = get(_meta, _K_LINE)
     if line is not None:
         column = get(_meta, _K_COLUMN)
-        return assoc(lctx, _K_LINE, line, _K_COLUMN, column)
-    return lctx
+        return update(ctx, _K_LOCAL, assoc,_K_LINE, line, _K_COLUMN, column)
+    return ctx
 
-def _compile_def(form, lctx, ctx):
+def _compile_def(ctx, form):
+    assert ctx.local.top_level_QMARK_, "def allowed only at top level"
     assert len(form) == 3, "def expects 2 arguments"
     name = second(form)
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
-    value, body, ctx = _compile(third(form), lctx, ctx)
-    _ns = ctx.current_ns
-    py_name = munge(f"{_ns}/{name.name}")
+    value, body = _compile(ctx, third(form))
+    ns = ctx.current_ns.deref()
+    py_name = munge(f"{ns}/{name.name}")
+    ctx.shared.namespaces.swap(
+        assoc_in,
+        list_(ns, _K_BINDINGS, name.name),
+        Binding(py_name))
     return \
-        _node(ast.Call, lctx,
-            _node(ast.Name, lctx, "___def", ast.Load()),
-            [_node(ast.Constant, lctx, py_name), value], []), \
-        body, \
-        assoc_in(ctx,
-            list_(_K_NAMESPACES, _ns, _K_BINDINGS, name.name),
-            Binding(py_name))
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, "___def", ast.Load()),
+            [_node(ast.Constant, ctx, py_name), value], []), \
+        body
 
-def _compile_do(form, lctx, ctx):
+def _compile_do(ctx, form):
     stmts = []
     forms = form.rest()
     result_name = None
     while forms:
         _f, forms = forms.first(), forms.rest()
-        f_result, f_stmts, ctx = _compile(_f, lctx, ctx)
+        f_result, f_stmts = _compile(ctx, _f)
         stmts.extend(f_stmts)
-        result_name, ctx = _gen_name(ctx)
+        result_name = _gen_name(ctx)
         stmts.append(
-            _node(ast.Assign, lctx,
-                [_node(ast.Name, lctx, result_name, ast.Store())],
+            _node(ast.Assign, ctx,
+                [_node(ast.Name, ctx, result_name, ast.Store())],
                 f_result))
     return \
-        _node(ast.Name, lctx, result_name, ast.Load()) \
+        _node(ast.Name, ctx, result_name, ast.Load()) \
             if result_name is not None \
-            else _node(ast.Constant, lctx, None), \
-        stmts, ctx
+            else _node(ast.Constant, ctx, None), \
+        stmts
 
-def _compile_let(form, lctx, ctx):
+def _compile_let(ctx, form):
     assert len(form) > 1, "let* expects at least 1 argument"
     assert len(form) < 4, "let* expects at most 2 arguments"
     bindings = second(form)
@@ -994,57 +1024,56 @@ def _compile_let(form, lctx, ctx):
         _name, value = bindings[i], bindings[i + 1]
         assert is_simple_symbol(_name), \
             "first element of each binding pair must be a symbol"
-        value_expr, value_stmts, ctx = _compile(value, lctx, ctx)
+        value_expr, value_stmts = _compile(ctx, value)
         munged = munge(_name.name)
-        py_name, ctx = _gen_name(ctx, f"{munged}_")
+        py_name = _gen_name(ctx, f"{munged}_")
         body.extend(value_stmts)
         body.append(
-            _node(ast.Assign, lctx,
-                [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        lctx = assoc_in(lctx, list_(_K_LOCALS, _name.name), Binding(py_name))
+            _node(ast.Assign, ctx,
+                [_node(ast.Name, ctx, py_name, ast.Store())], value_expr))
+        ctx = assoc_in(ctx,
+            list_(_K_LOCAL, _K_ENV, _name.name), Binding(py_name))
     if len(form) == 3:
-        body_expr, body_stmts, ctx = _compile(third(form), lctx, ctx)
+        body_expr, body_stmts = _compile(ctx, third(form))
         body.extend(body_stmts)
     else:
-        body_expr = _node(ast.Constant, lctx, None)
-    return body_expr, body, ctx
+        body_expr = _node(ast.Constant, ctx, None)
+    return body_expr, body
 
-def _compile_if(form, lctx, ctx):
+def _compile_if(ctx, form):
     assert len(form) == 4, "if expects 3 arguments"
-    test, then, else_ = second(form), third(form), fourth(form)
-    test_expr, test_stmts, ctx = _compile(test, lctx, ctx)
-    then_expr, then_stmts, ctx = _compile(then,
-        lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
-    else_expr, else_stmts, ctx = _compile(else_,
-        lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
-    result_name, ctx = _gen_name(ctx, "___if_result_")
-    result_store = _node(ast.Name, lctx, result_name, ast.Store())
-    result_load = _node(ast.Name, lctx, result_name, ast.Load())
+    test_expr, test_stmts = _compile(ctx, second(form))
+    ctx = assoc_in(ctx, list_(_K_LOCAL, _K_TOP_LEVEL_Q), False)
+    then_expr, then_stmts = _compile(ctx, third(form))
+    else_expr, else_stmts = _compile(ctx, fourth(form))
+    result_name = _gen_name(ctx, "___if_result_")
+    result_store = _node(ast.Name, ctx, result_name, ast.Store())
+    result_load = _node(ast.Name, ctx, result_name, ast.Load())
     return \
         result_load, \
         test_stmts + [
-            _node(ast.If, lctx,
+            _node(ast.If, ctx,
                 test_expr,
                 then_stmts + [
-                    _node(ast.Assign, lctx, [result_store], then_expr)
+                    _node(ast.Assign, ctx, [result_store], then_expr)
                 ],
                 else_stmts + [
-                    _node(ast.Assign, lctx, [result_store], else_expr)
+                    _node(ast.Assign, ctx, [result_store], else_expr)
                 ]
             ),
-        ], \
-        ctx
+        ]
 
-def _compile_fn(form, lctx, ctx):
+def _compile_fn(ctx, form):
     assert len(form) > 1, "fn* expects at least 1 argument"
     assert len(form) < 4, "fn* expects at most 2 arguments"
     params_form = second(form)
     assert isinstance(params_form, PersistentVector), \
         "fn* expects a vector of parameters as the first argument"
-    fname, ctx = _gen_name(ctx, "___fn_")
+    fname = _gen_name(ctx, "___fn_")
 
     pos_params = []
     rest_param = None
+    env = ctx.local.env
     while params_form:
         param = first(params_form)
         assert is_simple_symbol(param), \
@@ -1055,29 +1084,27 @@ def _compile_fn(form, lctx, ctx):
             rest_param = second(params_form)
             assert is_simple_symbol(rest_param), \
                 "rest parameter of fn* must be a simple symbol"
-            lctx = assoc_in(lctx,
-                list_(_K_LOCALS, rest_param.name),
-                Binding(munge(rest_param.name)))
+            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
             break
         pos_params.append(param)
-        lctx = assoc_in(lctx,
-            list_(_K_LOCALS, param.name),
-            Binding(munge(param.name)))
+        env = assoc(env, param.name, Binding(munge(param.name)))
         params_form = rest(params_form)
+    ctx = assoc_in(ctx, list_(_K_LOCAL, _K_ENV), env)
 
     if len(form) == 3:
         body_form = third(form)
-        body_expr, body_stmts, ctx = _compile(
-            body_form, lctx.assoc(_K_TOP_LEVEL_Q, False), ctx)
-        body = body_stmts + [_node(ast.Return, lctx, body_expr)]
+        body_expr, body_stmts = _compile(
+            assoc_in(ctx, list_(_K_LOCAL, _K_TOP_LEVEL_Q), False),
+            body_form)
+        body = body_stmts + [_node(ast.Return, ctx, body_expr)]
     else:
-        body = [_node(ast.Pass, lctx)]
+        body = [_node(ast.Pass, ctx)]
 
     def _arg(_p):
-        return _node(ast.arg, lctx, munge(_p.name))
+        return _node(ast.arg, ctx, munge(_p.name))
 
     stmts = [
-        _node(ast.FunctionDef, lctx,
+        _node(ast.FunctionDef, ctx,
             fname,
             ast.arguments(
                 posonlyargs=[_arg(p) for p in pos_params],
@@ -1093,30 +1120,36 @@ def _compile_fn(form, lctx, ctx):
 
     if get(meta(form), _K_MACRO_QMARK):
         stmts.append(
-            _node(ast.Assign, lctx,
-                [_node(ast.Attribute, lctx,
-                    _node(ast.Name, lctx, fname, ast.Load()),
+            _node(ast.Assign, ctx,
+                [_node(ast.Attribute, ctx,
+                    _node(ast.Name, ctx, fname, ast.Load()),
                     "___macro", ast.Store())],
-                _node(ast.Constant, lctx, True)))
+                _node(ast.Constant, ctx, True)))
 
-    return _node(ast.Name, lctx, fname, ast.Load()), stmts, ctx
+    return _node(ast.Name, ctx, fname, ast.Load()), stmts
 
-def _compile_quote(form, lctx, ctx):
+def _compile_quote(ctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
-    return _node(ast.Constant, lctx, second(form)), [], ctx
+    return _node(ast.Constant, ctx, second(form)), []
 
-def _compile_in_ns(form, lctx, ctx):
-    assert lctx.top_level_QMARK_, "in-ns allowed only at top level"
+def _compile_in_ns(ctx, form):
+    assert ctx.local.top_level_QMARK_, "in-ns allowed only at top level"
     assert len(form) == 2, "in-ns expects exactly 1 argument"
-    _ns = second(form)
-    assert is_symbol(_ns), "in-ns expects a symbol"
-    return _node(ast.Constant, lctx, None), [], \
-        assoc(ctx, _K_CURRENT_NS, _ns.name)
+    ns = second(form)
+    assert is_symbol(ns), "in-ns expects a symbol"
+    ctx.current_ns.reset(ns.name)
+    def find_or_create(namespaces):
+        ns_obj = namespaces.lookup(ns.name, None)
+        if ns_obj is None:
+            return assoc(namespaces, ns.name, Namespace(hash_map()))
+        return namespaces
+    ctx.shared.namespaces.swap(find_or_create)
+    return _node(ast.Constant, ctx, None), []
 
-def _compile_python(form, lctx, ctx):
+def _compile_python(ctx, form):
     def _eval_entry(entry):
         if isinstance(entry, Symbol):
-            return _resolve_symbol(ctx, lctx, entry).py_name
+            return _resolve_symbol(ctx, entry).py_name
         elif isinstance(entry, str):
             return entry
         else:
@@ -1128,12 +1161,12 @@ def _compile_python(form, lctx, ctx):
         result = module.body[-1].value
     else:
         stmts = module.body
-        result = _node(ast.Constant, lctx, None)
-    return result, stmts, ctx
+        result = _node(ast.Constant, ctx, None)
+    return result, stmts
 
-def _trace_local_context(_form, lctx, ctx):
-    path = _form.rest()
-    return _node(ast.Constant, lctx, get_in(lctx, path)), [], ctx
+def _trace_local_context(ctx, form):
+    path = form.rest()
+    return _node(ast.Constant, ctx, get_in(ctx.local, path)), []
 
 _SPECIAL_FORM_COMPILERS = {
     _S_DEF: _compile_def,
@@ -1147,96 +1180,89 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LOCAL_CONTEXT: _trace_local_context,
 }
 
-def _compile_call(form, lctx, ctx):
+def _compile_call(ctx, form):
     args = []
     body = []
     for arg in form.rest():
-        arg_expr, arg_body, ctx = _compile(arg, lctx, ctx)
+        arg_expr, arg_body = _compile(ctx, arg)
         args.append(arg_expr)
         body.extend(arg_body)
-    _f, f_body, ctx = _compile(form.first(), lctx, ctx)
+    f, f_body = _compile(ctx, form.first())
     body.extend(f_body)
-    return _node(ast.Call, lctx, _f, args, []), body, ctx
+    return _node(ast.Call, ctx, f, args, []), body
 
-def _compile_vector(form, lctx, ctx):
+def _compile_vector(ctx, form):
     el_exprs = []
     stmts = []
     for elm in form:
-        el_expr, el_stmts, ctx = _compile(elm, lctx, ctx)
+        el_expr, el_stmts = _compile(ctx, elm)
         el_exprs.append(el_expr)
         stmts.extend(el_stmts)
     # TODO munge core/vector
-    py_vector = _resolve_symbol(ctx, None, _S_VECTOR).py_name
+    py_vector = _resolve_symbol(ctx, _S_VECTOR).py_name
     return \
-        _node(ast.Call, lctx,
-            _node(ast.Name, lctx, py_vector, ast.Load()),
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, py_vector, ast.Load()),
             el_exprs,
             []), \
-        stmts, \
-        ctx
+        stmts
 
-def _compile_map(form, lctx, ctx):
+def _compile_map(ctx, form):
     args = []
     stmts = []
     for key, value in form.items():
-        key_expr, key_stmts, ctx = _compile(key, lctx, ctx)
+        key_expr, key_stmts = _compile(ctx, key)
         args.append(key_expr)
         stmts.extend(key_stmts)
-        value_expr, value_stmts, ctx = _compile(value, lctx, ctx)
+        value_expr, value_stmts = _compile(ctx, value)
         args.append(value_expr)
         stmts.extend(value_stmts)
-    py_hash_map = _resolve_symbol(ctx, None, _S_HASH_MAP).py_name
+    py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).py_name
     return \
-        _node(ast.Call, lctx,
-            _node(ast.Name, lctx, py_hash_map, ast.Load()),
+        _node(ast.Call, ctx,
+            _node(ast.Name, ctx, py_hash_map, ast.Load()),
             args,
             []), \
-        stmts, \
-        ctx
+        stmts
 
-def _resolve_symbol(ctx, lctx, sym):
+def _resolve_symbol(ctx, sym):
     if is_simple_symbol(sym):
-        result = lctx.locals.lookup(sym.name, None) \
-            if lctx is not None else None
-        if result is not None:
-            return result
+        binding = ctx.local.env.lookup(sym.name, None)
+        if binding is not None:
+            return binding
         else:
-            result = ctx \
-                .namespaces.lookup(ctx.current_ns, None) \
+            binding = ctx.shared \
+                .namespaces.deref() \
+                .lookup(ctx.current_ns.deref(), None) \
                 .bindings.lookup(sym.name, None)
-            if result is not None:
-                return result
+            if binding is not None:
+                return binding
     else:
-        namespace = ctx.namespaces.lookup(sym.namespace, None)
+        namespace = ctx.shared.namespaces.deref().lookup(sym.namespace, None)
         if namespace is not None:
-            result = namespace.bindings.lookup(sym.name, None)
-            if result is not None:
-                return result
+            binding = namespace.bindings.lookup(sym.name, None)
+            if binding is not None:
+                return binding
         else:
             raise ResolveError(f"Namespace '{sym.namespace}' not found")
     raise ResolveError(f"Symbol '{pr_str(sym)}' not found")
 
 def _gen_name(ctx, base="___gen_"):
-    counter = ctx.counter
-    ctx = assoc(ctx, _K_COUNTER, counter + 1)
-    return f"{base}{counter}", ctx
+    counter = ctx.shared.counter.swap(lambda x: x + 1)
+    return f"{base}{counter}"
 
 def _node(type_, ctx, *args):
     _n = type_(*args)
-    _n.lineno = ctx.line
-    _n.col_offset = ctx.column
+    lctx = ctx.local
+    _n.lineno = lctx.line
+    _n.col_offset = lctx.column
     return _n
 
 def _transform_ast(ctx, body, result):
     _fix_constants(ctx, body, result)
 
-CONSTANT_COUNTER = 1000
-
 def _fix_constants(ctx, body, result):
     consts = {}
-
-    def const_name(index):
-        return f"___const_{index}"
 
     class Transformer(ast.NodeTransformer):
         def visit_Constant(self, node):
@@ -1246,12 +1272,9 @@ def _fix_constants(ctx, body, result):
                     PersistentList,
                     PersistentVector,
                     PersistentMap)):
-                global CONSTANT_COUNTER # pylint: disable=global-statement
-                index = CONSTANT_COUNTER
-                CONSTANT_COUNTER += 1
-                consts[index] = _compile_constant(ctx, node.value)
-                return ast.Name(const_name(index), ast.Load(),
-                    lineno=0, col_offset=0)
+                name = _gen_name(ctx, "___const_")
+                consts[name] = _compile_constant(ctx, node.value)
+                return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
             else:
                 self.generic_visit(node)
                 return node
@@ -1261,16 +1284,15 @@ def _fix_constants(ctx, body, result):
 
     body.body[:0] = [
         ast.Assign(
-            [ast.Name(const_name(index),
-                ast.Store(), lineno=0, col_offset=0)],
+            [ast.Name(name, ast.Store(), lineno=0, col_offset=0)],
             value,
             lineno=0, col_offset=0)
-        for index, value in consts.items()
+        for name, value in consts.items()
     ]
 
 def _compile_constant(ctx, value):
     if isinstance(value, (Keyword, Symbol)):
-        ctor = _resolve_symbol(ctx, None,
+        ctor = _resolve_symbol(ctx,
             _S_KEYWORD if isinstance(value, Keyword) else _S_SYMBOL).py_name
         _ns = ast.Constant(value.namespace, lineno=0, col_offset=0)
         _name = ast.Constant(value.name, lineno=0, col_offset=0)
@@ -1278,7 +1300,7 @@ def _compile_constant(ctx, value):
             ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
             [_ns, _name], [], lineno=0, col_offset=0)
     elif isinstance(value, (PersistentList, PersistentVector)):
-        ctor = _resolve_symbol(ctx, None,
+        ctor = _resolve_symbol(ctx,
             _S_LIST if isinstance(value, PersistentList) else _S_VECTOR) \
             .py_name
         tree = ast.Call(
@@ -1286,7 +1308,7 @@ def _compile_constant(ctx, value):
             [_compile_constant(ctx, v) for v in value],
             [], lineno=0, col_offset=0)
     elif isinstance(value, PersistentMap):
-        ctor = _resolve_symbol(ctx, None, _S_HASH_MAP).py_name
+        ctor = _resolve_symbol(ctx, _S_HASH_MAP).py_name
         args = []
         for key, val in value.items():
             args.append(_compile_constant(ctx, key))
@@ -1298,7 +1320,7 @@ def _compile_constant(ctx, value):
         tree = ast.Constant(value, lineno=0, col_offset=0)
     if meta(value) is not None:
         tree = ast.Call(
-            ast.Name(_resolve_symbol(ctx, None, _S_WITH_META).py_name,
+            ast.Name(_resolve_symbol(ctx, _S_WITH_META).py_name,
                 ast.Load(), lineno=0, col_offset=0),
             [tree, _compile_constant(ctx, meta(value))],
             [], lineno=0, col_offset=0)
