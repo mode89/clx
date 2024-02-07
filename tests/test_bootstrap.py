@@ -1,4 +1,5 @@
 # pylint: disable=protected-access
+import re
 import threading
 
 import pytest
@@ -34,6 +35,7 @@ def _make_test_context():
             "symbol": clx.symbol,
             "list": clx.list_,
             "vector": clx.vector,
+            "vec": clx.vec,
             "hash-map": clx.hash_map,
             "concat": clx.concat,
         }})
@@ -413,6 +415,7 @@ def test_quasiquote():
                 L(S("list"), L(S("quote"), S("a"))),
                 L(S("list"), S("b")),
                 S("c")))
+    assert re.fullmatch(r"\(quote x_\d+\)", str(clx.read_string("`x#")))
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")
 
@@ -686,6 +689,23 @@ def test_macros():
               `(+ ~@x2 4 ~@y3))))
         (foo 1 2)
         """) == 12
+    assert _eval(
+        """
+        (def bar ^{:macro? true}
+          (fn* [x]
+            `(let* [foo# ~x]
+              (+ foo# foo#))))
+        (bar 5)
+        """) == 10
+    with pytest.raises(Exception, match=r"'quux_\d+' not found"):
+        _eval(
+            """
+            (def foo ^{:macro? true}
+              (fn* []
+                `(+ 1 quux#)))
+            (def quux# 2)
+            (foo)
+            """)
 
 def test_python():
     assert _eval("(___python)") is None

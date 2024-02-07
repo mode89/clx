@@ -699,6 +699,8 @@ def tokenize(text):
         column = match.start(1) - line_starts[line_id - 1] + 1
         yield Token(string=token, line=line_id, column=column)
 
+_QQ_COUNTER = 10000
+
 def read_form(tokens):
     token = first(tokens)
     assert isinstance(token, Token), "expected a token"
@@ -708,8 +710,11 @@ def read_form(tokens):
         form, _rest = read_form(rtokens)
         return list_(_S_QUOTE, form), _rest
     elif tstring == "`":
+        global _QQ_COUNTER # pylint: disable=global-statement
+        counter = _QQ_COUNTER
+        _QQ_COUNTER += 1
         form, _rest = read_form(rtokens)
-        return quasiquote(form), _rest
+        return quasiquote(f"_{counter}", form), _rest
     elif tstring == "~":
         form, _rest = read_form(rtokens)
         return list_(_S_UNQUOTE, form), _rest
@@ -783,7 +788,7 @@ def read_collection(
         element, tokens = read_form(tokens)
         elements.append(element)
 
-def quasiquote(form):
+def quasiquote(suffix, form):
     if is_list(form) and len(form) > 0:
         head = form.first()
         if head == _S_UNQUOTE:
@@ -792,15 +797,17 @@ def quasiquote(form):
         elif head == _S_SPLICE_UNQUOTE:
             raise Exception("splice-unquote not in list")
         else:
-            return list_(_S_APPLY, _S_LIST, _quasiquote_sequence(form))
+            return list_(_S_APPLY, _S_LIST, _quasiquote_sequence(suffix, form))
     if is_vector(form) and len(form) > 0:
-        return list_(_S_VEC, _quasiquote_sequence(form))
+        return list_(_S_VEC, _quasiquote_sequence(suffix, form))
     elif is_symbol(form):
+        if is_simple_symbol(form) and form.name[-1] == "#":
+            form = symbol(None, form.name[:-1] + suffix)
         return list_(_S_QUOTE, form)
     else:
         return form
 
-def _quasiquote_sequence(form):
+def _quasiquote_sequence(suffix, form):
     def entry(_f):
         if is_list(_f) and len(_f) > 0 and _f.first() == _S_UNQUOTE:
             assert len(_f) == 2, "unquote expects 1 argument"
@@ -809,7 +816,7 @@ def _quasiquote_sequence(form):
             assert len(_f) == 2, "splice-unquote expects 1 argument"
             return second(_f)
         else:
-            return list_(_S_LIST, quasiquote(_f))
+            return list_(_S_LIST, quasiquote(suffix, _f))
     return list_(_S_CONCAT, *map(entry, form))
 
 #************************************************************
