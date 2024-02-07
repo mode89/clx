@@ -872,11 +872,6 @@ Binding = define_record("Binding", _K_PY_NAME)
 def _init_context(namespaces):
     _globals = {}
 
-    def _def(name, value):
-        _globals[name] = value
-        return value
-    _globals["___def"] = _def
-
     _namespaces = hash_map("user", Namespace(hash_map()))
     for ns_name, ns_bindings in namespaces.items():
         _bindings = hash_map()
@@ -986,7 +981,7 @@ def _compile_def(ctx, form):
     name = second(form)
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
-    value, body = _compile(ctx, third(form))
+    value_expr, value_stmts = _compile(ctx, third(form))
     ns = ctx.current_ns.deref()
     py_name = munge(f"{ns}/{name.name}")
     ctx.shared.namespaces.swap(
@@ -994,10 +989,12 @@ def _compile_def(ctx, form):
         list_(ns, _K_BINDINGS, name.name),
         Binding(py_name))
     return \
-        _node(ast.Call, ctx,
-            _node(ast.Name, ctx, "___def", ast.Load()),
-            [_node(ast.Constant, ctx, py_name), value], []), \
-        body
+        _node(ast.Name, ctx, py_name, ast.Load()), \
+        value_stmts + [
+            _node(ast.Assign, ctx,
+                [_node(ast.Name, ctx, py_name, ast.Store())],
+                value_expr)
+        ]
 
 def _compile_do(ctx, form):
     stmts = []

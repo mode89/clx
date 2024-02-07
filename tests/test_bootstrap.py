@@ -579,6 +579,10 @@ def test_if():
     assert _eval("(if (___local_context :top-level?) 1 2)") == 1
     assert _eval("(if true (___local_context :top-level?) 42)") is False
     assert _eval("(if false 42 (___local_context :top-level?))") is False
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        _eval("(if true (def foo 1) 2)")
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        _eval("(if true 1 (def foo 2))")
 
 def test_fn():
     assert _eval("(fn* [])")() is None
@@ -622,6 +626,8 @@ def test_fn():
             (___local_context :top-level?)))
         (foo)
         """) is False
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        _eval("(fn* [] (def foo 1))")
 
 def test_in_ns():
     ctx = _make_test_context()
