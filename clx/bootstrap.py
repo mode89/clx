@@ -1070,67 +1070,70 @@ def _compile_if(ctx, form):
 def _compile_fn(ctx, form):
     assert len(form) > 1, "fn* expects at least 1 argument"
     assert len(form) < 4, "fn* expects at most 2 arguments"
-    params_form = second(form)
-    assert isinstance(params_form, PersistentVector), \
-        "fn* expects a vector of parameters as the first argument"
-    fname = _gen_name(ctx, "___fn_")
+    fname = symbol(None, _gen_name(ctx, "___fn_"))
 
-    pos_params = []
-    rest_param = None
-    env = ctx.local.env
-    while params_form:
-        param = first(params_form)
-        assert is_simple_symbol(param), \
-            "parameters of fn* must be simple symbols"
-        if param == _S_AMPER:
-            assert next_(next_(params_form)) is None, \
-                "fn* expects a single symbol after &"
-            rest_param = second(params_form)
-            assert is_simple_symbol(rest_param), \
-                "rest parameter of fn* must be a simple symbol"
-            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
-            break
-        pos_params.append(param)
-        env = assoc(env, param.name, Binding(munge(param.name)))
-        params_form = rest(params_form)
-    ctx = assoc_in(ctx, list_(_K_LOCAL, _K_ENV), env)
-
-    if len(form) == 3:
-        body_form = third(form)
-        body_expr, body_stmts = _compile(
-            assoc_in(ctx, list_(_K_LOCAL, _K_TOP_LEVEL_Q), False),
-            body_form)
-        body = body_stmts + [_node(ast.Return, ctx, body_expr)]
-    else:
-        body = [_node(ast.Pass, ctx)]
-
-    def _arg(_p):
-        return _node(ast.arg, ctx, munge(_p.name))
-
-    stmts = [
-        _node(ast.FunctionDef, ctx,
-            fname,
-            ast.arguments(
-                posonlyargs=[_arg(p) for p in pos_params],
-                args=[],
-                vararg=_arg(rest_param) if rest_param else None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[],
-            ),
-            body,
-            [])
-    ]
+    expr, fdef = _make_function_def(ctx, fname, second(form), third(form))
+    stmts = [fdef]
 
     if get(meta(form), _K_MACRO_QMARK):
         stmts.append(
             _node(ast.Assign, ctx,
-                [_node(ast.Attribute, ctx,
-                    _node(ast.Name, ctx, fname, ast.Load()),
-                    "___macro", ast.Store())],
+                [_node(ast.Attribute, ctx, expr, "___macro", ast.Store())],
                 _node(ast.Constant, ctx, True)))
 
-    return _node(ast.Name, ctx, fname, ast.Load()), stmts
+    return expr, stmts
+
+def _make_function_def(ctx, fname, params, body):
+    assert is_simple_symbol(fname), "function name must be a simple symbol"
+    assert isinstance(params, PersistentVector), \
+        "function parameters must be a vector"
+
+    pos_params = []
+    rest_param = None
+    env = ctx.local.env
+    while params:
+        param = first(params)
+        assert is_simple_symbol(param), \
+            "parameters of function must be simple symbols"
+        if param == _S_AMPER:
+            assert next_(next_(params)) is None, \
+                "parameters should have a single symbol after &"
+            rest_param = second(params)
+            assert is_simple_symbol(rest_param), \
+                "rest parameters of function must be a simple symbol"
+            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
+            break
+        pos_params.append(param)
+        env = assoc(env, param.name, Binding(munge(param.name)))
+        params = rest(params)
+    ctx = assoc_in(ctx, list_(_K_LOCAL, _K_ENV), env)
+
+    if body is not None:
+        body_expr, body_stmts = _compile(
+            assoc_in(ctx, list_(_K_LOCAL, _K_TOP_LEVEL_Q), False),
+            body)
+        body_stmts.append(_node(ast.Return, ctx, body_expr))
+    else:
+        body_stmts = [_node(ast.Pass, ctx)]
+
+    def arg(p):
+        return _node(ast.arg, ctx, munge(p.name))
+
+    py_name = munge(fname.name)
+    return \
+        _node(ast.Name, ctx, py_name, ast.Load()), \
+        _node(ast.FunctionDef, ctx,
+            py_name,
+            ast.arguments(
+                posonlyargs=[arg(p) for p in pos_params],
+                args=[],
+                vararg=arg(rest_param) if rest_param else None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                defaults=[],
+            ),
+            body_stmts,
+            [])
 
 def _compile_quote(ctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
