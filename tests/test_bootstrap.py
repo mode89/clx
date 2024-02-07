@@ -1,3 +1,4 @@
+# pylint: disable=disallowed-name
 # pylint: disable=protected-access
 import re
 import threading
@@ -750,7 +751,7 @@ def test_meta():
     assert quux.count_() == 3
     assert clx.meta(second(quux)).get(K("foo")) == 42
     assert clx.meta(second(quux)).get(K("bar")) == 43
-    bar = lambda: 42 # pylint: disable=disallowed-name
+    bar = lambda: 42
     bar_with_meta = clx.with_meta(bar, M(K("quux"), 43))
     assert bar() == 42
     assert bar_with_meta() == 42
