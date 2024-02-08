@@ -1215,14 +1215,12 @@ _SPECIAL_FORM_COMPILERS = {
 
 def _compile_call(ctx, form):
     args = []
-    body = []
+    f, stmts = _compile(ctx, form.first())
     for arg in form.rest():
         arg_expr, arg_body = _compile(ctx, arg)
         args.append(arg_expr)
-        body.extend(arg_body)
-    f, f_body = _compile(ctx, form.first())
-    body.extend(f_body)
-    return _node(ast.Call, ctx, f, args, []), body
+        stmts.extend(arg_body)
+    return _node(ast.Call, ctx, f, args, []), stmts
 
 def _compile_vector(ctx, form):
     el_exprs = []

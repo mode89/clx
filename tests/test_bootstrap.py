@@ -535,6 +535,8 @@ def test_call():
                (def e 8)
                (def f (+ a b c d e))))
         """) == 48
+    with pytest.raises(Exception, match=r"'foo' not found"):
+        _eval("(foo bar)")
 
 def test_let():
     assert _eval("(let* [])") is None
