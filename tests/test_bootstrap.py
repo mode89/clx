@@ -7,7 +7,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import first, second, rest, next_, seq, lazy_seq, cons, \
-    assoc, get, munge
+    assoc, get, munge, _S_LIST, _S_VEC, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
 S = clx.symbol
@@ -27,6 +27,8 @@ def _make_test_context():
         "user": {
             "set-box": set_box,
             "get-box": get_box,
+        },
+        "clx.core": {
             "+": lambda *args: sum(args),
             "even?": lambda x: x % 2 == 0,
             "odd?": lambda x: x % 2 == 1,
@@ -39,7 +41,8 @@ def _make_test_context():
             "vec": clx.vec,
             "hash-map": clx.hash_map,
             "concat": clx.concat,
-        }})
+        }
+    })
 
 def _eval(text):
     ctx = _make_test_context()
@@ -397,24 +400,25 @@ def test_quasiquote():
     assert clx.read_string("`()") == L()
     assert clx.read_string("`a") == L(S("quote"), S("a"))
     assert clx.read_string("`~a") == S("a")
-    lconcat = lambda *args: L(S("apply"), S("list"), L(S("concat"), *args))
+    lconcat = lambda *args: \
+        L(_S_APPLY, _S_LIST, L(_S_CONCAT, *args))
     assert clx.read_string("`(a)") == \
-        lconcat(L(S("list"), L(S("quote"), S("a"))))
-    assert clx.read_string("`(~a)") == lconcat(L(S("list"), S("a")))
+        lconcat(L(_S_LIST, L(S("quote"), S("a"))))
+    assert clx.read_string("`(~a)") == lconcat(L(_S_LIST, S("a")))
     assert clx.read_string("`(~@a)") == lconcat(S("a"))
     assert clx.read_string("`(1 a ~b ~@c)") == \
         lconcat(
-            L(S("list"), 1),
-            L(S("list"), L(S("quote"), S("a"))),
-            L(S("list"), S("b")),
+            L(_S_LIST, 1),
+            L(_S_LIST, L(S("quote"), S("a"))),
+            L(_S_LIST, S("b")),
             S("c"))
     assert clx.read_string("`[]") == clx.vector()
     assert clx.read_string("`[1 a ~b ~@c]") == \
-        L(S("vec"),
-            L(S("concat"),
-                L(S("list"), 1),
-                L(S("list"), L(S("quote"), S("a"))),
-                L(S("list"), S("b")),
+        L(_S_VEC,
+            L(_S_CONCAT,
+                L(_S_LIST, 1),
+                L(_S_LIST, L(S("quote"), S("a"))),
+                L(_S_LIST, S("b")),
                 S("c")))
     assert re.fullmatch(r"\(quote x_\d+\)", str(clx.read_string("`x#")))
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
@@ -787,6 +791,13 @@ def test_resolve_symbol():
         shared=clx.SharedContext(
             lock=threading.Lock(),
             namespaces=clx.Box(M(
+                "clx.core",
+                    clx.Namespace(
+                        bindings=M(
+                            "list", clx.list_,
+                        ),
+                        imports=M(),
+                    ),
                 "user",
                     clx.Namespace(
                         bindings=M(
@@ -824,6 +835,7 @@ def test_resolve_symbol():
         resolve(S("user/baz"))
     with pytest.raises(Exception, match=r"Symbol 'bar/foo' not found"):
         resolve(S("bar/foo"))
+    assert resolve(S("list")) is clx.list_
 
 def test_apply():
     assert clx.apply(lambda: 42, []) == 42

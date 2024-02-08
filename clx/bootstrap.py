@@ -71,12 +71,21 @@ _SPECIAL_NAMES = {
     "yield",
 }
 
-def munge(name):
+def munge(obj):
+    if type(obj) is Symbol or type(obj) is Keyword:
+        name = obj.namespace + "/" + obj.name \
+            if obj.namespace else obj.name
+    elif type(obj) is str:
+        name = obj
+    else:
+        raise Exception("munge expects string, Symbol, or Keyword")
+
     if name in _SPECIAL_NAMES:
         return f"{name}_"
     if name[-1] == "_":
         if name[:-1] in _SPECIAL_NAMES:
             raise Exception(f"name '{name}' is reserved")
+
     return "".join(_MUNGE_TABLE.get(c, c) for c in name)
 
 #************************************************************
@@ -606,12 +615,6 @@ class Box:
 _S_QUOTE = symbol("quote")
 _S_UNQUOTE = symbol("unquote")
 _S_SPLICE_UNQUOTE = symbol("splice-unquote")
-_S_WITH_META = symbol("with-meta")
-_S_VEC = symbol("vec")
-_S_VECTOR = symbol("vector")
-_S_LIST = symbol("list")
-_S_HASH_MAP = symbol("hash-map")
-_S_CONCAT = symbol("concat")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
@@ -622,9 +625,19 @@ _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("___python")
 _S_LOCAL_CONTEXT = symbol("___local_context")
 _S_AMPER = symbol("&")
-_S_KEYWORD = symbol("keyword")
-_S_SYMBOL = symbol("symbol")
-_S_APPLY = symbol("apply")
+
+def _core_symbol(name):
+    return symbol("clx.core", name)
+
+_S_WITH_META = _core_symbol("with-meta")
+_S_VEC = _core_symbol("vec")
+_S_VECTOR = _core_symbol("vector")
+_S_LIST = _core_symbol("list")
+_S_HASH_MAP = _core_symbol("hash-map")
+_S_CONCAT = _core_symbol("concat")
+_S_KEYWORD = _core_symbol("keyword")
+_S_SYMBOL = _core_symbol("symbol")
+_S_APPLY = _core_symbol("apply")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -853,18 +866,28 @@ LocalContext = define_record("LocalContext",
 Namespace = define_record("Namespace", _K_BINDINGS, _K_IMPORTS)
 Binding = define_record("Binding", _K_PY_NAME, _K_ATTRIBUTE)
 
+def _known_binding(sym):
+    return Binding(munge(sym), None)
+
+_B_KEYWORD = _known_binding(_S_KEYWORD)
+_B_SYMBOL = _known_binding(_S_SYMBOL)
+_B_LIST = _known_binding(_S_LIST)
+_B_VECTOR = _known_binding(_S_VECTOR)
+_B_HASH_MAP = _known_binding(_S_HASH_MAP)
+_B_WITH_META = _known_binding(_S_WITH_META)
+
 def _init_context(namespaces):
     _globals = {}
 
-    _namespaces = hash_map("user", Namespace(hash_map(), hash_map()))
+    _namespaces = hash_map()
     for ns_name, ns_bindings in namespaces.items():
         _bindings = hash_map()
         for name, value in ns_bindings.items():
             py_name = munge(f"{ns_name}/{name}")
             _bindings = assoc(_bindings, name, Binding(py_name, None))
             _globals[py_name] = value
-        _namespaces = assoc_in(_namespaces,
-            list_(ns_name, _K_BINDINGS), _bindings)
+        _namespaces = assoc(_namespaces, ns_name,
+            Namespace(_bindings, hash_map()))
 
     return Context(
         shared=SharedContext(
@@ -1208,11 +1231,9 @@ def _compile_vector(ctx, form):
         el_expr, el_stmts = _compile(ctx, elm)
         el_exprs.append(el_expr)
         stmts.extend(el_stmts)
-    # TODO munge core/vector
-    py_vector = _resolve_symbol(ctx, _S_VECTOR).py_name
     return \
         _node(ast.Call, ctx,
-            _node(ast.Name, ctx, py_vector, ast.Load()),
+            _binding_node(ctx, ast.Load(), _B_VECTOR),
             el_exprs,
             []), \
         stmts
@@ -1227,10 +1248,9 @@ def _compile_map(ctx, form):
         value_expr, value_stmts = _compile(ctx, value)
         args.append(value_expr)
         stmts.extend(value_stmts)
-    py_hash_map = _resolve_symbol(ctx, _S_HASH_MAP).py_name
     return \
         _node(ast.Call, ctx,
-            _node(ast.Name, ctx, py_hash_map, ast.Load()),
+            _binding_node(ctx, ast.Load(), _B_HASH_MAP),
             args,
             []), \
         stmts
@@ -1244,6 +1264,12 @@ def _resolve_symbol(ctx, sym, not_found=_DUMMY):
         namespaces = ctx.shared.namespaces.deref()
         binding = namespaces \
             .lookup(ctx.current_ns.deref(), None) \
+            .bindings.lookup(sym.name, None)
+        if binding is not None:
+            return binding
+
+        binding = namespaces \
+            .lookup("clx.core", None) \
             .bindings.lookup(sym.name, None)
         if binding is not None:
             return binding
@@ -1330,36 +1356,31 @@ def _fix_constants(ctx, body, result):
 
 def _compile_constant(ctx, value):
     if isinstance(value, (Keyword, Symbol)):
-        ctor = _resolve_symbol(ctx,
-            _S_KEYWORD if isinstance(value, Keyword) else _S_SYMBOL).py_name
         _ns = ast.Constant(value.namespace, lineno=0, col_offset=0)
         _name = ast.Constant(value.name, lineno=0, col_offset=0)
         tree = ast.Call(
-            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            _binding_node(ctx, ast.Load(),
+                _B_KEYWORD if type(value) is Keyword else _B_SYMBOL),
             [_ns, _name], [], lineno=0, col_offset=0)
     elif isinstance(value, (PersistentList, PersistentVector)):
-        ctor = _resolve_symbol(ctx,
-            _S_LIST if isinstance(value, PersistentList) else _S_VECTOR) \
-            .py_name
         tree = ast.Call(
-            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            _binding_node(ctx, ast.Load(),
+                _B_LIST if type(value) is PersistentList else _B_VECTOR),
             [_compile_constant(ctx, v) for v in value],
             [], lineno=0, col_offset=0)
-    elif isinstance(value, PersistentMap):
-        ctor = _resolve_symbol(ctx, _S_HASH_MAP).py_name
+    elif type(value) is PersistentMap:
         args = []
         for key, val in value.items():
             args.append(_compile_constant(ctx, key))
             args.append(_compile_constant(ctx, val))
         tree = ast.Call(
-            ast.Name(ctor, ast.Load(), lineno=0, col_offset=0),
+            _binding_node(ctx, ast.Load(), _B_HASH_MAP),
             args, [], lineno=0, col_offset=0)
     else:
         tree = ast.Constant(value, lineno=0, col_offset=0)
     if meta(value) is not None:
         tree = ast.Call(
-            ast.Name(_resolve_symbol(ctx, _S_WITH_META).py_name,
-                ast.Load(), lineno=0, col_offset=0),
+            _binding_node(ctx, ast.Load(), _B_WITH_META),
             [tree, _compile_constant(ctx, meta(value))],
             [], lineno=0, col_offset=0)
     return tree
