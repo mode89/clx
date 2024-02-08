@@ -876,7 +876,7 @@ _B_VECTOR = _known_binding(_S_VECTOR)
 _B_HASH_MAP = _known_binding(_S_HASH_MAP)
 _B_WITH_META = _known_binding(_S_WITH_META)
 
-def _init_context(namespaces):
+def init_context(namespaces):
     _globals = {}
 
     namespaces = {
@@ -938,7 +938,7 @@ def _eval_form(ctx, file_name, form):
         return eval( # pylint: disable=eval-used
             compile(result, file_name, "eval"), ctx.shared.py_globals)
 
-def _load_file(ctx, path):
+def load_file(ctx, path):
     lctx = LocalContext(hash_map(), True, 1, 1)
     return _load_string(assoc(ctx, _K_LOCAL, lctx), path, slurp(path))
 

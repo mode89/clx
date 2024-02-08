@@ -23,7 +23,7 @@ def _make_test_context():
     def get_box():
         return box[0]
 
-    return clx._init_context({
+    return clx.init_context({
         "user": {
             "set-box": set_box,
             "get-box": get_box,
@@ -927,7 +927,7 @@ def test_slurp():
 
 def test_load_file():
     ctx = _make_test_context()
-    hello_world = clx._load_file(ctx, "tests/hello-world.clj")
+    hello_world = clx.load_file(ctx, "tests/hello-world.clj")
     assert hello_world() is K("hello-world")
 
 def test_atom():
