@@ -1516,7 +1516,7 @@ def get_in(obj, path, not_found=None):
 def assoc_in(obj, path, value):
     path0 = first(path)
     path = next_(path)
-    if path:
+    if path is not None:
         child0 = get(obj, path0)
         return assoc(obj, path0, assoc_in(child0, path, value))
     else:
