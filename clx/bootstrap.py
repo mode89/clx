@@ -10,7 +10,7 @@ import sys
 import threading
 import types
 
-_UNDEFINED = object()
+_DUMMY = object()
 
 #************************************************************
 # Utilities
@@ -1217,7 +1217,7 @@ def _compile_map(ctx, form):
             []), \
         stmts
 
-def _resolve_symbol(ctx, sym):
+def _resolve_symbol(ctx, sym, not_found=_DUMMY):
     if is_simple_symbol(sym):
         binding = ctx.local.env.lookup(sym.name, None)
         if binding is not None:
@@ -1235,9 +1235,10 @@ def _resolve_symbol(ctx, sym):
             binding = namespace.bindings.lookup(sym.name, None)
             if binding is not None:
                 return binding
-        else:
-            raise ResolveError(f"Namespace '{sym.namespace}' not found")
-    raise ResolveError(f"Symbol '{pr_str(sym)}' not found")
+
+    if not_found is _DUMMY:
+        raise Exception(f"Symbol '{pr_str(sym)}' not found")
+    return not_found
 
 def _gen_name(ctx, base="___gen_"):
     counter = ctx.shared.counter.swap(lambda x: x + 1)
@@ -1386,9 +1387,9 @@ def seq(coll):
 def iterator_seq(it):
     assert isinstance(it, Iterator), "iterator-seq expects an iterator"
     def _seq():
-        value = next(it, _UNDEFINED)
+        value = next(it, _DUMMY)
         return cons(value, lazy_seq(_seq)) \
-            if value is not _UNDEFINED else None
+            if value is not _DUMMY else None
     return lazy_seq(_seq)
 
 def is_seq(obj):
