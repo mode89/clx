@@ -599,10 +599,6 @@ class Box:
         self._value = f(self._value, *args)
         return self._value
 
-class ResolveError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
 #************************************************************
 # Constants
 #************************************************************
@@ -622,6 +618,7 @@ _S_LET_STAR = symbol("let*")
 _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
 _S_IN_NS = symbol("in-ns")
+_S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("___python")
 _S_LOCAL_CONTEXT = symbol("___local_context")
 _S_AMPER = symbol("&")
@@ -637,7 +634,9 @@ _K_ENV = keyword("env")
 _K_COUNTER = keyword("counter")
 _K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
+_K_ATTRIBUTE = keyword("attribute")
 _K_BINDINGS = keyword("bindings")
+_K_IMPORTS = keyword("imports")
 _K_MACRO_QMARK = keyword("macro?")
 _K_TOP_LEVEL_Q = keyword("top-level?")
 _K_SHARED = keyword("shared")
@@ -851,18 +850,18 @@ LocalContext = define_record("LocalContext",
     _K_LINE,
     _K_COLUMN,
 )
-Namespace = define_record("Namespace", _K_BINDINGS)
-Binding = define_record("Binding", _K_PY_NAME)
+Namespace = define_record("Namespace", _K_BINDINGS, _K_IMPORTS)
+Binding = define_record("Binding", _K_PY_NAME, _K_ATTRIBUTE)
 
 def _init_context(namespaces):
     _globals = {}
 
-    _namespaces = hash_map("user", Namespace(hash_map()))
+    _namespaces = hash_map("user", Namespace(hash_map(), hash_map()))
     for ns_name, ns_bindings in namespaces.items():
         _bindings = hash_map()
         for name, value in ns_bindings.items():
             py_name = munge(f"{ns_name}/{name}")
-            _bindings = assoc(_bindings, name, Binding(py_name))
+            _bindings = assoc(_bindings, name, Binding(py_name, None))
             _globals[py_name] = value
         _namespaces = assoc_in(_namespaces,
             list_(ns_name, _K_BINDINGS), _bindings)
@@ -914,20 +913,16 @@ def macroexpand1(ctx, form):
     if is_list(form): # pylint: disable=too-many-nested-blocks
         head = form.first()
         if is_symbol(head):
-            try:
-                binding = _resolve_symbol(ctx, head)
-                py_name = binding.py_name
-                if py_name in ctx.shared.py_globals:
-                    obj = ctx.shared.py_globals[py_name]
-                    if is_macro(obj):
-                        return obj(*form.rest())
+            binding = _resolve_symbol(ctx, head, None)
+            if binding is not None:
+                obj = _eval_binding(ctx, binding)
+                if is_macro(obj):
+                    return obj(*form.rest())
                 else:
                     if get(binding, _K_MACRO_QMARK):
                         raise Exception(
                             f"macro '{head}' is defined, "
                             "but hasn't been evaluated yet")
-            except ResolveError:
-                pass
     return form
 
 def _compile(ctx, form):
@@ -942,8 +937,8 @@ def _compile(ctx, form):
     elif isinstance(form, PersistentMap):
         return _compile_map(ctx, form)
     elif isinstance(form, Symbol):
-        py_name = _resolve_symbol(ctx, form).py_name
-        return _node(ast.Name, ctx, py_name, ast.Load()), []
+        binding = _resolve_symbol(ctx, form)
+        return _binding_node(ctx, ast.Load(), binding), []
     else:
         return \
             ast.Constant(
@@ -972,7 +967,7 @@ def _compile_def(ctx, form):
     ctx.shared.namespaces.swap(
         assoc_in,
         list_(ns, _K_BINDINGS, name.name),
-        Binding(py_name))
+        Binding(py_name, None))
     return \
         _node(ast.Name, ctx, py_name, ast.Load()), \
         value_stmts + [
@@ -1021,7 +1016,7 @@ def _compile_let(ctx, form):
             _node(ast.Assign, ctx,
                 [_node(ast.Name, ctx, py_name, ast.Store())], value_expr))
         ctx = assoc_in(ctx,
-            list_(_K_LOCAL, _K_ENV, _name.name), Binding(py_name))
+            list_(_K_LOCAL, _K_ENV, _name.name), Binding(py_name, None))
     if len(form) == 3:
         body_expr, body_stmts = _compile(ctx, third(form))
         body.extend(body_stmts)
@@ -1086,10 +1081,11 @@ def _make_function_def(ctx, fname, params, body):
             rest_param = second(params)
             assert is_simple_symbol(rest_param), \
                 "rest parameters of function must be a simple symbol"
-            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
+            env = assoc(env, rest_param.name,
+                Binding(munge(rest_param.name), None))
             break
         pos_params.append(param)
-        env = assoc(env, param.name, Binding(munge(param.name)))
+        env = assoc(env, param.name, Binding(munge(param.name), None))
         params = rest(params)
     ctx = assoc_in(ctx, list_(_K_LOCAL, _K_ENV), env)
 
@@ -1133,15 +1129,36 @@ def _compile_in_ns(ctx, form):
     def find_or_create(namespaces):
         ns_obj = namespaces.lookup(ns.name, None)
         if ns_obj is None:
-            return assoc(namespaces, ns.name, Namespace(hash_map()))
+            return assoc(namespaces, ns.name,
+                Namespace(hash_map(), hash_map()))
         return namespaces
     ctx.shared.namespaces.swap(find_or_create)
     return _node(ast.Constant, ctx, None), []
 
+def _compile_import(ctx, form):
+    assert ctx.local.top_level_QMARK_, "import* allowed only at top level"
+    assert len(form) <= 3, "import* expects at most 2 arguments"
+    mod = second(form)
+    assert is_simple_symbol(mod), \
+        "name of module to import must be a simple symbol"
+    _as = third(form)
+    if _as is None:
+        _as = mod
+    assert is_simple_symbol(_as), "alias for module must be a simple symbol"
+    py_name = _gen_name(ctx, f"___import_{munge(mod.name)}_")
+    ctx.shared.namespaces.swap(
+        assoc_in,
+        list_(ctx.current_ns.deref(), _K_IMPORTS, _as.name),
+        py_name)
+    return \
+        _node(ast.Name, ctx, py_name, ast.Load()), \
+        [_node(ast.Import, ctx,
+            [_node(ast.alias, ctx, mod.name, py_name)])]
+
 def _compile_python(ctx, form):
     def _eval_entry(entry):
         if isinstance(entry, Symbol):
-            return _resolve_symbol(ctx, entry).py_name
+            return _binding_string(_resolve_symbol(ctx, entry))
         elif isinstance(entry, str):
             return entry
         else:
@@ -1168,6 +1185,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_FN_STAR: _compile_fn,
     _S_QUOTE: _compile_quote,
     _S_IN_NS: _compile_in_ns,
+    _S_IMPORT_STAR: _compile_import,
     _S_PYTHON: _compile_python,
     _S_LOCAL_CONTEXT: _trace_local_context,
 }
@@ -1222,15 +1240,22 @@ def _resolve_symbol(ctx, sym, not_found=_DUMMY):
         binding = ctx.local.env.lookup(sym.name, None)
         if binding is not None:
             return binding
-        else:
-            binding = ctx.shared \
-                .namespaces.deref() \
-                .lookup(ctx.current_ns.deref(), None) \
-                .bindings.lookup(sym.name, None)
-            if binding is not None:
-                return binding
+
+        namespaces = ctx.shared.namespaces.deref()
+        binding = namespaces \
+            .lookup(ctx.current_ns.deref(), None) \
+            .bindings.lookup(sym.name, None)
+        if binding is not None:
+            return binding
     else:
-        namespace = ctx.shared.namespaces.deref().lookup(sym.namespace, None)
+        namespaces = ctx.shared.namespaces.deref()
+        import_alias = namespaces \
+            .lookup(ctx.current_ns.deref(), None) \
+            .imports.lookup(sym.namespace, None)
+        if import_alias is not None:
+            return Binding(import_alias, munge(sym.name))
+
+        namespace = namespaces.lookup(sym.namespace, None)
         if namespace is not None:
             binding = namespace.bindings.lookup(sym.name, None)
             if binding is not None:
@@ -1250,6 +1275,26 @@ def _node(type_, ctx, *args):
     _n.lineno = lctx.line
     _n.col_offset = lctx.column
     return _n
+
+def _binding_node(ctx, load_or_store, binding):
+    if binding.attribute is None:
+        return _node(ast.Name, ctx, binding.py_name, load_or_store)
+    else:
+        return _node(ast.Attribute, ctx,
+            _node(ast.Name, ctx, binding.py_name, ast.Load()),
+            binding.attribute,
+            load_or_store)
+
+def _eval_binding(ctx, binding, not_found=_DUMMY):
+    obj = ctx.shared.py_globals.get(binding.py_name, not_found)
+    if binding.attribute is not None:
+        return getattr(obj, binding.attribute, not_found)
+    return obj
+
+def _binding_string(binding):
+    if binding.attribute is None:
+        return binding.py_name
+    return f"{binding.py_name}.{binding.attribute}"
 
 def _transform_ast(ctx, body, result):
     _fix_constants(ctx, body, result)

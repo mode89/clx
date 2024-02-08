@@ -443,7 +443,7 @@ def test_munge():
     assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert munge("foo-bar.*baz*/+qux_fred!") == \
         "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
-    assert munge("globals") == "globals_"
+    assert munge("if") == "if_"
     assert munge("def") == "def_"
     with pytest.raises(Exception, match=r"reserved"):
         munge("def_")
@@ -714,6 +714,15 @@ def test_macros():
             (foo)
             """)
 
+def test_import():
+    mod = _eval("(import* collections)")
+    assert mod is __import__("collections")
+    assert _eval(
+        """
+        (import* builtins blts)
+        (blts/str 42)
+        """) == "42"
+
 def test_python():
     assert _eval("(___python)") is None
     assert _eval("(___python \"42\")") == 42
@@ -782,12 +791,16 @@ def test_resolve_symbol():
                     clx.Namespace(
                         bindings=M(
                             "foo", 1,
-                            "bar", 2)),
+                            "bar", 2),
+                        imports=M(),
+                    ),
                 "baz",
                     clx.Namespace(
                         bindings=M(
                             "quux", 3,
-                            "fred", 4)))),
+                            "fred", 4),
+                        imports=M(),
+                    ))),
             py_globals={},
             counter=clx.Box(0),
         ),
@@ -809,7 +822,7 @@ def test_resolve_symbol():
     assert resolve(S("user/bar")) == 2
     with pytest.raises(Exception, match=r"Symbol 'user/baz' not found"):
         resolve(S("user/baz"))
-    with pytest.raises(Exception, match=r"Namespace 'bar' not found"):
+    with pytest.raises(Exception, match=r"Symbol 'bar/foo' not found"):
         resolve(S("bar/foo"))
 
 def test_apply():
