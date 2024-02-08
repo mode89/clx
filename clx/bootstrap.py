@@ -879,6 +879,23 @@ _B_WITH_META = _known_binding(_S_WITH_META)
 def _init_context(namespaces):
     _globals = {}
 
+    namespaces = {
+        "user": {},
+        "clx.core": {
+            "+": lambda *args: sum(args),
+            "with-meta": with_meta,
+            "apply": apply,
+            "keyword": keyword,
+            "symbol": symbol,
+            "list": list_,
+            "vector": vector,
+            "vec": vec,
+            "hash-map": hash_map,
+            "concat": concat,
+        },
+        **namespaces,
+    }
+
     _namespaces = hash_map()
     for ns_name, ns_bindings in namespaces.items():
         _bindings = hash_map()

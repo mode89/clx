@@ -27,21 +27,9 @@ def _make_test_context():
         "user": {
             "set-box": set_box,
             "get-box": get_box,
-        },
-        "clx.core": {
-            "+": lambda *args: sum(args),
             "even?": lambda x: x % 2 == 0,
             "odd?": lambda x: x % 2 == 1,
-            "with-meta": clx.with_meta,
-            "apply": clx.apply,
-            "keyword": clx.keyword,
-            "symbol": clx.symbol,
-            "list": clx.list_,
-            "vector": clx.vector,
-            "vec": clx.vec,
-            "hash-map": clx.hash_map,
-            "concat": clx.concat,
-        }
+        },
     })
 
 def _eval(text):
