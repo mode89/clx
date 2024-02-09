@@ -1449,12 +1449,21 @@ def is_counted(x):
     return isinstance(x, ICounted)
 
 def count(x):
-    if isinstance(x, ICounted):
-        return x.count_()
-    elif x is None:
+    if x is None:
         return 0
+    elif isinstance(x, ICounted):
+        return x.count_()
+    elif isinstance(x, ISeqable):
+        return _count_seqable(x)
     else:
         return len(x)
+
+def _count_seqable(x):
+    num = 0
+    while x is not None:
+        num += 1
+        x = x.next()
+    return num
 
 def cons(obj, coll):
     if coll is None:

@@ -953,3 +953,4 @@ def test_count():
     assert clx.count(M(1, 2, 3, 4)) == 2
     assert clx.count([1, 2, 3 ,4]) == 4
     assert clx.count((1, 2, 3, 4, 5, 6)) == 6
+    assert clx.count(_lazy_range(0, 2000)) == 2000
