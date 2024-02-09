@@ -622,6 +622,8 @@ def test_fn():
         """) is False
     with pytest.raises(Exception, match=r"allowed only at top level"):
         _eval("(fn* [] (def foo 1))")
+    foo = _eval("^{:bar \"baz\"} (fn* [])")
+    assert clx.meta(foo).get(K("bar")) == "baz"
 
 def test_in_ns():
     ctx = _make_test_context()

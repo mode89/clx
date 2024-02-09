@@ -1094,11 +1094,13 @@ def _compile_fn(ctx, form):
     expr, fdef = _make_function_def(ctx, fname, second(form), third(form))
     stmts = [fdef]
 
-    if get(meta(form), _K_MACRO_QMARK):
-        stmts.append(
-            _node(ast.Assign, ctx,
-                [_node(ast.Attribute, ctx, expr, "___macro", ast.Store())],
-                _node(ast.Constant, ctx, True)))
+    _meta = meta(form)
+    if _meta is not None:
+        meta_expr, meta_stmts = _compile(ctx, _meta)
+        stmts.extend(meta_stmts)
+        expr = _node(ast.Call, ctx,
+            _binding_node(ctx, ast.Load(), _B_WITH_META),
+            [expr, meta_expr], [])
 
     return expr, stmts
 
@@ -1435,7 +1437,7 @@ def vary_meta(obj, f, *args):
     return with_meta(obj, f(meta(obj), *args))
 
 def is_macro(obj):
-    return callable(obj) and getattr(obj, "___macro", False)
+    return callable(obj) and get(meta(obj), _K_MACRO_QMARK, False)
 
 def is_counted(x):
     return isinstance(x, ICounted)
