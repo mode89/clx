@@ -1443,7 +1443,12 @@ def is_counted(x):
     return isinstance(x, ICounted)
 
 def count(x):
-    return x.count_()
+    if isinstance(x, ICounted):
+        return x.count_()
+    elif x is None:
+        return 0
+    else:
+        return len(x)
 
 def cons(obj, coll):
     if coll is None:

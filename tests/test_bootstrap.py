@@ -941,3 +941,14 @@ def test_atom():
     assert a.deref() == 44
     assert a.swap(lambda x, y: x + y, 2) == 46
     assert a.deref() == 46
+
+def test_count():
+    assert clx.count(None) == 0
+    assert clx.count(L()) == 0
+    assert clx.count(L(1, 2, 3)) == 3
+    assert clx.count(V()) == 0
+    assert clx.count(V(1, 2, 3, 4, 5)) == 5
+    assert clx.count(M()) == 0
+    assert clx.count(M(1, 2, 3, 4)) == 2
+    assert clx.count([1, 2, 3 ,4]) == 4
+    assert clx.count((1, 2, 3, 4, 5, 6)) == 6
