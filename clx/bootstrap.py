@@ -1087,11 +1087,17 @@ def _compile_if(ctx, form):
         ]
 
 def _compile_fn(ctx, form):
-    assert len(form) > 1, "fn* expects at least 1 argument"
-    assert len(form) < 4, "fn* expects at most 2 arguments"
-    fname = symbol(None, _gen_name(ctx, "___fn_"))
+    arg1 = second(form)
+    if is_symbol(arg1):
+        fname = arg1
+        params = third(form)
+        body = fourth(form)
+    else:
+        fname = symbol(None, _gen_name(ctx, "___fn_"))
+        params = arg1
+        body = third(form)
 
-    expr, fdef = _make_function_def(ctx, fname, second(form), third(form))
+    expr, fdef = _make_function_def(ctx, fname, params, body)
     stmts = [fdef]
 
     _meta = meta(form)
@@ -1105,7 +1111,7 @@ def _compile_fn(ctx, form):
     return expr, stmts
 
 def _make_function_def(ctx, fname, params, body):
-    assert is_simple_symbol(fname), "function name must be a simple symbol"
+    assert is_symbol(fname), "function name must be a symbol"
     assert isinstance(params, PersistentVector), \
         "function parameters must be a vector"
 
@@ -1141,7 +1147,7 @@ def _make_function_def(ctx, fname, params, body):
     def arg(p):
         return _node(ast.arg, ctx, munge(p.name))
 
-    py_name = munge(fname.name)
+    py_name = munge(fname)
     return \
         _node(ast.Name, ctx, py_name, ast.Load()), \
         _node(ast.FunctionDef, ctx,
