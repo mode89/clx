@@ -18,7 +18,6 @@ _DUMMY = object()
 
 _MUNGE_TABLE = {
     "-": "_",
-    "_": "_USCORE_",
     ".": "_DOT_",
     ":": "_COLON_",
     "+": "_PLUS_",

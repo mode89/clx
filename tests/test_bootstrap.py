@@ -434,7 +434,7 @@ def test_munge():
     assert munge("foo") == "foo"
     assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert munge("foo-bar.*baz*/+qux_fred!") == \
-        "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_USCORE_fred_BANG_"
+        "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_fred_BANG_"
     assert munge("if") == "if_"
     assert munge("def") == "def_"
     with pytest.raises(Exception, match=r"reserved"):
