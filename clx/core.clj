@@ -32,3 +32,8 @@
   `(let [obj# ~obj
          value# ~value]
      (python* obj# "." ~(name field) " = " value#)))
+
+(defmacro when [cond & body]
+  `(if ~cond
+     (do ~@body)
+     nil))

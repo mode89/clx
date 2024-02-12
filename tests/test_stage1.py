@@ -94,3 +94,15 @@ def test_set_bang(_eval):
         (set! foo bar 42)
         foo
         """).bar == 42
+
+def test_when(_eval):
+    assert _eval(
+        """
+        (when true
+          42)
+        """) == 42
+    assert _eval(
+        """
+        (when false
+          (python* "raise Exception()"))
+        """) is None
