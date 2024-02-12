@@ -895,6 +895,7 @@ def init_context(namespaces):
             "first": first,
             "second": second,
             "rest": rest,
+            "next": next_,
             "concat": concat,
             "pr-str": pr_str,
         },

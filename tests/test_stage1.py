@@ -30,6 +30,10 @@ def _eval():
         return bs._load_string(clone_context(), "<string>", text)
     return impl
 
+def test_throw(_eval):
+    with pytest.raises(Exception, match="foo"):
+        _eval("(throw (Exception \"foo\"))")
+
 def test_fn(_eval):
     assert _eval("((fn [] 42))") == 42
     assert _eval(
@@ -67,7 +71,7 @@ def test_defmacro(_eval):
           `(if ~pred ~a ~b))
         (if* true
           42
-          (python* "raise Exception()"))
+          (throw (Exception)))
         """) == 42
 
 def test_let(_eval):
@@ -104,5 +108,5 @@ def test_when(_eval):
     assert _eval(
         """
         (when false
-          (python* "raise Exception()"))
+          (throw (Exception)))
         """) is None

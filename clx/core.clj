@@ -1,5 +1,12 @@
 (in-ns clx.core)
 
+(def throw
+  (fn* clx.core/throw [x]
+    (python* "raise " x)))
+
+(def Exception
+  (python* "Exception"))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]
