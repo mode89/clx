@@ -83,3 +83,14 @@ def test_let(_eval):
           (+ x y)
           (+ y 10))
         """) == 9011
+
+def test_set_bang(_eval):
+    assert _eval(
+        """
+        (def foo
+          (python*
+            "from types import SimpleNamespace\n"
+            "SimpleNamespace()"))
+        (set! foo bar 42)
+        foo
+        """).bar == 42
