@@ -779,6 +779,7 @@ def test_meta():
     assert clx.meta(clx.vary_meta(fred_with_meta, assoc, K("bar"), 44)) == \
         M("foo", 42, K("bar"), 44)
     assert clx.meta(fred_with_meta) == M("foo", 42)
+    assert clx.meta(clx.with_meta(fred_with_meta, None)) is None
 
 def test_resolve_symbol():
     ctx = clx.Context(

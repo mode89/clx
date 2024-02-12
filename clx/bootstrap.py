@@ -1425,8 +1425,9 @@ def meta(obj):
     return getattr(obj, "__meta__", None)
 
 def with_meta(obj, _meta):
-    assert isinstance(_meta, PersistentMap), \
-        "with-meta expects a PersistentMap as the second argument"
+    if _meta is not None:
+        assert isinstance(_meta, PersistentMap), \
+            "with-meta expects a PersistentMap as the second argument"
     if isinstance(obj, IMeta):
         return obj.with_meta(_meta)
     elif isinstance(obj, types.FunctionType):
