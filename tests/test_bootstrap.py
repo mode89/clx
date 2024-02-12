@@ -525,6 +525,7 @@ def test_call():
         """) == 48
     with pytest.raises(Exception, match=r"'foo' not found"):
         _eval("(foo bar)")
+    assert _eval("((fn* [] 42))") == 42
 
 def test_let():
     assert _eval("(let* [])") is None

@@ -969,7 +969,9 @@ def _compile(ctx, form):
     form = macroexpand(ctx, form)
     if isinstance(form, PersistentList):
         head = form.first()
-        compiler = _SPECIAL_FORM_COMPILERS.get(head, _compile_call)
+        compiler = _SPECIAL_FORM_COMPILERS[head] \
+            if is_symbol(head) and head in _SPECIAL_FORM_COMPILERS \
+            else _compile_call
         return compiler(ctx, form)
     elif isinstance(form, PersistentVector):
         return _compile_vector(ctx, form)
