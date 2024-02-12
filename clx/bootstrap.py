@@ -621,7 +621,7 @@ _S_IF = symbol("if")
 _S_FN_STAR = symbol("fn*")
 _S_IN_NS = symbol("in-ns")
 _S_IMPORT_STAR = symbol("import*")
-_S_PYTHON = symbol("___python")
+_S_PYTHON = symbol("python*")
 _S_LOCAL_CONTEXT = symbol("___local_context")
 _S_AMPER = symbol("&")
 
@@ -1209,7 +1209,7 @@ def _compile_python(ctx, form):
         elif isinstance(entry, str):
             return entry
         else:
-            raise Exception("___python expects strings or symbols")
+            raise Exception("python* expects strings or symbols")
     source = "".join(map(_eval_entry, form.rest()))
     module = ast.parse(source)
     if module.body and isinstance(module.body[-1], ast.Expr):

@@ -721,24 +721,24 @@ def test_import():
         """) == "42"
 
 def test_python():
-    assert _eval("(___python)") is None
-    assert _eval("(___python \"42\")") == 42
+    assert _eval("(python*)") is None
+    assert _eval("(python* \"42\")") == 42
     assert _eval(
         """
         (def foo 42)
-        (___python foo)
+        (python* foo)
         """) == 42
     assert _eval(
         """
         (def a 1)
         (def b 2)
-        (___python a " + " b)
+        (python* a " + " b)
         """) == 3
     assert _eval(
         """
         (let* [x 2
                y 3]
-          (___python
+          (python*
             \"z = 4\\n\"
             x \" * \" y \" * z\"))
         """) == 24
@@ -747,9 +747,9 @@ def test_python():
         (def foo
           (fn* []
             42))
-        (___python foo "()")
+        (python* foo "()")
         """) == 42
-    assert _eval("(___python \"a = 42\")") is None
+    assert _eval("(python* \"a = 42\")") is None
 
 def test_meta():
     assert clx.meta(None) is None
