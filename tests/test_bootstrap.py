@@ -294,6 +294,18 @@ def test_seq():
     assert seq([1, 2]).first() == 1
     assert seq([1, 2]).rest().first() == 2
     assert seq([1, 2]).rest().next() is None
+    assert seq(tuple()) is None
+    assert seq((1, 2)).first() == 1
+    assert seq((1, 2)).rest().first() == 2
+    assert seq((1, 2)).rest().next() is None
+    assert seq(range(1, 1)) is None
+    assert seq(range(1, 3)).first() == 1
+    assert seq(range(1, 3)).rest().first() == 2
+    assert seq(range(1, 3)).rest().next() is None
+    assert seq("") is None
+    assert seq("12").first() == "1"
+    assert seq("12").rest().first() == "2"
+    assert seq("12").rest().next() is None
 
 def test_is_seq():
     assert clx.is_seq(None) is False
@@ -314,6 +326,19 @@ def test_is_seqable():
     assert clx.is_seqable(()) is True
     assert clx.is_seqable({}) is True
     assert clx.is_seqable(42) is False
+
+def test_indexed_seq():
+    s = clx.IndexedSeq("world", 2, None)
+    assert s.first() == "r"
+    assert s.rest().first() == "l"
+    assert s.next().first() == "l"
+    assert s.next().next().first() == "d"
+    assert s.next().next().next() is None
+    assert s.seq() is s
+    assert s.count_() == 3
+    assert clx.meta(clx.with_meta(s, M(1, 2))) == M(1, 2)
+    assert clx.meta(s) is None
+    assert s == L("r", "l", "d")
 
 def test_hash_map():
     m0 = M()

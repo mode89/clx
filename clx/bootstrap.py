@@ -367,7 +367,12 @@ class PersistentVector(
     def count_(self):
         return len(self._impl)
     def seq(self):
-        return _list_from_iterable(self._impl).seq()
+        size = len(self._impl)
+        if size == 0:
+            return None
+        elif size < 32:
+            return IndexedSeq(self._impl, 0, None)
+        return _list_from_iterable(self._impl)
 
 _EMPTY_VECTOR = PersistentVector([], _meta=None)
 _EMPTY_VECTOR.seq = lambda: None
@@ -557,6 +562,31 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
                 self._seq = self._func()
                 self._func = None
             return self._seq
+
+class IndexedSeq(IMeta, ICounted, ISeq, ISequential):
+    def __init__(self, coll, index, _meta):
+        self._coll = coll
+        self._index = index
+        self.__meta__ = _meta
+    def __eq__(self, other):
+        return self is other \
+            or _equiv_sequential(self, other)
+    def with_meta(self, _meta):
+        return IndexedSeq(self._coll, self._index, _meta)
+    def count_(self):
+        return len(self._coll) - self._index
+    def first(self):
+        return self._coll[self._index]
+    def next(self):
+        _index = self._index + 1
+        if _index < len(self._coll):
+            return IndexedSeq(self._coll, _index, None)
+        return None
+    def rest(self):
+        _next = self.next()
+        return _next if _next is not None else _EMPTY_LIST
+    def seq(self):
+        return self
 
 def _equiv_sequential(x, y):
     assert isinstance(x, ISequential), "expected a sequential"
@@ -1493,10 +1523,16 @@ def lazy_seq(func):
     return LazySeq(func, None, _meta=None)
 
 def seq(coll):
-    if isinstance(coll, ISeqable):
-        return coll.seq()
-    elif coll is None:
+    if coll is None:
         return None
+    elif isinstance(coll, ISeqable):
+        return coll.seq()
+    elif type(coll) is tuple \
+            or (type(coll) is list and len(coll) < 32) \
+            or type(coll) is str:
+        if len(coll) == 0:
+            return None
+        return IndexedSeq(coll, 0, None)
     elif isinstance(coll, Iterable):
         return iterator_seq(iter(coll)).seq()
     else:
