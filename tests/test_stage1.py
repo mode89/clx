@@ -110,3 +110,30 @@ def test_when(_eval):
         (when false
           (throw (Exception)))
         """) is None
+
+def test_lazy_seq(_eval):
+    assert _eval("(lazy-seq nil)") == bs.list_()
+    assert _eval("(lazy-seq '(1 2 3))") == bs.list_(1, 2, 3)
+    assert _eval(
+        """
+        (defn foo [x]
+          (lazy-seq (cons x (foo (+ x 1)))))
+        (first (next (next (next (foo 1)))))
+        """) == 4
+    s = _eval(
+        """
+        (lazy-seq
+          (cons 42
+            (lazy-seq
+              (cons 9001
+                (lazy-seq
+                  (throw (Exception)))))))
+        """)
+    assert s.first() == 42
+    assert s.rest().first() == 9001
+    s.rest().rest()
+    with pytest.raises(Exception):
+        s.rest().rest().first()
+    assert s.next().first() == 9001
+    with pytest.raises(Exception):
+        s.next().next()

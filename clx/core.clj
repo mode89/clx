@@ -45,3 +45,6 @@
 
 (defmacro when [pred & body]
   `(cond ~pred (do ~@body)))
+
+(defmacro lazy-seq [& body]
+  `(lazy-seq* (fn [] ~@body)))
