@@ -658,6 +658,15 @@ def test_fn():
     foo = _eval("^{:bar \"baz\"} (fn* [])")
     assert clx.meta(foo).get(K("bar")) == "baz"
     assert _eval("(fn* foo-bar/quux [] 42)").__name__ == munge("foo-bar/quux")
+    assert _eval(
+        """
+        (def foo
+          (fn* [x]
+            (cond
+              (python* x " > 10") x
+              :else (foo (+ x x)))))
+        (foo 1)
+        """) == 16
 
 def test_in_ns():
     ctx = _make_test_context()

@@ -1039,13 +1039,13 @@ def _compile_def(ctx, form):
     name = second(form)
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
-    value_expr, value_stmts = _compile(ctx, third(form))
     ns = ctx.current_ns.deref()
     py_name = munge(f"{ns}/{name.name}")
     ctx.shared.namespaces.swap(
         assoc_in,
         list_(ns, _K_BINDINGS, name.name),
         Binding(py_name, None))
+    value_expr, value_stmts = _compile(ctx, third(form))
     return \
         _node(ast.Name, ctx, py_name, ast.Load()), \
         value_stmts + [
