@@ -617,7 +617,7 @@ _S_SPLICE_UNQUOTE = symbol("splice-unquote")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
-_S_IF = symbol("if")
+_S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
 _S_IN_NS = symbol("in-ns")
 _S_IMPORT_STAR = symbol("import*")
@@ -1072,28 +1072,34 @@ def _compile_let(ctx, form):
         body_expr = _node(ast.Constant, ctx, None)
     return body_expr, body
 
-def _compile_if(ctx, form):
-    assert len(form) == 4, "if expects 3 arguments"
-    test_expr, test_stmts = _compile(ctx, second(form))
+def _compile_cond(ctx, form):
     ctx = assoc_in(ctx, list_(_K_LOCAL, _K_TOP_LEVEL_Q), False)
-    then_expr, then_stmts = _compile(ctx, third(form))
-    else_expr, else_stmts = _compile(ctx, fourth(form))
-    result_name = _gen_name(ctx, "___if_result_")
-    result_store = _node(ast.Name, ctx, result_name, ast.Store())
-    result_load = _node(ast.Name, ctx, result_name, ast.Load())
-    return \
-        result_load, \
-        test_stmts + [
-            _node(ast.If, ctx,
-                test_expr,
-                then_stmts + [
-                    _node(ast.Assign, ctx, [result_store], then_expr)
-                ],
-                else_stmts + [
-                    _node(ast.Assign, ctx, [result_store], else_expr)
-                ]
-            ),
-        ]
+    result = _gen_name(ctx, "___cond_")
+    result_store = _node(ast.Name, ctx, result, ast.Store())
+    result_load = _node(ast.Name, ctx, result, ast.Load())
+    def compile_clauses(clauses):
+        if clauses is None:
+            return [
+                _node(ast.Assign, ctx, [result_store],
+                    _node(ast.Constant, ctx, None))
+            ]
+        else:
+            clauses_next = clauses.next()
+            assert clauses_next is not None, \
+                "cond expects an even number of forms"
+            test_expr, test_stmts = _compile(ctx, clauses.first())
+            then_expr, then_stmts = _compile(ctx, clauses_next.first())
+            return [
+                *test_stmts,
+                _node(ast.If, ctx,
+                    test_expr, [
+                        *then_stmts,
+                        _node(ast.Assign, ctx, [result_store], then_expr),
+                    ],
+                    compile_clauses(clauses_next.next()),
+                ),
+            ]
+    return result_load, compile_clauses(form.next())
 
 def _compile_fn(ctx, form):
     arg1 = second(form)
@@ -1237,7 +1243,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_DEF: _compile_def,
     _S_DO: _compile_do,
     _S_LET_STAR: _compile_let,
-    _S_IF: _compile_if,
+    _S_COND: _compile_cond,
     _S_FN_STAR: _compile_fn,
     _S_QUOTE: _compile_quote,
     _S_IN_NS: _compile_in_ns,

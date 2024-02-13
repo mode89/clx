@@ -10,9 +10,12 @@
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]
-      (if (symbol? arg1)
+      (cond
+        (symbol? arg1)
         `(fn* ~arg1 ~(second args)
           (do ~@(rest (rest args))))
+
+        :else
         `(fn* ~arg1
           (do ~@(rest args)))))))
 
@@ -40,7 +43,5 @@
          value# ~value]
      (python* obj# "." ~(name field) " = " value#)))
 
-(defmacro when [cond & body]
-  `(if ~cond
-     (do ~@body)
-     nil))
+(defmacro when [pred & body]
+  `(cond ~pred (do ~@body)))

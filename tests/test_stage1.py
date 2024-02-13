@@ -67,8 +67,8 @@ def test_defn(_eval):
 def test_defmacro(_eval):
     assert _eval(
         """
-        (defmacro if* [pred a b]
-          `(if ~pred ~a ~b))
+        (defmacro if* [pred then else]
+          `(cond ~pred ~then true ~else))
         (if* true
           42
           (throw (Exception)))

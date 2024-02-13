@@ -544,40 +544,47 @@ def test_let():
             """)
     assert _eval("(let* [a (___local_context :top-level?)] a)") is True
 
-def test_if():
-    assert _eval("(if true 1 2)") == 1
-    assert _eval("(if false 1 2)") == 2
+def test_cond():
+    assert _eval("(cond)") is None
+    assert _eval("(cond true 42)") == 42
+    assert _eval("(cond false 42)") is None
+    assert _eval("(cond true 1 true 2)") == 1
+    assert _eval("(cond false 1 true 2)") == 2
+    assert _eval("(cond false 1 false 2)") is None
     assert _eval(
         """
-        (if (let* [a 1
-                   b 2]
-              (odd? (+ a b)))
+        (cond
+          (let* [a 1
+                 b 2]
+            (even? (+ a b)))
+          42
+
           (let* [c 3
                  d 4]
-            (+ c d))
-          (let* [e 5
-                 f 6]
-            (+ e f)))
-        """) == 7
+            (odd? (+ c d)))
+          43)
+        """) == 43
     assert _eval(
         """
-        (if (let* [a 1
-                   b 2]
-              (even? (+ a b)))
+        (cond
+          (let* [a 1
+                 b 2]
+            (even? (+ a b)))
+          42
+
           (let* [c 3
                  d 4]
-            (+ c d))
-          (let* [e 5
-                 f 6]
-            (+ e f)))
-        """) == 11
-    assert _eval("(if (___local_context :top-level?) 1 2)") == 1
-    assert _eval("(if true (___local_context :top-level?) 42)") is False
-    assert _eval("(if false 42 (___local_context :top-level?))") is False
+            (even? (+ c d)))
+          43)
+        """) is None
     with pytest.raises(Exception, match=r"allowed only at top level"):
-        _eval("(if true (def foo 1) 2)")
+        _eval("(cond (def foo true) 42)")
     with pytest.raises(Exception, match=r"allowed only at top level"):
-        _eval("(if true 1 (def foo 2))")
+        _eval("(cond true (def foo 42))")
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        _eval("(cond true 42 (def foo true) 43)")
+    with pytest.raises(Exception, match=r"allowed only at top level"):
+        _eval("(cond true 42 true (def foo 43))")
 
 def test_fn():
     assert _eval("(fn* [])")() is None
