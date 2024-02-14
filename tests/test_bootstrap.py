@@ -184,6 +184,10 @@ def test_vector():
     assert V(1, 2, 3) == _lazy_range(1, 4)
     assert V(1, 2, 3) != [1, 2, 3]
     assert V(1, 2, 3) != (1, 2, 3)
+    assert V(42, 9001)(0) == 42
+    assert V(42, 9001)(1) == 9001
+    with pytest.raises(IndexError):
+        V(42, 9001)(2)
 
 def test_cons():
     assert cons(1, None).first() == 1

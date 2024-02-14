@@ -357,6 +357,8 @@ class PersistentVector(
         return iter(self._impl)
     def __getitem__(self, index):
         return self._impl[index]
+    def __call__(self, index):
+        return self._impl[index]
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
     def pr(self, readably):
