@@ -188,3 +188,15 @@ def test_lazy_seq(_eval):
     assert s.next().first() == 9001
     with pytest.raises(Exception):
         s.next().next()
+
+def test_even(_eval):
+    assert _eval("(even? 0)") is True
+    assert _eval("(even? 1)") is False
+    assert _eval("(even? 2)") is True
+    assert _eval("(even? 3)") is False
+
+def test_odd(_eval):
+    assert _eval("(odd? 0)") is False
+    assert _eval("(odd? 1)") is True
+    assert _eval("(odd? 2)") is False
+    assert _eval("(odd? 3)") is True

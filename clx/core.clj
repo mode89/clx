@@ -55,6 +55,12 @@
     `(defn ~(with-meta name {:macro? true}) ~params
       (do ~@body))))
 
+(defn even? [x]
+  (python* "not " x " & 1"))
+
+(defn odd? [x]
+  (python* x " & 1 == 1"))
+
 (defmacro let [bindings & body]
   `(let* ~bindings
     (do ~@body)))
