@@ -11,6 +11,10 @@
   (fn* clx.core/if [pred then else]
     `(cond ~pred ~then true ~else)))
 
+(def when ^{:macro? true}
+  (fn* clx.core/when [pred & body]
+    `(cond ~pred (do ~@body))))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]
@@ -43,9 +47,6 @@
   `(let [obj# ~obj
          value# ~value]
      (python* obj# "." ~(name field) " = " value#)))
-
-(defmacro when [pred & body]
-  `(cond ~pred (do ~@body)))
 
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
