@@ -29,6 +29,11 @@
        ~pred nil
        true (do ~@body))))
 
+(def assert ^{:macro? true}
+  (fn* clx.core/assert [tst & msg]
+    `(when-not ~tst
+       (throw (Exception ~@msg)))))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]

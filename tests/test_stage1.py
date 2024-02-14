@@ -151,6 +151,17 @@ def test_when_not(_eval):
           (throw (Exception)))
         """) is None
 
+def test_assert(_eval):
+    assert _eval(
+        """
+        (assert true)
+        42
+        """) == 42
+    with pytest.raises(Exception):
+        _eval("(assert false)")
+    with pytest.raises(Exception, match="Hello, World!"):
+        _eval("(assert false \"Hello, World!\")")
+
 def test_lazy_seq(_eval):
     assert _eval("(lazy-seq nil)") == bs.list_()
     assert _eval("(lazy-seq '(1 2 3))") == bs.list_(1, 2, 3)
