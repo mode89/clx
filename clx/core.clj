@@ -63,6 +63,12 @@
 (defn odd? [x]
   (python* x " & 1 == 1"))
 
+(defn inc [x]
+  (python* x " + 1"))
+
+(defn dec [x]
+  (python* x " - 1"))
+
 (defmacro let [bindings & body]
   (assert (vector? bindings) "bindings must be a vector")
   (assert (even? (count bindings))

@@ -216,3 +216,15 @@ def test_odd(_eval):
     assert _eval("(odd? 1)") is True
     assert _eval("(odd? 2)") is False
     assert _eval("(odd? 3)") is True
+
+def test_inc(_eval):
+    assert _eval("(inc 0)") == 1
+    assert _eval("(inc 1)") == 2
+    assert _eval("(inc 2)") == 3
+    assert _eval("(inc -2)") == -1
+
+def test_dec(_eval):
+    assert _eval("(dec 0)") == -1
+    assert _eval("(dec 1)") == 0
+    assert _eval("(dec 2)") == 1
+    assert _eval("(dec -2)") == -3
