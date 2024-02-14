@@ -199,6 +199,8 @@ class Keyword(Hashable, IPrintable):
         return self.pr(True)
     def __str__(self):
         return self.pr(False)
+    def __call__(self, coll, not_found=None):
+        return get(coll, self, not_found)
     def pr(self, readably):
         return f":{self.namespace}/{self.name}" \
             if self.namespace else f":{self.name}"

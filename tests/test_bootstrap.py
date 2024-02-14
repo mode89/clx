@@ -76,6 +76,9 @@ def test_keyword():
     assert K(K("quux")) is K("quux")
     assert str(K("foo/bar")) == ":foo/bar"
     assert K(None, "foo") is K("foo")
+    assert K("foo")(M(K("foo"), 42)) == 42
+    assert K("foo")(M(K("bar"), 42)) is None
+    assert K("foo")(M(K("bar"), 42), 43) == 43
 
 def test_symbol():
     hello = S("hello")
