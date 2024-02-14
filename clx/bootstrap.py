@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 from abc import abstractmethod, ABC
 import ast
 from bisect import bisect_left

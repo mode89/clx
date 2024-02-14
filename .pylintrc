@@ -10,6 +10,7 @@ disable=
   no-else-return,
   too-few-public-methods,
   too-many-branches,
+  too-many-lines,
   too-many-locals,
   too-many-return-statements,
   too-many-statements,
