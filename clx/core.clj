@@ -7,15 +7,16 @@
 (def Exception
   (python* "Exception"))
 
+(def if ^{:macro? true}
+  (fn* clx.core/if [pred then else]
+    `(cond ~pred ~then true ~else)))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]
-      (cond
-        (symbol? arg1)
+      (if (symbol? arg1)
         `(fn* ~arg1 ~(second args)
           (do ~@(rest (rest args))))
-
-        :else
         `(fn* ~arg1
           (do ~@(rest args)))))))
 
