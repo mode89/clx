@@ -1,5 +1,7 @@
 (in-ns clx.core)
 
+(import* operator)
+
 (def throw
   (fn* clx.core/throw [x]
     (python* "raise " x)))
@@ -67,6 +69,15 @@
     "bindings must have an even number of elements")
   `(let* ~bindings
     (do ~@body)))
+
+(defmacro when-let [bindings & body]
+  (assert (vector? bindings) "bindings must be a vector")
+  (assert (operator/eq 2 (count bindings))
+    "bindings must have exactly two elements")
+  (let [bname (bindings 0)
+        bvalue (bindings 1)]
+    `(let [~bname ~bvalue]
+       (when ~bname ~@body))))
 
 (defn name [x]
   (python* x ".name"))

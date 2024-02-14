@@ -155,6 +155,18 @@ def test_when_not(_eval):
           (throw (Exception)))
         """) is None
 
+def test_when_let(_eval):
+    assert _eval(
+        """
+        (when-let [x 42]
+          x)
+        """) == 42
+    assert _eval(
+        """
+        (when-let [x nil]
+          (throw (Exception)))
+        """) is None
+
 def test_assert(_eval):
     assert _eval(
         """
