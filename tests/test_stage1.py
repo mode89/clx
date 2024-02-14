@@ -228,3 +228,23 @@ def test_dec(_eval):
     assert _eval("(dec 1)") == 0
     assert _eval("(dec 2)") == 1
     assert _eval("(dec -2)") == -3
+
+def test_operators(_eval):
+    assert _eval("(+ 1 2)") == 3
+    assert _eval("(- 3 4)") == -1
+    assert _eval("(* 5 6)") == 30
+    assert _eval("(/ 7 8)") == 7 / 8
+    assert _eval("(= 9 10)") is False
+    assert _eval("(= 11 11)") is True
+    assert _eval("(< 12 13)") is True
+    assert _eval("(< 14 14)") is False
+    assert _eval("(< 16 15)") is False
+    assert _eval("(<= 17 18)") is True
+    assert _eval("(<= 19 19)") is True
+    assert _eval("(<= 21 20)") is False
+    assert _eval("(> 22 23)") is False
+    assert _eval("(> 24 24)") is False
+    assert _eval("(> 26 25)") is True
+    assert _eval("(>= 27 28)") is False
+    assert _eval("(>= 29 29)") is True
+    assert _eval("(>= 31 30)") is True

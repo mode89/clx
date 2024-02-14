@@ -69,6 +69,17 @@
 (defn dec [x]
   (python* x " - 1"))
 
+(def + operator/add)
+(def - operator/sub)
+(def * operator/mul)
+(def / operator/truediv)
+(def = operator/eq)
+(def not= operator/ne)
+(def < operator/lt)
+(def > operator/gt)
+(def <= operator/le)
+(def >= operator/ge)
+
 (defmacro let [bindings & body]
   (assert (vector? bindings) "bindings must be a vector")
   (assert (even? (count bindings))
