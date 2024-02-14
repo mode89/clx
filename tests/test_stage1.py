@@ -125,6 +125,18 @@ def test_when(_eval):
           (throw (Exception)))
         """) is None
 
+def test_when_not(_eval):
+    assert _eval(
+        """
+        (when-not false
+          42)
+        """) == 42
+    assert _eval(
+        """
+        (when-not true
+          (throw (Exception)))
+        """) is None
+
 def test_lazy_seq(_eval):
     assert _eval("(lazy-seq nil)") == bs.list_()
     assert _eval("(lazy-seq '(1 2 3))") == bs.list_(1, 2, 3)

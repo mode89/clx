@@ -15,6 +15,12 @@
   (fn* clx.core/when [pred & body]
     `(cond ~pred (do ~@body))))
 
+(def when-not ^{:macro? true}
+  (fn* clx.core/when-not [pred & body]
+    `(cond
+       ~pred nil
+       true (do ~@body))))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
     (let* [arg1 (first args)]
