@@ -361,6 +361,10 @@ def test_hash_map():
     assert m3 == M("a", 1, "b", 2, "c", 3, "d", 4)
     assert type(m4) is clx.PersistentMap
     assert m4 == M("a", 5, "b", 6, "c", 3, "d", 4)
+    assert M(1, 2, 3, 4)(1) == 2
+    assert M(1, 2, 3, 4)(2) is None
+    assert M(1, 2, 3, 4)(3) == 4
+    assert M(1, 2, 3, 4)(4) is None
 
 def test_record():
     record = clx.define_record("TestRecord", K("a"), K("b"))

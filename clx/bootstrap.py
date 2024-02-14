@@ -416,6 +416,8 @@ class PersistentMap(
         return iter(self._impl)
     def __getitem__(self, key):
         return self._impl[key]
+    def __call__(self, key, not_found=None):
+        return self._impl.get(key, not_found)
     def with_meta(self, _meta):
         return PersistentMap(self._impl, _meta)
     def pr(self, readably):
