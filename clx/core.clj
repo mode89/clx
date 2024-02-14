@@ -62,6 +62,9 @@
   (python* x " & 1 == 1"))
 
 (defmacro let [bindings & body]
+  (assert (vector? bindings) "bindings must be a vector")
+  (assert (even? (count bindings))
+    "bindings must have an even number of elements")
   `(let* ~bindings
     (do ~@body)))
 

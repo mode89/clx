@@ -87,6 +87,10 @@ def test_let(_eval):
           (+ x y)
           (+ y 10))
         """) == 9011
+    with pytest.raises(Exception, match="even number"):
+        _eval("(let [x 42 y] x)")
+    with pytest.raises(Exception, match="vector"):
+        _eval("(let (x 42) x)")
 
 def test_set_bang(_eval):
     assert _eval(
