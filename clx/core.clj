@@ -9,7 +9,15 @@
 
 (def if ^{:macro? true}
   (fn* clx.core/if [pred then else]
-    `(cond ~pred ~then true ~else)))
+    `(cond
+       ~pred ~then
+       true ~else)))
+
+(def if-not ^{:macro? true}
+  (fn* clx.core/if-not [pred then else]
+    `(cond
+       ~pred ~else
+       true ~then)))
 
 (def when ^{:macro? true}
   (fn* clx.core/when [pred & body]

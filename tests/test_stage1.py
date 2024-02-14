@@ -113,6 +113,20 @@ def test_if(_eval):
           43)
         """) == 43
 
+def test_if_not(_eval):
+    assert _eval(
+        """
+        (if-not false
+          42
+          (throw (Exception)))
+        """) == 42
+    assert _eval(
+        """
+        (if-not true
+          (throw (Exception))
+          43)
+        """) == 43
+
 def test_when(_eval):
     assert _eval(
         """
