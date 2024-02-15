@@ -7,7 +7,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import first, second, rest, next_, seq, lazy_seq, cons, \
-    assoc, get, munge, _S_LIST, _S_VEC, _S_CONCAT, _S_APPLY
+    assoc, get, munge, _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
 S = clx.symbol
@@ -443,9 +443,17 @@ def test_quasiquote():
             L(_S_LIST, L(S("quote"), S("a"))),
             L(_S_LIST, S("b")),
             S("c"))
-    assert clx.read_string("`[]") == clx.vector()
+    assert clx.read_string("`[]") == L(_S_VEC, L(_S_CONCAT))
     assert clx.read_string("`[1 a ~b ~@c]") == \
         L(_S_VEC,
+            L(_S_CONCAT,
+                L(_S_LIST, 1),
+                L(_S_LIST, L(S("quote"), S("a"))),
+                L(_S_LIST, S("b")),
+                S("c")))
+    assert clx.read_string("`{}") == L(_S_APPLY, _S_HASH_MAP, L(_S_CONCAT))
+    assert clx.read_string("`{1 a ~b ~@c}") == \
+        L(_S_APPLY, _S_HASH_MAP,
             L(_S_CONCAT,
                 L(_S_LIST, 1),
                 L(_S_LIST, L(S("quote"), S("a"))),
@@ -770,6 +778,13 @@ def test_macros():
             (def quux# 2)
             (foo)
             """)
+    assert _eval(
+        """
+        (def foo ^{:macro? true}
+          (fn* []
+            `{42 (fn* [] 9001)}))
+        (foo)
+        """).lookup(42, None)() == 9001
 
 def test_import():
     mod = _eval("(import* collections)")

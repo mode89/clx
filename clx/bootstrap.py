@@ -837,8 +837,15 @@ def quasiquote(suffix, form):
             raise Exception("splice-unquote not in list")
         else:
             return list_(_S_APPLY, _S_LIST, _quasiquote_sequence(suffix, form))
-    if is_vector(form) and len(form) > 0:
+    elif is_vector(form):
         return list_(_S_VEC, _quasiquote_sequence(suffix, form))
+    elif is_hash_map(form):
+        elements = []
+        for k, v in form.items():
+            elements.append(k)
+            elements.append(v)
+        return list_(_S_APPLY, _S_HASH_MAP,
+            _quasiquote_sequence(suffix, elements))
     elif is_symbol(form):
         if is_simple_symbol(form) and form.name[-1] == "#":
             form = symbol(None, form.name[:-1] + suffix)
