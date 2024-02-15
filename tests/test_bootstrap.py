@@ -539,12 +539,12 @@ def test_def():
     ctx = _make_test_context()
     res = clx._load_string(ctx, "<string>", "(def foo 42)")
     assert res == 42
-    assert clx.get_in(ctx.shared.namespaces.deref(),
+    assert clx.get_in(ctx.deref().shared.namespaces,
         L("user",
           K("bindings"),
           "foo",
           K("py-name"))) == munge("user/foo")
-    assert ctx.shared.py_globals[munge("user/foo")] == 42
+    assert ctx.deref().shared.py_globals[munge("user/foo")] == 42
     assert _eval("(def foo (___local_context :top-level?))") is True
 
 def test_do():
@@ -697,12 +697,11 @@ def test_fn():
 def test_in_ns():
     ctx = _make_test_context()
     clx._load_string(ctx, "<string>", "(in-ns foo)")
-    assert ctx.current_ns.deref() == "foo"
+    assert ctx.deref().current_ns == "foo"
 
     ctx = _make_test_context()
-    ctx = clx.assoc_in(ctx, L(K("local"), K("top-level?")), False)
     with pytest.raises(Exception, match=r"allowed only at top level"):
-        clx._load_string(ctx, "<string>", "(in-ns bar)")
+        clx._load_string(ctx, "<string>", "(fn* [] (in-ns bar))")
 
     ctx = _make_test_context()
     assert clx._load_string(ctx, "<string>",
@@ -856,43 +855,44 @@ def test_meta():
     assert clx.meta(clx.with_meta(fred_with_meta, None)) is None
 
 def test_resolve_symbol():
-    ctx = clx.Context(
-        shared=clx.SharedContext(
-            lock=threading.Lock(),
-            namespaces=clx.Box(M(
-                "clx.core",
-                    clx.Namespace(
-                        bindings=M(
-                            "list", clx.list_,
+    ctx = clx.Box(
+        clx.ThreadContext(
+            shared=clx.SharedContext(
+                namespaces=M(
+                    "clx.core",
+                        clx.Namespace(
+                            bindings=M(
+                                "list", clx.list_,
+                            ),
+                            imports=M(),
                         ),
-                        imports=M(),
-                    ),
-                "user",
-                    clx.Namespace(
-                        bindings=M(
-                            "foo", 1,
-                            "bar", 2),
-                        imports=M(),
-                    ),
-                "baz",
-                    clx.Namespace(
-                        bindings=M(
-                            "quux", 3,
-                            "fred", 4),
-                        imports=M(),
-                    ))),
-            py_globals={},
-            counter=clx.Box(0),
+                    "user",
+                        clx.Namespace(
+                            bindings=M(
+                                "foo", 1,
+                                "bar", 2),
+                            imports=M(),
+                        ),
+                    "baz",
+                        clx.Namespace(
+                            bindings=M(
+                                "quux", 3,
+                                "fred", 4),
+                            imports=M(),
+                        )),
+                py_globals={},
+                counter=0,
+            ),
+            current_ns="user",
         ),
-        local=clx.LocalContext(
-            env=M("a", 5, "bar", 6),
-            top_level_QMARK_=True,
-            line=None,
-            column=None,
-        ),
-        current_ns=clx.Box("user"),
     )
-    resolve = lambda x: clx._resolve_symbol(ctx, x)
+    lctx = clx.LocalContext(
+        env=M("a", 5, "bar", 6),
+        top_level_QMARK_=True,
+        line=None,
+        column=None,
+    )
+    resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
     assert resolve(S("a")) == 5
     assert resolve(S("bar")) == 6
     assert resolve(S("foo")) == 1

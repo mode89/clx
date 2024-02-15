@@ -1,27 +1,17 @@
 # pylint: disable=protected-access
-import threading
-
 import pytest
 
 import clx
 import clx.bootstrap as bs
 
 def clone_context():
-    ctx = clx.bootstrap_context
-    return bs.Context(
-        shared=bs.SharedContext(
-            lock=threading.Lock(),
-            namespaces=bs.Box(ctx.shared.namespaces.deref()),
-            py_globals=ctx.shared.py_globals.copy(),
-            counter=bs.Box(ctx.shared.counter.deref()),
-        ),
-        local=bs.LocalContext(
-            env=bs.hash_map(),
-            top_level_QMARK_=True,
-            line=1,
-            column=1,
-        ),
-        current_ns=bs.Box("user"),
+    ctx = clx.bootstrap_context.deref()
+    sctx = bs.update(ctx.shared, bs._K_PY_GLOBALS, lambda x: x.copy())
+    return bs.Box(
+        bs.assoc(ctx,
+            bs._K_SHARED, sctx,
+            bs._K_CURRENT_NS, "user",
+        )
     )
 
 @pytest.fixture
