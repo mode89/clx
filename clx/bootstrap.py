@@ -261,10 +261,11 @@ class PersistentList( # pylint: disable=too-many-ancestors
         ISeq,
         ISequential,
         ICollection):
-    def __init__(self, _first, _rest, length, _meta):
+    def __init__(self, _first, _rest, length, _hash, _meta):
         self._first = _first
         self._rest = _rest
         self._length = length
+        self._hash = _hash
         self.__meta__ = _meta
     def __repr__(self):
         return self.pr(True)
@@ -286,7 +287,9 @@ class PersistentList( # pylint: disable=too-many-ancestors
         else:
             return _equiv_sequential(self, other)
     def __hash__(self):
-        raise NotImplementedError()
+        if self._hash is None:
+            self._hash = hash(tuple(self))
+        return self._hash
     def __len__(self):
         return self._length
     def __iter__(self):
@@ -297,7 +300,12 @@ class PersistentList( # pylint: disable=too-many-ancestors
     def __getitem__(self, index):
         raise NotImplementedError()
     def with_meta(self, _meta):
-        return PersistentList(self._first, self._rest, self._length, _meta)
+        return PersistentList(
+            self._first,
+            self._rest,
+            self._length,
+            self._hash,
+            _meta)
     def pr(self, readably):
         return "(" + \
             " ".join(map(lambda x: pr_str(x, readably), self)) + \
@@ -315,9 +323,9 @@ class PersistentList( # pylint: disable=too-many-ancestors
     def seq(self):
         return self
     def conj(self, value):
-        return PersistentList(value, self, self._length + 1, None)
+        return PersistentList(value, self, self._length + 1, None, None)
 
-_EMPTY_LIST = PersistentList(None, None, 0, None)
+_EMPTY_LIST = PersistentList(None, None, 0, None, None)
 _EMPTY_LIST.rest = lambda: _EMPTY_LIST
 _EMPTY_LIST.seq = lambda: None
 
@@ -329,7 +337,7 @@ def _list_from_iterable(iterable):
     result = _EMPTY_LIST
     for elem in reversed(_list):
         result = PersistentList(
-            elem, result, result._length + 1, None) # pylint: disable=protected-access
+            elem, result, result._length + 1, None, None) # pylint: disable=protected-access
     return result
 
 def is_list(obj):

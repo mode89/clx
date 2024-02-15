@@ -145,6 +145,13 @@ def test_list():
     assert L(1, 2, 3) != [1, 2, 3]
     assert L(1, 2, 3) != (1, 2, 3)
     assert list(iter(L(1, 2, 3))) == [1, 2, 3]
+    assert hash(L()) == hash(L())
+    assert hash(L(1)) == hash(L(1))
+    assert hash(L(1, 2)) == hash(L(1, 2))
+    assert hash(L(1, 2)) != hash(L(2, 1))
+    assert hash(L(1, 2, 3)) == hash(L(1, 2, 3))
+    assert hash(L(1, 2, 3)) != hash(L(1, 2))
+    assert hash(L(1, 2, 3).rest()) == hash(L(2, 3))
 
 def test_vector():
     v = V()
