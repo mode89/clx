@@ -1,9 +1,12 @@
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.mkShell {
-  packages = [
-    (pkgs.python3.withPackages (ps: with ps; [
-      mypy
+  packages = with pkgs; [
+    cargo
+    rustc
+    rust-analyzer
+    (python3.withPackages (ps: with ps; [
+      pip
       pylint
       pytest
       pytest-cov
