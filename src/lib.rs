@@ -21,21 +21,58 @@ struct Token {
     text: String,
 }
 
-fn tokenize(text: &str) -> Vec<Token> {
-    Regex::new(
+lazy_static! {
+    static ref RE_TOKEN: Regex = Regex::new(
         concat!(
-            "[\\s,]*",
+            r"[\s,]*",
             "(",
                 "~@", "|",
-                "[\\[\\]{}()'`~^@]", "|",
-                "\"(?:[\\\\].", "|", "[^\\\\\"])*\"?", "|",
+                r"[\[\]{}()'`~^@]", "|",
+                r#""(?:[\\].|[^\\"])*"?"#, "|",
                 ";.*", "|",
-                "[^\\s\\[\\]{}()'\"`@,;]+",
+                r#"[^\s\[\]{}()'"`@,;]+"#,
             ")"))
-        .unwrap()
+        .unwrap();
+    static ref RE_INT: Regex = Regex::new(r"^-?[0-9]+$").unwrap();
+    static ref RE_FLOAT: Regex = Regex::new(r"^-?[0-9]+\.[0-9]+$").unwrap();
+    static ref RE_STRING: Regex =
+        Regex::new(r#"^"(?:[\\].|[^\\"])*"$"#).unwrap();
+}
+
+fn tokenize(text: &str) -> Vec<Token> {
+    RE_TOKEN
         .captures_iter(text)
         .map(|cap| Token{ text: cap[1].to_string() })
         .collect()
+}
+
+fn read_atom(py: Python<'_>, token: &str) -> PyObject {
+    if RE_INT.is_match(token) {
+        token.parse::<i64>().unwrap().to_object(py)
+    } else if RE_FLOAT.is_match(token) {
+        token.parse::<f64>().unwrap().to_object(py)
+    } else if RE_STRING.is_match(token) {
+        let end = token.len() - 1;
+        unescape(&token[1..end]).to_object(py)
+    } else if token.starts_with("\"") {
+        panic!("Unterminated string")
+    } else if token == "true" {
+        true.to_object(py)
+    } else if token == "false" {
+        false.to_object(py)
+    } else if token == "nil" {
+        ().to_object(py)
+    } else if token.starts_with(":") {
+        keyword(Some(PyString::new(py, &token[1..])), None)
+    } else {
+        symbol(Some(PyString::new(py, token)), None)
+    }
+}
+
+fn unescape(text: &str) -> String {
+    text.replace("\\\\", "\\")
+        .replace("\\\"", "\"")
+        .replace("\\n", "\n")
 }
 
 #[pyclass(frozen)]
@@ -267,7 +304,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tokenize_string() {
+    fn tokenizer() {
         let _tokenize = |text: &str| tokenize(text)
             .iter()
             .map(|t| t.text.clone())
@@ -393,6 +430,40 @@ mod tests {
             // assert K("foo")(M(K("foo"), 42)) == 42
             // assert K("foo")(M(K("bar"), 42)) is None
             // assert K("foo")(M(K("bar"), 42), 43) == 43
+        })
+    }
+
+    #[test]
+    fn read_atoms() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            assert_eq!(read_atom(py, &"42".to_string())
+                .extract::<i64>(py).unwrap(), 42);
+            assert_eq!(read_atom(py, &"-42".to_string())
+                .extract::<i64>(py).unwrap(), -42);
+            assert_eq!(read_atom(py, &"1.23".to_string())
+                .extract::<f64>(py).unwrap(), 1.23);
+            assert_eq!(read_atom(py, &"-45.678".to_string())
+                .extract::<f64>(py).unwrap(), -45.678);
+            assert_eq!(read_atom(py, &"\"hello, world!\"".to_string())
+                .extract::<&str>(py).unwrap(), "hello, world!");
+            assert_eq!(read_atom(py, &"\"foo\\nbar\\baz\\\"quux\"".to_string())
+                .extract::<&str>(py).unwrap(), "foo\nbar\\baz\"quux");
+            assert_eq!(read_atom(py, &"true".to_string())
+                .extract::<bool>(py).unwrap(), true);
+            assert_eq!(read_atom(py, &"false".to_string())
+                .extract::<bool>(py).unwrap(), false);
+            assert!(read_atom(py, &"nil".to_string()).is_none(py));
+            assert!(PyAny::eq(
+                read_atom(py, &":foo/bar".to_string()).as_ref(py),
+                keyword(
+                    Some(PyString::new(py, "foo")),
+                    Some(PyString::new(py, "bar")))).unwrap());
+            assert!(PyAny::eq(
+                read_atom(py, &"foo/bar".to_string()).as_ref(py),
+                symbol(
+                    Some(PyString::new(py, "foo")),
+                    Some(PyString::new(py, "bar")))).unwrap());
         })
     }
 }
