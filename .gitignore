@@ -1,4 +1,5 @@
 .coverage
 .env
+.rust-analyzer
 __pycache__
 target
