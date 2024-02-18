@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+// #![allow(unused_imports)]
+// #![allow(unused_variables)]
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use pyo3::prelude::*;
@@ -7,14 +11,21 @@ use std::collections::{
     hash_map::DefaultHasher,
 };
 use std::hash::{Hash, Hasher};
-use std::sync::{RwLock};
+use std::sync::RwLock;
 
 /// A Python module implemented in Rust.
 #[pymodule]
 fn clx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(symbol, m)?)?;
     m.add_function(wrap_pyfunction!(keyword, m)?)?;
+    m.add_function(wrap_pyfunction!(list, m)?)?;
+    m.add_function(wrap_pyfunction!(foo, m)?)?;
     Ok(())
+}
+
+#[pyfunction]
+fn foo() -> i64 {
+    42
 }
 
 struct Token {
@@ -299,6 +310,204 @@ fn is_keyword(obj: &PyAny) -> bool {
     obj.is_exact_instance_of::<Keyword>()
 }
 
+#[pyclass(frozen)]
+struct PersistentList {
+    first: PyObject,
+    tail: Option<PyObject>,
+    length: i64,
+    meta: Option<PyObject>,
+}
+
+#[pymethods]
+impl PersistentList {
+//     def __repr__(self):
+//         return self.pr(True)
+//     def __str__(self):
+//         return self.pr(False)
+//     def __eq__(self, other):
+//         if self is other:
+//             return True
+//         elif type(other) is PersistentList:
+//             if self._length != other._length:
+//                 return False
+//             else:
+//                 lst1, lst2 = self, other
+//                 while lst1._length > 0:
+//                     if lst1._first != lst2._first:
+//                         return False
+//                     lst1, lst2 = lst1._rest, lst2._rest
+//                 return True
+//         else:
+//             return _equiv_sequential(self, other)
+    fn __eq__(self_: &PyCell<Self>, other: &PyAny) -> bool {
+        let py = self_.py();
+        match other.extract::<&PyCell<PersistentList>>() {
+            Ok(other) => {
+                let mut lst1 = self_.get();
+                let mut lst2 = other.get();
+                if lst1.length == lst2.length {
+                    while lst1.length > 0 {
+                        if !PyAny::eq(
+                                lst1.first.as_ref(py),
+                                lst2.first.as_ref(py)).unwrap() {
+                            return false;
+                        }
+                        lst1 = lst1.tail
+                            .as_ref()
+                            .unwrap()
+                            .extract::<&PyCell<PersistentList>>(py)
+                            .unwrap()
+                            .get();
+                        lst2 = lst2.tail
+                            .as_ref()
+                            .unwrap()
+                            .extract::<&PyCell<PersistentList>>(py)
+                            .unwrap()
+                            .get();
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+            Err(_) => panic!("Not implemented")
+        }
+    }
+//     def __hash__(self):
+//         if self._hash is None:
+//             self._hash = hash(tuple(self))
+//         return self._hash
+    fn __hash__(self_: &PyCell<Self>) -> i64 {
+        let py = self_.py();
+        let mut lst = self_.get();
+        let mut hash = 42;
+        while lst.length > 0 {
+            println!("{}", lst.length);
+            // hash = hash ^ lst.length ^ HASH.call1(py,
+            //     (lst.first.as_ref(py),)
+            //         .to_object(py)
+            //         .extract::<&PyTuple>(py)
+            //         .unwrap())
+            //     .unwrap()
+            //     .extract::<i64>(py)
+            //     .unwrap();
+            lst = lst.tail
+                .as_ref()
+                .unwrap()
+                .extract::<&PyCell<PersistentList>>(py)
+                .unwrap()
+                .get();
+        }
+        hash
+    }
+
+//     def __len__(self):
+//         return self._length
+    fn count(&self) -> i64 {
+        self.length
+    }
+
+//     def __iter__(self):
+//         lst = self
+//         while lst._length > 0:
+//             yield lst._first
+//             lst = lst._rest
+//     def __getitem__(self, index):
+//         raise NotImplementedError()
+//     def with_meta(self, _meta):
+//         return PersistentList(
+//             self._first,
+//             self._rest,
+//             self._length,
+//             self._hash,
+//             _meta)
+//     def pr(self, readably):
+//         return "(" + \
+//             " ".join(map(lambda x: pr_str(x, readably), self)) + \
+//             ")"
+
+    fn first(&self) -> PyObject {
+        self.first.clone()
+    }
+
+    fn next(&self) -> Option<PyObject> {
+        if self.length < 2 {
+            None
+        } else {
+            self.tail.clone()
+        }
+    }
+
+    fn rest(self_: PyRef<'_, Self>) -> PyObject {
+        if self_.length == 0 {
+            let py = self_.py();
+            self_.into_py(py)
+        } else {
+            self_.tail.as_ref().unwrap().clone()
+        }
+    }
+
+    fn seq(self_: PyRef<'_, Self>) -> PyObject {
+        let py = self_.py();
+        self_.into_py(py)
+    }
+
+    fn conj(self_: PyRef<'_, Self>, value: &PyAny) -> PyObject {
+        let py = self_.py();
+        let length = self_.length + 1;
+        PersistentList {
+            first: value.into(),
+            tail: Some(self_.into_py(py)),
+            length,
+            meta: None,
+        }.into_py(py)
+    }
+}
+
+lazy_static! {
+    static ref EMPTY_LIST: PyObject = {
+        Python::with_gil(|py| {
+            PersistentList {
+                first: py.None(),
+                tail: None,
+                length: 0,
+                meta: None,
+            }.into_py(py)
+        })
+    };
+
+    // static ref HASH: PyObject = {
+    //     Python::with_gil(|py| {
+    //         let builtins = py.import("builtins").unwrap();
+    //         let hash = builtins.getattr("hash").unwrap().into_py(py)
+    //         Box::new(|_py: Python<'_>, obj: &PyAny| {
+    //             hash.call1(_py,
+    //                 (obj.as_ref(_py),)
+    //                     .to_object(_py)
+    //                     .extract::<&PyTuple>(_py)
+    //                     .unwrap())
+    //         })
+    //     })
+    // };
+}
+
+#[pyfunction]
+#[pyo3(signature = (*args))]
+fn list(args: &PyTuple) -> PyObject {
+    if args.is_empty() {
+        EMPTY_LIST.clone()
+    } else {
+        let py = args.py();
+        let mut tail = EMPTY_LIST.clone();
+        for i in (0..args.len()).rev() {
+            tail = PersistentList::conj(
+                tail.extract::<PyRef<PersistentList>>(py).unwrap(),
+                args.get_item(i).unwrap());
+        }
+        tail
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,6 +639,106 @@ mod tests {
             // assert K("foo")(M(K("foo"), 42)) == 42
             // assert K("foo")(M(K("bar"), 42)) is None
             // assert K("foo")(M(K("bar"), 42), 43) == 43
+        })
+    }
+
+    #[test]
+    fn lists() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            macro_rules! L {
+                () => {
+                    list(PyTuple::empty(py))
+                };
+                ($x:expr) => {
+                    list(( $x, )
+                        .to_object(py)
+                        .extract::<&PyTuple>(py)
+                        .unwrap())
+                };
+                ($($x:expr),*) => {
+                    list(( $($x),* )
+                        .to_object(py)
+                        .extract::<&PyTuple>(py)
+                        .unwrap())
+                };
+            }
+            macro_rules! _L {
+                ($($x:expr),*) => {
+                    L!($($x),*)
+                        .extract::<PyRef<PersistentList>>(py)
+                        .unwrap()
+                };
+            }
+            macro_rules! is {
+                ($x:expr, $y:expr) => {
+                    $x.is($y.as_ref(py))
+                }
+            }
+            macro_rules! eq {
+                ($x:expr, $y:expr) => {
+                    PyAny::eq($x.as_ref(py), $y).unwrap()
+                }
+            }
+            // list((1, "hello", 3).to_object(py).extract::<&PyTuple>(py).unwrap());
+            // assert isinstance(L(), clx.PersistentList)
+            // assert L() is L()
+            assert!(is!(L!(), L!()));
+            // assert len(L()) == 0
+            assert!(_L!().count() == 0);
+            // TODO assert bool(L()) is False
+            // assert L().first() is None
+            assert!(_L!().first().is_none(py));
+            // assert L().rest() is L()
+            assert!(is!(PersistentList::rest(_L!()), L!()));
+            // assert L().next() is None
+            assert!(_L!().next().is_none());
+            // assert L().conj(1) == L(1)
+            assert!(eq!(
+                PersistentList::conj(
+                    _L!(), 1_i64.to_object(py).as_ref(py)),
+                L!(1)));
+            // assert L().with_meta(M(1, 2)).__meta__ == M(1, 2)
+            // assert L().with_meta(M(1, 2)) is not L()
+            // assert L().with_meta(M(1, 2)) == L()
+            // assert L().with_meta(M(1, 2)) == L().with_meta(M(3, 4))
+            // assert L(1) is not L()
+            // assert len(L(1)) == 1
+            // assert bool(L(1)) is True
+            // assert L(1).first() == 1
+            // assert L(1).rest() is L()
+            // assert L(1).next() is None
+            // assert L(1).conj(2) == L(2, 1)
+            // assert L(1, 2) == L(1, 2)
+            // assert len(L(1, 2)) == 2
+            // assert bool(L(1, 2)) is True
+            // assert L(1, 2).first() == 1
+            // assert L(1, 2).rest() == L(2)
+            // assert L(1, 2).next() == L(2)
+            // assert L(1, 2).conj(3) == L(3, 1, 2)
+            // assert L() is not None
+            // assert L() != 42
+            // assert L() == V()
+            // assert L() != M()
+            // assert L() == _lazy_range(0)
+            // assert L() != L(1)
+            // assert L() != L(1, 2)
+            // assert L(1, 2, 3) != L(1, 2)
+            assert!(!eq!(L!(1, 2, 3), L!(1, 2)));
+            // assert L(1, 2, 3) == L(1, 2, 3)
+            assert!(eq!(L!(1, 2, 3), L!(1, 2, 3)));
+            // assert L(1, 2, 3) == V(1, 2, 3)
+            // assert L(1, 2, 3) == _lazy_range(1, 4)
+            // assert L(1, 2, 3) != [1, 2, 3]
+            // assert L(1, 2, 3) != (1, 2, 3)
+            // assert list(iter(L(1, 2, 3))) == [1, 2, 3]
+            // assert hash(L()) == hash(L())
+            // assert hash(L(1)) == hash(L(1))
+            // assert hash(L(1, 2)) == hash(L(1, 2))
+            // assert hash(L(1, 2)) != hash(L(2, 1))
+            // assert hash(L(1, 2, 3)) == hash(L(1, 2, 3))
+            // assert hash(L(1, 2, 3)) != hash(L(1, 2))
+            // assert hash(L(1, 2, 3).rest()) == hash(L(2, 3))
         })
     }
 

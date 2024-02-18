@@ -9,6 +9,7 @@ pkgs.mkShell {
       exec ${rust-analyzer}/bin/rust-analyzer "$@"
     '')
     (python3.withPackages (ps: with ps; [
+      ipython
       pip
       pylint
       pytest
