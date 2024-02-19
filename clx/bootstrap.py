@@ -769,11 +769,11 @@ def read_form(tokens):
         form, rest2 = read_form(rest1)
         return vary_meta(form, merge, _meta), rest2
     elif tstring == "(":
-        return read_collection(tokens, list_, "(", ")")
+        return read_collection(token, rtokens, list_, ")")
     elif tstring == "[":
-        return read_collection(tokens, vector, "[", "]")
+        return read_collection(token, rtokens, vector, "]")
     elif tstring == "{":
-        return read_collection(tokens, hash_map, "{", "}")
+        return read_collection(token, rtokens, hash_map, "}")
     else:
         return read_atom(token), rtokens
 
@@ -806,14 +806,11 @@ def unescape(text):
         .replace(r"\n", "\n")
 
 def read_collection(
+        token0,
         tokens,
         ctor,
-        start,
         end):
-    token0 = first(tokens)
     assert isinstance(token0, Token), "expected a token"
-    assert token0.string == start, f"Expected '{start}'"
-    tokens = rest(tokens)
     elements = []
     while True:
         token = first(tokens)
