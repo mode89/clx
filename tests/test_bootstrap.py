@@ -102,6 +102,8 @@ def test_symbol():
     assert S(S("quux")) == S("quux")
     assert clx.is_simple_symbol(S("foo"))
     assert not clx.is_simple_symbol(S("foo/bar"))
+    assert S("/").name == "/"
+    assert S("/").namespace is None
     assert str(S("foo/bar")) == "foo/bar"
 
 def test_list():

@@ -162,7 +162,9 @@ class Symbol(Hashable, IMeta, IPrintable):
 def symbol(arg1, arg2=None):
     if arg2 is None:
         if isinstance(arg1, str):
-            if "/" in arg1:
+            if arg1[0] == "/":
+                return Symbol(None, arg1, None)
+            elif "/" in arg1:
                 _ns, name = arg1.split("/", 1)
                 return Symbol(_ns, name, None)
             else:
