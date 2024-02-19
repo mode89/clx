@@ -775,29 +775,28 @@ def read_form(tokens):
     elif tstring == "{":
         return read_collection(token, rtokens, hash_map, "}")
     else:
-        return read_atom(token), rtokens
+        return read_atom(tstring), rtokens
 
 def read_atom(token):
-    assert isinstance(token, Token), "expected a token"
-    tstring = token.string
-    if re.match(INT_RE, tstring):
-        return int(tstring)
-    elif re.match(FLOAT_RE, tstring):
-        return float(tstring)
-    elif re.match(STRING_RE, tstring):
-        return unescape(tstring[1:-1])
-    elif tstring[0] == "\"":
+    assert isinstance(token, str), "expected a string"
+    if re.match(INT_RE, token):
+        return int(token)
+    elif re.match(FLOAT_RE, token):
+        return float(token)
+    elif re.match(STRING_RE, token):
+        return unescape(token[1:-1])
+    elif token[0] == "\"":
         raise Exception("Unterminated string")
-    elif tstring == "true":
+    elif token == "true":
         return True
-    elif tstring == "false":
+    elif token == "false":
         return False
-    elif tstring == "nil":
+    elif token == "nil":
         return None
-    elif tstring[0] == ":":
-        return keyword(tstring[1:])
+    elif token[0] == ":":
+        return keyword(token[1:])
     else:
-        return symbol(tstring)
+        return symbol(token)
 
 def unescape(text):
     return text \
