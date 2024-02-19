@@ -863,6 +863,16 @@ def test_macros():
         (foo)
         """).lookup(42, None)() == 9001
 
+def test_dot():
+    assert _eval("(. 'hello/world -name)") == "world"
+    assert callable(_eval("(. '(1 2 3) -first)"))
+    assert _eval("(. '(1 2 3) first)") == 1
+    assert _eval("(. {1 2 3 4} lookup 3 nil)") == 4
+    assert _eval("(.-namespace 'hello/world)") == "hello"
+    assert _eval("(.lookup {1 2 3 4} 1 nil)") == 2
+    with pytest.raises(Exception, match=r"expected .*member.*target"):
+        _eval("(.lookup)")
+
 def test_import():
     mod = _eval("(import* collections)")
     assert mod is __import__("collections")

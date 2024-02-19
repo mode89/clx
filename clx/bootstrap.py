@@ -667,6 +667,7 @@ _S_FN_STAR = symbol("fn*")
 _S_LOOP_STAR = symbol("loop*")
 _S_RECUR = symbol("recur")
 _S_IN_NS = symbol("in-ns")
+_S_DOT = symbol(".")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
 _S_LOCAL_CONTEXT = symbol("___local_context")
@@ -771,7 +772,15 @@ def read_form(tokens):
         form, rest2 = read_form(rest1)
         return vary_meta(form, merge, _meta), rest2
     elif tstring == "(":
-        return read_collection(token, rtokens, list_, ")")
+        l, rtokens = read_collection(token, rtokens, list_, ")")
+        l0 = l.first()
+        if type(l0) is Symbol and l0.name[0] == "." and l0.name != ".":
+            member = symbol(l0.name[1:])
+            assert l.count_() > 1, "expected (.member target ...)"
+            target = l.rest().first()
+            l = list_(_S_DOT, target, member, *l.rest().rest()).with_meta(
+                hash_map(_K_LINE, token.line, _K_COLUMN, token.column))
+        return l, rtokens
     elif tstring == "[":
         return read_collection(token, rtokens, vector, "]")
     elif tstring == "{":
@@ -1325,6 +1334,30 @@ def _compile_in_ns(ctx, lctx, form):
     ctx.swap(_update_context)
     return _node(ast.Constant, lctx, None), []
 
+def _compile_dot(ctx, lctx, form):
+    assert len(form) >= 3, "dot expects at least 2 arguments"
+    obj = second(form)
+    attribute = third(form)
+    assert is_simple_symbol(attribute), \
+        "attribute name must be a simple symbol"
+    lctx = assoc(lctx, _K_TAIL_Q, False)
+    obj_expr, obj_stmts = _compile(ctx, lctx, obj)
+    if attribute.name[0] == "-":
+        assert len(form) == 3, "dot expects exactly 2 arguments"
+        return \
+            _node(ast.Attribute, lctx,
+                obj_expr, attribute.name[1:], ast.Load()), \
+            obj_stmts
+    else:
+        stmts = obj_stmts
+        args = []
+        for arg in form.rest().rest().rest():
+            arg_expr, arg_body = _compile(ctx, lctx, arg)
+            args.append(arg_expr)
+            stmts.extend(arg_body)
+        f = _node(ast.Attribute, lctx, obj_expr, attribute.name, ast.Load())
+        return _node(ast.Call, lctx, f, args, []), stmts
+
 def _compile_import(ctx, lctx, form):
     assert lctx.top_level_QMARK_, "import* allowed only at top level"
     assert len(form) <= 3, "import* expects at most 2 arguments"
@@ -1383,6 +1416,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
     _S_IN_NS: _compile_in_ns,
+    _S_DOT: _compile_dot,
     _S_IMPORT_STAR: _compile_import,
     _S_PYTHON: _compile_python,
     _S_LOCAL_CONTEXT: _trace_local_context,
