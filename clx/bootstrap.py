@@ -662,6 +662,8 @@ _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
+_S_LOOP_STAR = symbol("loop*")
+_S_RECUR = symbol("recur")
 _S_IN_NS = symbol("in-ns")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
@@ -697,6 +699,8 @@ _K_TOP_LEVEL_Q = keyword("top-level?")
 _K_SHARED = keyword("shared")
 _K_LOCAL = keyword("local")
 _K_LOCK = keyword("lock")
+_K_LOOP_BINDINGS = keyword("loop-bindings")
+_K_TAIL_Q = keyword("tail?")
 
 #************************************************************
 # Reader
@@ -906,6 +910,8 @@ SharedContext = define_record("SharedContext",
 # Local context defines state that is local to a single form
 LocalContext = define_record("LocalContext",
     _K_ENV,
+    _K_LOOP_BINDINGS,
+    _K_TAIL_Q,
     _K_TOP_LEVEL_Q,
     _K_LINE,
     _K_COLUMN,
@@ -975,7 +981,13 @@ def init_context(namespaces):
     )
 
 def _load_string(ctx, file_name, text):
-    lctx = LocalContext(hash_map(), True, 1, 1)
+    lctx = LocalContext(
+        env=hash_map(),
+        loop_bindings=None,
+        tail_QMARK_=False,
+        top_level_QMARK_=True,
+        line=1,
+        column=1)
     tokens = list(tokenize(text))
     while tokens:
         form, tokens = read_form(tokens)
@@ -1060,7 +1072,8 @@ def _compile_def(ctx, lctx, form):
     ctx.swap(assoc_in,
         list_(_K_SHARED, _K_NAMESPACES, ns, _K_BINDINGS, name.name),
         Binding(py_name, None))
-    value_expr, value_stmts = _compile(ctx, lctx, third(form))
+    value_expr, value_stmts = _compile(
+        ctx, lctx.assoc(_K_TAIL_Q, False), third(form))
     return \
         _node(ast.Name, lctx, py_name, ast.Load()), \
         value_stmts + [
@@ -1075,7 +1088,8 @@ def _compile_do(ctx, lctx, form):
     result_name = None
     while forms:
         _f, forms = forms.first(), forms.rest()
-        f_result, f_stmts = _compile(ctx, lctx, _f)
+        f_result, f_stmts = _compile(
+            ctx, lctx.assoc(_K_TAIL_Q, False) if forms else lctx, _f)
         stmts.extend(f_stmts)
         result_name = _gen_name(ctx)
         stmts.append(
@@ -1101,7 +1115,8 @@ def _compile_let(ctx, lctx, form):
         _name, value = bindings[i], bindings[i + 1]
         assert is_simple_symbol(_name), \
             "first element of each binding pair must be a symbol"
-        value_expr, value_stmts = _compile(ctx, lctx, value)
+        value_expr, value_stmts = _compile(
+            ctx, lctx.assoc(_K_TAIL_Q, False), value)
         munged = munge(_name.name)
         py_name = _gen_name(ctx, f"{munged}_")
         body.extend(value_stmts)
@@ -1132,7 +1147,8 @@ def _compile_cond(ctx, lctx, form):
             assert clauses_next is not None, \
                 "cond expects an even number of forms"
             # TODO detect true or keyword
-            test_expr, test_stmts = _compile(ctx, lctx, clauses.first())
+            test_expr, test_stmts = _compile(
+                ctx, lctx.assoc(_K_TAIL_Q, False), clauses.first())
             then_expr, then_stmts = _compile(ctx, lctx, clauses_next.first())
             return [
                 *test_stmts,
@@ -1157,12 +1173,14 @@ def _compile_fn(ctx, lctx, form):
         params = arg1
         body = third(form)
 
-    expr, fdef = _make_function_def(ctx, lctx, fname, params, body)
+    expr, fdef = _make_function_def(
+        ctx, lctx.assoc(_K_LOOP_BINDINGS, None), fname, params, body)
     stmts = [fdef]
 
     _meta = meta(form)
     if _meta is not None:
-        meta_expr, meta_stmts = _compile(ctx, lctx, _meta)
+        meta_expr, meta_stmts = _compile(
+            ctx, lctx.assoc(_K_TAIL_Q, False), _meta)
         stmts.extend(meta_stmts)
         expr = _node(ast.Call, lctx,
             _binding_node(lctx, ast.Load(), _B_WITH_META),
@@ -1198,7 +1216,7 @@ def _make_function_def(ctx, lctx, fname, params, body):
 
     if body is not None:
         body_expr, body_stmts = _compile(
-            ctx, assoc(lctx, _K_TOP_LEVEL_Q, False), body)
+            ctx, assoc(lctx, _K_TOP_LEVEL_Q, False, _K_TAIL_Q, True), body)
         body_stmts.append(_node(ast.Return, lctx, body_expr))
     else:
         body_stmts = [_node(ast.Pass, lctx)]
@@ -1221,6 +1239,73 @@ def _make_function_def(ctx, lctx, fname, params, body):
             ),
             body_stmts,
             [])
+
+def _compile_loop(ctx, lctx, form):
+    assert len(form) > 1, "loop* expects at least 1 argument"
+    assert len(form) < 4, "loop* expects at most 2 arguments"
+    bindings = second(form)
+    assert is_vector(bindings), \
+        "loop* expects a vector as the first argument"
+    assert len(bindings) % 2 == 0, \
+        "bindings of loop* must have even number of elements"
+    lctx = lctx.assoc(_K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
+    stmts = []
+    loop_bindings = []
+    for i in range(0, len(bindings), 2):
+        _name, value = bindings[i], bindings[i + 1]
+        assert is_simple_symbol(_name), \
+            "binding name must be a simple symbol"
+        value_expr, value_stmts = _compile(ctx, lctx, value)
+        munged = munge(_name.name)
+        py_name = _gen_name(ctx, f"{munged}_")
+        stmts.extend(value_stmts)
+        stmts.append(
+            _node(ast.Assign, lctx,
+                [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
+        binding = Binding(py_name, None)
+        loop_bindings.append(binding)
+        lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
+    lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
+    if len(form) == 3:
+        result_name = _gen_name(ctx, "___loop_")
+        body_expr, body_stmts = _compile(
+            ctx, lctx.assoc(_K_TAIL_Q, True), third(form))
+        stmts.append(
+            _node(ast.While, lctx, _node(ast.Constant, lctx, True), [
+                *body_stmts,
+                _node(ast.Assign, lctx,
+                    [_node(ast.Name, lctx, result_name, ast.Store())],
+                    body_expr),
+                _node(ast.Break, lctx),
+            ], []))
+        expr = _node(ast.Name, lctx, result_name, ast.Load())
+    else:
+        expr = _node(ast.Constant, lctx, None)
+    return expr, stmts
+
+def _compile_recur(ctx, lctx, form):
+    assert lctx.loop_bindings is not None, "recur allowed only in loop*"
+    assert len(form) == len(lctx.loop_bindings) + 1, \
+        f"recur expects {len(lctx.loop_bindings)} arguments"
+    assert lctx.tail_QMARK_, "recur allowed only in tail position"
+    temps = []
+    stmts = []
+    for binding, value in zip(lctx.loop_bindings, form.rest()):
+        value_expr, value_stmts = _compile(
+            ctx, lctx.assoc(_K_LOOP_BINDINGS, None), value)
+        stmts.extend(value_stmts)
+        temp = _gen_name(ctx)
+        temps.append(temp)
+        stmts.append(
+            _node(ast.Assign, lctx,
+                [_node(ast.Name, lctx, temp, ast.Store())], value_expr))
+    for binding, temp in zip(lctx.loop_bindings, temps):
+        stmts.append(
+            _node(ast.Assign, lctx,
+                [_binding_node(lctx, ast.Store(), binding)],
+                _node(ast.Name, lctx, temp, ast.Load())))
+    stmts.append(_node(ast.Continue, lctx))
+    return _node(ast.Constant, lctx, None), stmts
 
 def _compile_quote(_ctx, lctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
@@ -1296,6 +1381,8 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LET_STAR: _compile_let,
     _S_COND: _compile_cond,
     _S_FN_STAR: _compile_fn,
+    _S_LOOP_STAR: _compile_loop,
+    _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
     _S_IN_NS: _compile_in_ns,
     _S_IMPORT_STAR: _compile_import,
@@ -1304,6 +1391,7 @@ _SPECIAL_FORM_COMPILERS = {
 }
 
 def _compile_call(ctx, lctx, form):
+    lctx = assoc(lctx, _K_TAIL_Q, False)
     args = []
     f, stmts = _compile(ctx, lctx, form.first())
     for arg in form.rest():
@@ -1313,6 +1401,7 @@ def _compile_call(ctx, lctx, form):
     return _node(ast.Call, lctx, f, args, []), stmts
 
 def _compile_vector(ctx, lctx, form):
+    lctx = assoc(lctx, _K_TAIL_Q, False)
     el_exprs = []
     stmts = []
     for elm in form:
@@ -1327,6 +1416,7 @@ def _compile_vector(ctx, lctx, form):
         stmts
 
 def _compile_map(ctx, lctx, form):
+    lctx = assoc(lctx, _K_TAIL_Q, False)
     args = []
     stmts = []
     for key, value in form.items():
@@ -1420,7 +1510,13 @@ def _transform_ast(ctx, body, result):
 def _fix_constants(ctx, body, result):
     consts = {}
 
-    lctx = LocalContext(hash_map(), True, 1, 1)
+    lctx = LocalContext(
+        env=hash_map(),
+        loop_bindings=None,
+        tail_QMARK_=False,
+        top_level_QMARK_=True,
+        line=1,
+        column=1)
 
     class Transformer(ast.NodeTransformer):
         def visit_Constant(self, node):

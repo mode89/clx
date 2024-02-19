@@ -694,6 +694,82 @@ def test_fn():
         (foo 1)
         """) == 16
 
+def test_loop():
+    assert _eval(
+        """
+        (loop* [])
+        """) is None
+    assert _eval(
+        """
+        (loop* [x 1 y 2])
+        """) is None
+    assert _eval(
+        """
+        (loop* [a 3 b 4]
+          (+ a b))
+        """) == 7
+    assert _eval(
+        """
+        (loop* [x 1]
+          (cond
+            (python* x "< 10") (recur (+ x 1))
+            :else x))
+        """) == 10
+    assert _eval(
+        """
+        (loop* [x 1
+                xs (list)]
+          (cond
+            (python* x "< 5") (recur (+ x 1) (cons x xs))
+            :else xs))
+        """) == L(4, 3, 2, 1)
+    assert _eval(
+        """
+        (loop* [x 0
+                y 0]
+          (cond
+            (python* x "< 4")
+            (let* [xy (loop* [x 0
+                              y (+ y 5)]
+                        (cond (python* x "< 2") (recur (+ x 1) (+ y 1))
+                              :else [x y]))]
+              (recur (+ x (first xy)) (+ y (second xy))))
+            :else [x y]))
+        """) == L(4, 21)
+    with pytest.raises(Exception, match=r"only in loop"):
+        _eval("(recur 42)")
+    with pytest.raises(Exception, match=r"only in loop"):
+        _eval("(fn* [] (recur 42))")
+    with pytest.raises(Exception, match=r"only in loop"):
+        _eval("(loop* [x 1] (fn* [] (recur 42)))")
+    with pytest.raises(Exception, match=r"only in loop"):
+        _eval("(loop* [x 1] (recur (recur x)))")
+    with pytest.raises(Exception, match=r"expects 3 arguments"):
+        _eval("""(loop* [x 1 y "hello" z :world] (recur 5 6))""")
+    assert _eval(
+        """
+        (loop* [x 1]
+          (do 42
+              (cond (python* x "< 10") (recur (+ x 1))
+                    :else x)))
+        """) == 10
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] (do (recur x) 42))")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] (let* [y (recur x)]))")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] (cond (recur x) 42))")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] ((recur x)))")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] (+ 42 (recur x)))")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] [42 (recur x)])")
+    with pytest.raises(Exception, match=r"only in tail"):
+        _eval("(loop* [x 1] {42 (recur x)})")
+    with pytest.raises(Exception, match=r"only at top level"):
+        _eval("(loop* [x 1] (def foo 42))")
+
 def test_in_ns():
     ctx = _make_test_context()
     clx._load_string(ctx, "<string>", "(in-ns foo)")
@@ -888,10 +964,11 @@ def test_resolve_symbol():
     )
     lctx = clx.LocalContext(
         env=M("a", 5, "bar", 6),
+        loop_bindings=None,
+        tail_QMARK_=False,
         top_level_QMARK_=True,
-        line=None,
-        column=None,
-    )
+        line=1,
+        column=1)
     resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
     assert resolve(S("a")) == 5
     assert resolve(S("bar")) == 6
