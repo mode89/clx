@@ -95,7 +95,7 @@
         (let* [params (first args)]
           `(fn* ~params
              (do ~@(rest args))))
-        (multi-arity-fn nil args)))))
+        (multi-arity-fn (gensym "___fn_") args)))))
 
 (def defn ^{:macro? true}
   (fn* clx.core/defn [name & decl]

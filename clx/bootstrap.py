@@ -691,7 +691,6 @@ _K_COLUMN = keyword("column")
 _K_CURRENT_NS = keyword("current-ns")
 _K_NAMESPACES = keyword("namespaces")
 _K_ENV = keyword("env")
-_K_COUNTER = keyword("counter")
 _K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
 _K_ATTRIBUTE = keyword("attribute")
@@ -745,8 +744,6 @@ def tokenize(text):
         column = match.start(1) - line_starts[line_id - 1] + 1
         yield Token(string=token, line=line_id, column=column)
 
-_QQ_COUNTER = 10000
-
 def read_form(tokens):
     token = first(tokens)
     assert isinstance(token, Token), "expected a token"
@@ -756,11 +753,8 @@ def read_form(tokens):
         form, _rest = read_form(rtokens)
         return list_(_S_QUOTE, form), _rest
     elif tstring == "`":
-        global _QQ_COUNTER # pylint: disable=global-statement
-        counter = _QQ_COUNTER
-        _QQ_COUNTER += 1
         form, _rest = read_form(rtokens)
-        return quasiquote(f"_{counter}", form), _rest
+        return quasiquote(_gen_name("_"), form), _rest
     elif tstring == "~":
         form, _rest = read_form(rtokens)
         return list_(_S_UNQUOTE, form), _rest
@@ -912,7 +906,6 @@ ThreadContext = define_record("Context",
 SharedContext = define_record("SharedContext",
     _K_NAMESPACES,
     _K_PY_GLOBALS,
-    _K_COUNTER, # for generating unique names
 )
 # Local context defines state that is local to a single form
 LocalContext = define_record("LocalContext",
@@ -964,6 +957,7 @@ def init_context(namespaces):
             "cons": cons,
             "count": count,
             "pr-str": pr_str,
+            "gensym": lambda prefix="___gen_": symbol(_gen_name(prefix)),
         },
         **namespaces,
     }
@@ -983,7 +977,7 @@ def init_context(namespaces):
             shared=SharedContext(
                 namespaces=_namespaces,
                 py_globals=_globals,
-                counter=10000),
+            ),
             current_ns="user",
         )
     )
@@ -1006,7 +1000,7 @@ def _eval_form(ctx, lctx, file_name, form):
     result, body = _compile(ctx, lctx, form)
     body = ast.Module(body, type_ignores=[])
     result = ast.Expression(result, type_ignores=[])
-    _transform_ast(ctx, body, result)
+    _transform_ast(body, result)
     _globals = ctx.deref().shared.py_globals
     exec(compile(body, file_name, "exec"), _globals) # pylint: disable=exec-used
     return eval(compile(result, file_name, "eval"), _globals) # pylint: disable=eval-used
@@ -1099,7 +1093,7 @@ def _compile_do(ctx, lctx, form):
         f_result, f_stmts = _compile(
             ctx, lctx.assoc(_K_TAIL_Q, False) if forms else lctx, _f)
         stmts.extend(f_stmts)
-        result_name = _gen_name(ctx)
+        result_name = _gen_name()
         stmts.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, result_name, ast.Store())],
@@ -1126,7 +1120,7 @@ def _compile_let(ctx, lctx, form):
         value_expr, value_stmts = _compile(
             ctx, lctx.assoc(_K_TAIL_Q, False), value)
         munged = munge(_name.name)
-        py_name = _gen_name(ctx, f"{munged}_")
+        py_name = _gen_name(f"{munged}_")
         body.extend(value_stmts)
         body.append(
             _node(ast.Assign, lctx,
@@ -1141,7 +1135,7 @@ def _compile_let(ctx, lctx, form):
 
 def _compile_cond(ctx, lctx, form):
     lctx = assoc(lctx, _K_TOP_LEVEL_Q, False)
-    result = _gen_name(ctx, "___cond_")
+    result = _gen_name("___cond_")
     result_store = _node(ast.Name, lctx, result, ast.Store())
     result_load = _node(ast.Name, lctx, result, ast.Load())
     def compile_clauses(clauses):
@@ -1177,7 +1171,7 @@ def _compile_fn(ctx, lctx, form):
         params = third(form)
         body = fourth(form)
     else:
-        fname = symbol(None, _gen_name(ctx, "___fn_"))
+        fname = symbol(None, _gen_name("___fn_"))
         params = arg1
         body = third(form)
 
@@ -1265,7 +1259,7 @@ def _compile_loop(ctx, lctx, form):
             "binding name must be a simple symbol"
         value_expr, value_stmts = _compile(ctx, lctx, value)
         munged = munge(_name.name)
-        py_name = _gen_name(ctx, f"{munged}_")
+        py_name = _gen_name(f"{munged}_")
         stmts.extend(value_stmts)
         stmts.append(
             _node(ast.Assign, lctx,
@@ -1275,7 +1269,7 @@ def _compile_loop(ctx, lctx, form):
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
     lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
     if len(form) == 3:
-        result_name = _gen_name(ctx, "___loop_")
+        result_name = _gen_name("___loop_")
         body_expr, body_stmts = _compile(
             ctx, lctx.assoc(_K_TAIL_Q, True), third(form))
         stmts.append(
@@ -1302,7 +1296,7 @@ def _compile_recur(ctx, lctx, form):
         value_expr, value_stmts = _compile(
             ctx, lctx.assoc(_K_LOOP_BINDINGS, None), value)
         stmts.extend(value_stmts)
-        temp = _gen_name(ctx)
+        temp = _gen_name()
         temps.append(temp)
         stmts.append(
             _node(ast.Assign, lctx,
@@ -1369,7 +1363,7 @@ def _compile_import(ctx, lctx, form):
     if _as is None:
         _as = mod
     assert is_simple_symbol(_as), "alias for module must be a simple symbol"
-    py_name = _gen_name(ctx, f"___import_{munge(mod.name)}_")
+    py_name = _gen_name(f"___import_{munge(mod.name)}_")
     def _update_context(_ctx):
         return assoc_in(_ctx,
             list_(
@@ -1504,12 +1498,10 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
         raise Exception(f"Symbol '{pr_str(sym)}' not found")
     return not_found
 
-def _gen_name(ctx, base="___gen_"):
-    def _update_counter(_ctx):
-        counter = _ctx.shared.counter + 1
-        return assoc_in(_ctx, list_(_K_SHARED, _K_COUNTER), counter)
-    _ctx = ctx.swap(_update_counter)
-    return f"{base}{_ctx.shared.counter}"
+def _gen_name(prefix="___gen_"):
+    if not hasattr(_gen_name, "counter"):
+        _gen_name.counter = Atom(10000)
+    return f"{prefix}{_gen_name.counter.swap(lambda x: x + 1)}"
 
 def _node(type_, lctx, *args):
     _n = type_(*args)
@@ -1537,10 +1529,10 @@ def _binding_string(binding):
         return binding.py_name
     return f"{binding.py_name}.{binding.attribute}"
 
-def _transform_ast(ctx, body, result):
-    _fix_constants(ctx, body, result)
+def _transform_ast(body, result):
+    _fix_constants(body, result)
 
-def _fix_constants(ctx, body, result):
+def _fix_constants(body, result):
     consts = {}
 
     lctx = LocalContext(
@@ -1559,7 +1551,7 @@ def _fix_constants(ctx, body, result):
                     PersistentList,
                     PersistentVector,
                     PersistentMap)):
-                name = _gen_name(ctx, "___const_")
+                name = _gen_name("___const_")
                 consts[name] = _compile_constant(lctx, node.value)
                 return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
             else:

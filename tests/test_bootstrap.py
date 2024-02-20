@@ -969,7 +969,6 @@ def test_resolve_symbol():
                             imports=M(),
                         )),
                 py_globals={},
-                counter=0,
             ),
             current_ns="user",
         ),
