@@ -36,26 +36,77 @@
     `(when-not ~tst
        (throw (Exception ~@msg)))))
 
+(def multi-arity-fn
+  (fn* multi-arity-fn [fname decls]
+    (let* [variadic? (fn* [args]
+                       (loop* [args* args]
+                         (when (seq args*)
+                           (if (operator/eq '& (first args*))
+                             true
+                             (recur (rest args*))))))
+           arity-name (fn* [arity]
+                        (when fname
+                          (vector
+                            (symbol
+                              (let* [fname* (python* "str(" fname ")")
+                                     arity* (python* "str(" arity ")")]
+                                (python*
+                                  fname*
+                                  " + \"-arity-\" + "
+                                  arity*))))))
+           decl-entry (fn* [decl]
+                        (let* [args (first decl)
+                               _ (assert (vector? args)
+                                   "args must be a vector")
+                               body (rest decl)
+                               arity (if (variadic? args)
+                                       :variadic
+                                       (count args))]
+                          `(list ~arity
+                             (fn* ~@(arity-name arity) [~@args]
+                               (do ~@body)))))]
+      `(let* [arities# (list ~@(loop* [decls* decls
+                                       entries (list)]
+                                 (if (seq decls*)
+                                   (recur
+                                     (rest decls*)
+                                     (cons (decl-entry (first decls*))
+                                           entries))
+                                   entries)))
+              arities-dict# (python* "dict(" arities# ")")
+              variadic# (.get arities-dict# :variadic)]
+         (fn* ~@(when fname [fname]) [& args]
+           (python*
+             "f = " arities-dict# ".get(len(" args "), " variadic# ")\n"
+             "if f is None:\n"
+             "    raise Exception(\"Wrong number of arguments\")\n"
+             "f(*" args ")"))))))
+
 (def fn ^{:macro? true}
   (fn* clx.core/fn [& args]
-    (let* [arg1 (first args)]
-      (if (symbol? arg1)
-        `(fn* ~arg1 ~(second args)
-          (do ~@(rest (rest args))))
-        `(fn* ~arg1
-          (do ~@(rest args)))))))
+    (if (symbol? (first args))
+      (let* [fname (first args)]
+        (if (vector? (second args))
+          (let* [params (second args)]
+            `(fn* ~fname ~params
+               (do ~@(rest (rest args)))))
+          (multi-arity-fn fname (rest args))))
+      (if (vector? (first args))
+        (let* [params (first args)]
+          `(fn* ~params
+             (do ~@(rest args))))
+        (multi-arity-fn nil args)))))
 
 (def defn ^{:macro? true}
-  (fn* clx.core/defn [name params & body]
+  (fn* clx.core/defn [name & decl]
     `(def ~name
       (with-meta
-        (fn ~name ~params ~@body)
+        (fn ~name ~@decl)
         ~(meta name)))))
 
 (def defmacro ^{:macro? true}
-  (fn* clx.core/defmacro [name params & body]
-    `(defn ~(with-meta name {:macro? true}) ~params
-      (do ~@body))))
+  (fn* clx.core/defmacro [name & decl]
+    `(defn ~(with-meta name {:macro? true}) ~@decl)))
 
 (defn even? [x]
   (python* "not " x " & 1"))

@@ -1,3 +1,4 @@
+# pylint: disable=disallowed-name
 # pylint: disable=protected-access
 import pytest
 
@@ -39,6 +40,18 @@ def test_fn(_eval):
             (+ y 7)))
         (foo 1 2)
         """) == 9
+    foo = _eval(
+        """
+        (fn
+          ([] 42)
+          ([x] (+ x 1))
+          ([x y] (+ x y))
+          ([x y & zs] (apply list x y zs)))
+        """)
+    assert foo() == 42
+    assert foo(1) == 2
+    assert foo(3, 4) == 7
+    assert foo(5, 6, 7, 8) == bs.list_(5, 6, 7, 8)
 
 def test_defn(_eval):
     assert _eval(
@@ -53,6 +66,19 @@ def test_defn(_eval):
           (+ y 20))
         (bar 3 5)
         """) == 25
+    foo = _eval(
+        """
+        (defn foo
+          ([] 42)
+          ([x] (+ x 1))
+          ([x y] (+ x y))
+          ([x y & zs] (apply list x y zs)))
+        foo
+        """)
+    assert foo() == 42
+    assert foo(1) == 2
+    assert foo(3, 4) == 7
+    assert foo(5, 6, 7, 8) == bs.list_(5, 6, 7, 8)
 
 def test_defmacro(_eval):
     assert _eval(
@@ -63,6 +89,15 @@ def test_defmacro(_eval):
           42
           (throw (Exception)))
         """) == 42
+    assert _eval(
+        """
+        (defmacro +
+          ([] 0)
+          ([x] x)
+          ([x y] `(let [x# ~x y# ~y] (python* x# " + " y#)))
+          ([x y & more] `(+ (+ ~x ~y) ~@more)))
+        [(+) (+ 1) (+ 2 3) (+ 4 5 6) (+ 7 8 9 10 11)]
+        """) == bs.list_(0, 1, 5, 15, 45)
 
 def test_let(_eval):
     assert _eval(

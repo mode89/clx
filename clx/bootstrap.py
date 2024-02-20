@@ -959,6 +959,7 @@ def init_context(namespaces):
             "second": second,
             "rest": rest,
             "next": next_,
+            "seq": seq,
             "concat": concat,
             "cons": cons,
             "count": count,
