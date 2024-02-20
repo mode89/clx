@@ -273,3 +273,20 @@ def test_operators(_eval):
     assert _eval("(>= 27 28)") is False
     assert _eval("(>= 29 29)") is True
     assert _eval("(>= 31 30)") is True
+
+def test_map(_eval):
+    assert _eval("(map inc nil)") == bs.list_()
+    assert _eval("(map inc '(1 2 3))") == bs.list_(2, 3, 4)
+    assert _eval("(map inc [1 2 3])") == bs.list_(2, 3, 4)
+    s = _eval(
+        """
+        (defn foo [x]
+          (if (< x 3)
+            x
+            (throw (Exception))))
+        (map foo [1 2 3])
+        """)
+    assert s.first() == 1
+    assert s.next().first() == 2
+    with pytest.raises(Exception):
+        s.next().next()

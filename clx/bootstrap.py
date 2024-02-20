@@ -1001,6 +1001,8 @@ def _eval_form(ctx, lctx, file_name, form):
     body = ast.Module(body, type_ignores=[])
     result = ast.Expression(result, type_ignores=[])
     _transform_ast(body, result)
+    print(ast.unparse(body))
+    print(ast.unparse(result))
     _globals = ctx.deref().shared.py_globals
     exec(compile(body, file_name, "exec"), _globals) # pylint: disable=exec-used
     return eval(compile(result, file_name, "eval"), _globals) # pylint: disable=eval-used

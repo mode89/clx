@@ -3,6 +3,7 @@
 pkgs.mkShell {
   packages = [
     (pkgs.python3.withPackages (ps: with ps; [
+      ipython
       mypy
       pylint
       pytest

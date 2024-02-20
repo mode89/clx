@@ -157,3 +157,28 @@
 
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
+
+(defn map [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (f (first s)) (map f (rest s))))))
+
+; multi-arity functions
+
+; reader macro for dot-notation
+
+; (defmacro . [obj field])
+
+; asdict
+
+; (defn type* [tname bases defs]
+;   (let [name* (name tname)
+;         ]
+;     (python* "type("
+;       name* ", "
+;       bases ", "
+;       defs*
+;       ")")))
+
+; defrecord
+; tokenize
