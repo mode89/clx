@@ -10,8 +10,8 @@ DEFN_RANGE = """
     ([end] (range* 0 end))
     ([start end]
       (lazy-seq
-        (cons start
-          (range* (inc start) end)))))
+        (when (< start end)
+          (cons start (range* (+ start 1) end))))))
 """
 
 def clone_context():
@@ -334,3 +334,19 @@ def test_filter(_eval):
     assert ls.first() == 1
     assert ls.next().first() == 3
     assert ls.next().next().first() == 5
+
+def test_reduce(_eval):
+    assert _eval("(reduce nil nil nil)") is None
+    assert _eval("(reduce + '(42))") == 42
+    assert _eval("(reduce + '(1 2 3))") == 6
+    assert _eval("(reduce + [4 5 6])") == 15
+    assert _eval("(reduce + 7 '(8 9 10))") == 34
+    assert _eval(
+        f"""
+        {DEFN_RANGE}
+        (reduce
+          (fn [x y]
+            (+ x y))
+          42
+          (range* 10))
+        """) == 42 + sum(range(10))

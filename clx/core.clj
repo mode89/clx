@@ -171,3 +171,13 @@
         (if (pred s0)
           (cons s0 (filter pred (rest s)))
           (filter pred (rest s)))))))
+
+(defn reduce
+  ([f coll]
+   (reduce f (first coll) (rest coll)))
+  ([f init coll]
+   (loop* [acc init
+           coll (seq coll)]
+     (if coll
+       (recur (f acc (first coll)) (rest coll))
+       acc))))
