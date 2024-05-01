@@ -1,7 +1,6 @@
 # pylint: disable=disallowed-name
 # pylint: disable=protected-access
 import re
-import threading
 
 import pytest
 
@@ -119,6 +118,8 @@ def test_list():
     assert L().with_meta(M(1, 2)) is not L()
     assert L().with_meta(M(1, 2)) == L()
     assert L().with_meta(M(1, 2)) == L().with_meta(M(3, 4))
+    # TODO: assert L().with_meta(M(1, 2)).rest() is L()
+    # TODO: assert L().with_meta(M(1, 2)).seq() is None
     assert L(1) is not L()
     assert len(L(1)) == 1
     assert bool(L(1)) is True
@@ -223,6 +224,8 @@ def test_cons():
     inf = _lazy_range()
     assert cons(42, inf) == cons(42, inf)
     assert cons(42, inf) != cons(43, inf)
+    assert cons(1, cons(2, cons(3, L()))) == L(1, 2, 3)
+    assert cons(1, L()).next() is None
 
 def test_lazy_seq():
     def nth(coll, n):
@@ -377,6 +380,7 @@ def test_hash_map():
     assert M(1, 2, 3, 4)(2) is None
     assert M(1, 2, 3, 4)(3) == 4
     assert M(1, 2, 3, 4)(4) is None
+    assert dict(M(1, 2, 3, 4)) == {1: 2, 3: 4}
 
 def test_record():
     record = clx.define_record("TestRecord", K("a"), K("b"))
