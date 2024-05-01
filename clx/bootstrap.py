@@ -3,6 +3,7 @@ import ast
 from bisect import bisect_left
 from collections import namedtuple
 from collections.abc import Hashable, Iterator, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 import functools
 import re
 import sys
@@ -652,6 +653,16 @@ class Box:
         self._value = f(self._value, *args)
         return self._value
 
+class ThreadLocal:
+    def __init__(self, value):
+        self._storage = threading.local()
+        self._storage.value = value
+    def deref(self):
+        return self._storage.value
+    def reset(self, new_value):
+        self._storage.value = new_value
+        return new_value
+
 #************************************************************
 # Constants
 #************************************************************
@@ -897,16 +908,11 @@ def escape(text):
 # Evaluation
 #************************************************************
 
-# Tracks state of the current evaluation thread
-ThreadContext = define_record("Context",
-    _K_SHARED,
-    _K_CURRENT_NS,
-)
-# Tracks state shared across multiple evaluation threads
-SharedContext = define_record("SharedContext",
-    _K_NAMESPACES,
-    _K_PY_GLOBALS,
-)
+@dataclass(frozen=True)
+class Context:
+    namespaces: Atom
+    py_globals: dict
+
 # Local context defines state that is local to a single form
 LocalContext = define_record("LocalContext",
     _K_ENV,
@@ -916,22 +922,21 @@ LocalContext = define_record("LocalContext",
     _K_LINE,
     _K_COLUMN,
 )
-Namespace = define_record("Namespace", _K_BINDINGS, _K_IMPORTS)
-Binding = define_record("Binding", _K_PY_NAME, _K_ATTRIBUTE)
 
-def _known_binding(sym):
-    return Binding(munge(sym), None)
+@dataclass(frozen=True)
+class Binding:
+    py_name: str
 
-_B_KEYWORD = _known_binding(_S_KEYWORD)
-_B_SYMBOL = _known_binding(_S_SYMBOL)
-_B_LIST = _known_binding(_S_LIST)
-_B_VECTOR = _known_binding(_S_VECTOR)
-_B_HASH_MAP = _known_binding(_S_HASH_MAP)
-_B_WITH_META = _known_binding(_S_WITH_META)
+@dataclass(frozen=True)
+class ImportedBinding:
+    module: str
+    attribute: str
+
+@dataclass(frozen=True)
+class DynamicBinding:
+    py_name: str
 
 def init_context(namespaces):
-    _globals = {}
-
     namespaces = {
         "user": {},
         "clx.bootstrap": {
@@ -964,25 +969,25 @@ def init_context(namespaces):
         **namespaces,
     }
 
-    _namespaces = hash_map()
-    for ns_name, ns_bindings in namespaces.items():
-        _bindings = hash_map()
-        for name, value in ns_bindings.items():
-            py_name = munge(f"{ns_name}/{name}")
-            _bindings = assoc(_bindings, name, Binding(py_name, None))
-            _globals[py_name] = value
-        _namespaces = assoc(_namespaces, ns_name,
-            Namespace(_bindings, hash_map()))
+    ctx = Context(atom(hash_map()), {})
 
-    return Box(
-        ThreadContext(
-            shared=SharedContext(
-                namespaces=_namespaces,
-                py_globals=_globals,
-            ),
-            current_ns="user",
-        )
-    )
+    def intern(ns, name, value, dynamic=False):
+        py_name = munge(f"{ns}/{name}")
+        binding = Binding(py_name) \
+            if not dynamic else DynamicBinding(py_name)
+        ctx.namespaces.swap(assoc_in,
+            list_(ns, _K_BINDINGS, name),
+            binding)
+        ctx.py_globals[py_name] = value \
+            if not dynamic else ThreadLocal(value)
+
+    for ns_name, ns_bindings in namespaces.items():
+        for name, value in ns_bindings.items():
+            intern(ns_name, name, value)
+
+    intern("clx.core", "*ns*", "user", dynamic=True)
+
+    return ctx
 
 def _load_string(ctx, file_name, text):
     lctx = LocalContext(
@@ -1002,10 +1007,9 @@ def _eval_form(ctx, lctx, file_name, form):
     result, body = _compile(ctx, lctx, form)
     body = ast.Module(body, type_ignores=[])
     result = ast.Expression(result, type_ignores=[])
-    _transform_ast(body, result)
-    _globals = ctx.deref().shared.py_globals
-    exec(compile(body, file_name, "exec"), _globals) # pylint: disable=exec-used
-    return eval(compile(result, file_name, "eval"), _globals) # pylint: disable=eval-used
+    _transform_ast(ctx, body, result)
+    exec(compile(body, file_name, "exec"), ctx.py_globals) # pylint: disable=exec-used
+    return eval(compile(result, file_name, "eval"), ctx.py_globals) # pylint: disable=eval-used
 
 def load_file(ctx, path):
     return _load_string(ctx, path, slurp(path))
@@ -1071,11 +1075,10 @@ def _compile_def(ctx, lctx, form):
     name = second(form)
     assert is_simple_symbol(name), \
         "def expects a simple symbol as the first argument"
-    ns = ctx.deref().current_ns
-    py_name = munge(f"{ns}/{name.name}")
-    ctx.swap(assoc_in,
-        list_(_K_SHARED, _K_NAMESPACES, ns, _K_BINDINGS, name.name),
-        Binding(py_name, None))
+    current_ns = _current_ns(ctx).deref()
+    py_name = munge(f"{current_ns}/{name.name}")
+    ctx.namespaces.swap(assoc_in,
+        list_(current_ns, _K_BINDINGS, name.name), Binding(py_name))
     value_expr, value_stmts = _compile(
         ctx, lctx.assoc(_K_TAIL_Q, False), third(form))
     return \
@@ -1127,7 +1130,7 @@ def _compile_let(ctx, lctx, form):
         body.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        lctx = assoc_in(lctx, list_(_K_ENV, _name.name), Binding(py_name, None))
+        lctx = assoc_in(lctx, list_(_K_ENV, _name.name), Binding(py_name))
     if len(form) == 3:
         body_expr, body_stmts = _compile(ctx, lctx, third(form))
         body.extend(body_stmts)
@@ -1187,7 +1190,7 @@ def _compile_fn(ctx, lctx, form):
             ctx, lctx.assoc(_K_TAIL_Q, False), _meta)
         stmts.extend(meta_stmts)
         expr = _node(ast.Call, lctx,
-            _binding_node(lctx, ast.Load(), _B_WITH_META),
+            _binding_node(lctx, ast.Load(), _core_binding(ctx, _S_WITH_META)),
             [expr, meta_expr], [])
 
     return expr, stmts
@@ -1210,11 +1213,10 @@ def _make_function_def(ctx, lctx, fname, params, body):
             rest_param = second(params)
             assert is_simple_symbol(rest_param), \
                 "rest parameters of function must be a simple symbol"
-            env = assoc(env, rest_param.name,
-                Binding(munge(rest_param.name), None))
+            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
             break
         pos_params.append(param)
-        env = assoc(env, param.name, Binding(munge(param.name), None))
+        env = assoc(env, param.name, Binding(munge(param.name)))
         params = rest(params)
     lctx = assoc(lctx, _K_ENV, env)
 
@@ -1266,7 +1268,7 @@ def _compile_loop(ctx, lctx, form):
         stmts.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        binding = Binding(py_name, None)
+        binding = Binding(py_name)
         loop_bindings.append(binding)
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
     lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
@@ -1320,15 +1322,7 @@ def _compile_in_ns(ctx, lctx, form):
     assert len(form) == 2, "in-ns expects exactly 1 argument"
     ns = second(form)
     assert is_symbol(ns), "in-ns expects a symbol"
-    def _update_context(_ctx):
-        _ctx = _ctx.assoc(_K_CURRENT_NS, ns.name)
-        ns_obj = _ctx.shared.namespaces.lookup(ns.name, None)
-        if ns_obj is None:
-            _ctx = assoc_in(_ctx,
-                list_(_K_SHARED, _K_NAMESPACES, ns.name),
-                Namespace(hash_map(), hash_map()))
-        return _ctx
-    ctx.swap(_update_context)
+    _current_ns(ctx).reset(ns.name)
     return _node(ast.Constant, lctx, None), []
 
 def _compile_dot(ctx, lctx, form):
@@ -1365,21 +1359,17 @@ def _compile_import(ctx, lctx, form):
     if _as is None:
         _as = mod
     assert is_simple_symbol(_as), "alias for module must be a simple symbol"
-    py_name = _gen_name(f"___import_{munge(mod.name)}_")
-    def _update_context(_ctx):
-        return assoc_in(_ctx,
-            list_(
-                _K_SHARED,
-                _K_NAMESPACES,
-                _ctx.current_ns,
-                _K_IMPORTS,
-                _as.name),
-            py_name)
-    ctx.swap(_update_context)
+    alias_name = _gen_name(f"___import_{munge(mod.name)}_")
+    current_ns = _current_ns(ctx).deref()
+    def _update(namespaces):
+        return assoc_in(namespaces,
+            list_(current_ns, _K_IMPORTS, _as.name),
+            alias_name)
+    ctx.namespaces.swap(_update)
     return \
-        _node(ast.Name, lctx, py_name, ast.Load()), \
+        _node(ast.Name, lctx, alias_name, ast.Load()), \
         [_node(ast.Import, lctx,
-            [_node(ast.alias, lctx, mod.name, py_name)])]
+            [_node(ast.alias, lctx, mod.name, alias_name)])]
 
 def _compile_python(ctx, lctx, form):
     def _eval_entry(entry):
@@ -1439,7 +1429,7 @@ def _compile_vector(ctx, lctx, form):
         stmts.extend(el_stmts)
     return \
         _node(ast.Call, lctx,
-            _binding_node(lctx, ast.Load(), _B_VECTOR),
+            _binding_node(lctx, ast.Load(), _core_binding(ctx, _S_VECTOR)),
             el_exprs,
             []), \
         stmts
@@ -1457,48 +1447,52 @@ def _compile_map(ctx, lctx, form):
         stmts.extend(value_stmts)
     return \
         _node(ast.Call, lctx,
-            _binding_node(lctx, ast.Load(), _B_HASH_MAP),
+            _binding_node(lctx, ast.Load(), _core_binding(ctx, _S_HASH_MAP)),
             args,
             []), \
         stmts
 
 def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
-    _ctx = ctx.deref()
     if is_simple_symbol(sym):
         if lctx is not None:
             binding = lctx.env.lookup(sym.name, None)
             if binding is not None:
                 return binding
 
-        namespaces = _ctx.shared.namespaces
-        binding = namespaces \
-            .lookup(_ctx.current_ns, None) \
-            .bindings.lookup(sym.name, None)
+        current_ns = _current_ns(ctx).deref()
+        namespaces = ctx.namespaces.deref()
+        binding = get_in(namespaces, list_(current_ns, _K_BINDINGS, sym.name))
         if binding is not None:
             return binding
 
-        binding = namespaces \
-            .lookup("clx.core", None) \
-            .bindings.lookup(sym.name, None)
+        binding = get_in(namespaces, list_("clx.core", _K_BINDINGS, sym.name))
         if binding is not None:
             return binding
     else:
-        namespaces = _ctx.shared.namespaces
-        import_alias = namespaces \
-            .lookup(_ctx.current_ns, None) \
-            .imports.lookup(sym.namespace, None)
+        current_ns = _current_ns(ctx).deref()
+        namespaces = ctx.namespaces.deref()
+        import_alias = get_in(namespaces,
+            list_(current_ns, _K_IMPORTS, sym.namespace))
         if import_alias is not None:
-            return Binding(import_alias, munge(sym.name))
+            return ImportedBinding(
+                module=import_alias,
+                attribute=munge(sym.name))
 
-        namespace = namespaces.lookup(sym.namespace, None)
-        if namespace is not None:
-            binding = namespace.bindings.lookup(sym.name, None)
-            if binding is not None:
-                return binding
+        binding = get_in(namespaces,
+            list_(sym.namespace, _K_BINDINGS, sym.name))
+        if binding is not None:
+            return binding
 
     if not_found is _DUMMY:
         raise Exception(f"Symbol '{pr_str(sym)}' not found")
     return not_found
+
+def _current_ns(ctx):
+    return ctx.py_globals[munge("clx.core/*ns*")]
+
+def _core_binding(ctx, sym):
+    return get_in(ctx.namespaces.deref(),
+        list_("clx.core", _K_BINDINGS, sym.name))
 
 def _gen_name(prefix="___gen_"):
     if not hasattr(_gen_name, "counter"):
@@ -1512,29 +1506,38 @@ def _node(type_, lctx, *args):
     return _n
 
 def _binding_node(lctx, load_or_store, binding):
-    if binding.attribute is None:
+    if type(binding) is Binding:
         return _node(ast.Name, lctx, binding.py_name, load_or_store)
+    elif type(binding) is ImportedBinding:
+        return \
+            _node(ast.Attribute, lctx,
+                _node(ast.Name, lctx, binding.module, ast.Load()),
+                binding.attribute,
+                load_or_store)
     else:
-        return _node(ast.Attribute, lctx,
-            _node(ast.Name, lctx, binding.py_name, ast.Load()),
-            binding.attribute,
-            load_or_store)
+        raise NotImplementedError()
 
 def _eval_binding(ctx, binding, not_found=_DUMMY):
-    obj = ctx.deref().shared.py_globals.get(binding.py_name, not_found)
-    if binding.attribute is not None:
-        return getattr(obj, binding.attribute, not_found)
-    return obj
+    if type(binding) is Binding:
+        return ctx.py_globals.get(binding.py_name, not_found)
+    elif type(binding) is ImportedBinding:
+        return getattr(ctx.py_globals[binding.module],
+            binding.attribute, not_found)
+    else:
+        raise NotImplementedError()
 
 def _binding_string(binding):
-    if binding.attribute is None:
+    if type(binding) is Binding:
         return binding.py_name
-    return f"{binding.py_name}.{binding.attribute}"
+    elif type(binding) is ImportedBinding:
+        return f"{binding.module}.{binding.py_name}"
+    else:
+        raise NotImplementedError()
 
-def _transform_ast(body, result):
-    _fix_constants(body, result)
+def _transform_ast(ctx, body, result):
+    _fix_constants(ctx, body, result)
 
-def _fix_constants(body, result):
+def _fix_constants(ctx, body, result):
     consts = {}
 
     lctx = LocalContext(
@@ -1554,7 +1557,7 @@ def _fix_constants(body, result):
                     PersistentVector,
                     PersistentMap)):
                 name = _gen_name("___const_")
-                consts[name] = _compile_constant(lctx, node.value)
+                consts[name] = _compile_constant(ctx, lctx, node.value)
                 return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
             else:
                 self.generic_visit(node)
@@ -1571,34 +1574,38 @@ def _fix_constants(body, result):
         for name, value in consts.items()
     ]
 
-def _compile_constant(lctx, value):
+def _compile_constant(ctx, lctx, value):
     if isinstance(value, (Keyword, Symbol)):
         _ns = ast.Constant(value.namespace, lineno=0, col_offset=0)
         _name = ast.Constant(value.name, lineno=0, col_offset=0)
         tree = ast.Call(
             _binding_node(lctx, ast.Load(),
-                _B_KEYWORD if type(value) is Keyword else _B_SYMBOL),
+                _core_binding(ctx,
+                    _S_KEYWORD if type(value) is Keyword else _S_SYMBOL)),
             [_ns, _name], [], lineno=0, col_offset=0)
     elif isinstance(value, (PersistentList, PersistentVector)):
         tree = ast.Call(
             _binding_node(lctx, ast.Load(),
-                _B_LIST if type(value) is PersistentList else _B_VECTOR),
-            [_compile_constant(lctx, v) for v in value],
+                _core_binding(ctx,
+                    _S_LIST if type(value) is PersistentList else _S_VECTOR)),
+            [_compile_constant(ctx, lctx, v) for v in value],
             [], lineno=0, col_offset=0)
     elif type(value) is PersistentMap:
         args = []
         for key, val in value.items():
-            args.append(_compile_constant(lctx, key))
-            args.append(_compile_constant(lctx, val))
+            args.append(_compile_constant(ctx, lctx, key))
+            args.append(_compile_constant(ctx, lctx, val))
         tree = ast.Call(
-            _binding_node(lctx, ast.Load(), _B_HASH_MAP),
+            _binding_node(lctx, ast.Load(),
+                _core_binding(ctx, _S_HASH_MAP)),
             args, [], lineno=0, col_offset=0)
     else:
         tree = ast.Constant(value, lineno=0, col_offset=0)
     if meta(value) is not None:
         tree = ast.Call(
-            _binding_node(lctx, ast.Load(), _B_WITH_META),
-            [tree, _compile_constant(lctx, meta(value))],
+            _binding_node(lctx, ast.Load(),
+                _core_binding(ctx, _S_WITH_META)),
+            [tree, _compile_constant(ctx, lctx, meta(value))],
             [], lineno=0, col_offset=0)
     return tree
 

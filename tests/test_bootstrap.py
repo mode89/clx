@@ -545,13 +545,14 @@ def test_def():
     ctx = _make_test_context()
     res = clx._load_string(ctx, "<string>", "(def foo 42)")
     assert res == 42
-    assert clx.get_in(ctx.deref().shared.namespaces,
+    assert clx.get_in(ctx.namespaces.deref(),
         L("user",
           K("bindings"),
-          "foo",
-          K("py-name"))) == munge("user/foo")
-    assert ctx.deref().shared.py_globals[munge("user/foo")] == 42
+          "foo")).py_name == munge("user/foo")
+    assert ctx.py_globals[munge("user/foo")] == 42
     assert _eval("(def foo (___local_context :top-level?))") is True
+    with pytest.raises(Exception, match=r"Symbol 'foo' not found"):
+        _eval("foo")
 
 def test_do():
     assert _eval("(do)") is None
@@ -779,7 +780,7 @@ def test_loop():
 def test_in_ns():
     ctx = _make_test_context()
     clx._load_string(ctx, "<string>", "(in-ns foo)")
-    assert ctx.deref().current_ns == "foo"
+    assert clx._current_ns(ctx).deref() == "foo"
 
     ctx = _make_test_context()
     with pytest.raises(Exception, match=r"allowed only at top level"):
@@ -947,35 +948,23 @@ def test_meta():
     assert clx.meta(clx.with_meta(fred_with_meta, None)) is None
 
 def test_resolve_symbol():
-    ctx = clx.Box(
-        clx.ThreadContext(
-            shared=clx.SharedContext(
-                namespaces=M(
-                    "clx.core",
-                        clx.Namespace(
-                            bindings=M(
-                                "list", clx.list_,
-                            ),
-                            imports=M(),
-                        ),
-                    "user",
-                        clx.Namespace(
-                            bindings=M(
-                                "foo", 1,
-                                "bar", 2),
-                            imports=M(),
-                        ),
-                    "baz",
-                        clx.Namespace(
-                            bindings=M(
-                                "quux", 3,
-                                "fred", 4),
-                            imports=M(),
-                        )),
-                py_globals={},
-            ),
-            current_ns="user",
-        ),
+    ctx = clx.Context(
+        namespaces=clx.atom(M(
+            "clx.core",
+                M(K("bindings"), M("list", clx.list_),
+                  K("imports"),  M()),
+            "user",
+                M(K("bindings"), M("foo", 1,
+                                   "bar", 2),
+                  K("imports"),  M()),
+            "baz",
+                M(K("bindings"), M("quux", 3,
+                                   "fred", 4),
+                  K("imports"),  M()),
+                )),
+        py_globals={
+            munge("clx.core/*ns*"): clx.ThreadLocal("user"),
+        },
     )
     lctx = clx.LocalContext(
         env=M("a", 5, "bar", 6),

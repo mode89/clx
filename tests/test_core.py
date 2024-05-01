@@ -15,14 +15,9 @@ DEFN_RANGE = """
 """
 
 def clone_context():
-    ctx = clx.bootstrap_context.deref()
-    sctx = bs.update(ctx.shared, bs._K_PY_GLOBALS, lambda x: x.copy())
-    return bs.Box(
-        bs.assoc(ctx,
-            bs._K_SHARED, sctx,
-            bs._K_CURRENT_NS, "user",
-        )
-    )
+    return bs.Context(
+        namespaces=bs.atom(clx.bootstrap_context.namespaces.deref()),
+        py_globals=clx.bootstrap_context.py_globals.copy())
 
 @pytest.fixture
 def _eval():
