@@ -5,6 +5,15 @@ import pytest
 import clx
 import clx.bootstrap as bs
 
+DEFN_RANGE = """
+  (defn range*
+    ([end] (range* 0 end))
+    ([start end]
+      (lazy-seq
+        (cons start
+          (range* (inc start) end)))))
+"""
+
 def clone_context():
     ctx = clx.bootstrap_context.deref()
     sctx = bs.update(ctx.shared, bs._K_PY_GLOBALS, lambda x: x.copy())
@@ -292,15 +301,36 @@ def test_map(_eval):
         s.next().next()
 
     ls = _eval(
-        """
-        (defn range*
-          ([end] (range* 0 end))
-          ([start end]
-            (lazy-seq
-              (cons start
-                (range* (inc start) end)))))
+        f"""
+        {DEFN_RANGE}
         (map (fn [x] (* x 3))
              (range* 10000000))
         """)
     assert ls.first() == 0
     assert ls.next().first() == 3
+
+def test_filter(_eval):
+    assert _eval("(filter nil nil)") == bs.list_()
+    assert _eval("(filter odd? nil)") == bs.list_()
+    assert _eval("(filter odd? '(1 2 3))") == bs.list_(1, 3)
+    assert _eval("(filter odd? [1 2 3])") == bs.list_(1, 3)
+    s = _eval(
+        """
+        (defn foo [x]
+          (if (< x 3)
+            (odd? x)
+            (throw (Exception))))
+        (filter foo [1 2 3])
+        """)
+    assert s.first() == 1
+    with pytest.raises(Exception):
+        s.next()
+
+    ls = _eval(
+        f"""
+        {DEFN_RANGE}
+        (filter odd? (range* 10000000))
+        """)
+    assert ls.first() == 1
+    assert ls.next().first() == 3
+    assert ls.next().next().first() == 5
