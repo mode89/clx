@@ -934,6 +934,9 @@ def init_context(namespaces):
 
     namespaces = {
         "user": {},
+        "clx.bootstrap": {
+            "lazy-seq*": lazy_seq,
+        },
         "clx.core": {
             "+": lambda *args: sum(args),
             "with-meta": with_meta,
@@ -947,7 +950,6 @@ def init_context(namespaces):
             "vector?": is_vector,
             "vec": vec,
             "hash-map": hash_map,
-            "lazy-seq*": lazy_seq,
             "first": first,
             "second": second,
             "rest": rest,

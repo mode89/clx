@@ -156,7 +156,8 @@
      (python* obj# "." ~(name field) " = " value#)))
 
 (defmacro lazy-seq [& body]
-  `(lazy-seq* (fn [] ~@body)))
+  `(clx.bootstrap/lazy-seq*
+     (fn [] ~@body)))
 
 (defn map [f coll]
   (lazy-seq
