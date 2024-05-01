@@ -157,3 +157,8 @@
 
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
+
+(defn map [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (f (first s)) (map f (rest s))))))
