@@ -22,7 +22,7 @@ def clone_context():
 @pytest.fixture
 def _eval():
     def impl(text):
-        return bs._load_string(clone_context(), text)
+        return bs._eval_string(clone_context(), text)
     return impl
 
 def test_throw(_eval):

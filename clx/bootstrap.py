@@ -1005,7 +1005,7 @@ def _local_context( # pylint: disable=too-many-arguments
         line=line,
         column=column)
 
-def _load_string(ctx, text):
+def _eval_string(ctx, text):
     lctx = _local_context()
     tokens = list(tokenize(text))
     while tokens:
@@ -1026,7 +1026,7 @@ def load_file(ctx, path):
     file_var = _current_file(ctx)
     prev_file = file_var.deref()
     file_var.reset(path)
-    result = _load_string(ctx, slurp(path))
+    result = _eval_string(ctx, slurp(path))
     file_var.reset(prev_file)
     return result
 
