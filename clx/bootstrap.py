@@ -989,14 +989,23 @@ def init_context(namespaces):
 
     return ctx
 
-def _load_string(ctx, file_name, text):
-    lctx = LocalContext(
+def _local_context( # pylint: disable=too-many-arguments
         env=hash_map(),
         loop_bindings=None,
-        tail_QMARK_=False,
-        top_level_QMARK_=True,
+        tail=False,
+        top_level=True,
         line=1,
-        column=1)
+        column=1):
+    return LocalContext(
+        env=env,
+        loop_bindings=loop_bindings,
+        tail_QMARK_=tail,
+        top_level_QMARK_=top_level,
+        line=line,
+        column=column)
+
+def _load_string(ctx, file_name, text):
+    lctx = _local_context()
     tokens = list(tokenize(text))
     while tokens:
         form, tokens = read_form(tokens)
@@ -1540,13 +1549,7 @@ def _transform_ast(ctx, body, result):
 def _fix_constants(ctx, body, result):
     consts = {}
 
-    lctx = LocalContext(
-        env=hash_map(),
-        loop_bindings=None,
-        tail_QMARK_=False,
-        top_level_QMARK_=True,
-        line=1,
-        column=1)
+    lctx = _local_context()
 
     class Transformer(ast.NodeTransformer):
         def visit_Constant(self, node):
