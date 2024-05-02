@@ -986,6 +986,7 @@ def init_context(namespaces):
             intern(ns_name, name, value)
 
     intern("clx.core", "*ns*", "user", dynamic=True)
+    intern("clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
 
     return ctx
 
@@ -1004,24 +1005,30 @@ def _local_context( # pylint: disable=too-many-arguments
         line=line,
         column=column)
 
-def _load_string(ctx, file_name, text):
+def _load_string(ctx, text):
     lctx = _local_context()
     tokens = list(tokenize(text))
     while tokens:
         form, tokens = read_form(tokens)
-        result = _eval_form(ctx, lctx, file_name, form)
+        result = _eval_form(ctx, lctx, form)
     return result
 
-def _eval_form(ctx, lctx, file_name, form):
+def _eval_form(ctx, lctx, form):
     result, body = _compile(ctx, lctx, form)
     body = ast.Module(body, type_ignores=[])
     result = ast.Expression(result, type_ignores=[])
     _transform_ast(ctx, body, result)
+    file_name = _current_file(ctx).deref()
     exec(compile(body, file_name, "exec"), ctx.py_globals) # pylint: disable=exec-used
     return eval(compile(result, file_name, "eval"), ctx.py_globals) # pylint: disable=eval-used
 
 def load_file(ctx, path):
-    return _load_string(ctx, path, slurp(path))
+    file_var = _current_file(ctx)
+    prev_file = file_var.deref()
+    file_var.reset(path)
+    result = _load_string(ctx, slurp(path))
+    file_var.reset(prev_file)
+    return result
 
 def macroexpand(ctx, form):
     while True:
@@ -1499,6 +1506,9 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
 def _current_ns(ctx):
     return ctx.py_globals[munge("clx.core/*ns*")]
 
+def _current_file(ctx):
+    return ctx.py_globals[munge("clx.core/*file*")]
+
 def _core_binding(ctx, sym):
     return get_in(ctx.namespaces.deref(),
         list_("clx.core", _K_BINDINGS, sym.name))
@@ -1523,6 +1533,12 @@ def _binding_node(lctx, load_or_store, binding):
                 _node(ast.Name, lctx, binding.module, ast.Load()),
                 binding.attribute,
                 load_or_store)
+    elif type(binding) is DynamicBinding:
+        assert type(load_or_store) is ast.Load
+        return _node(ast.Call, lctx,
+            _node(ast.Attribute, lctx,
+                _node(ast.Name, lctx, binding.py_name, ast.Load()),
+                "deref", ast.Load()), [], [])
     else:
         raise NotImplementedError()
 

@@ -33,7 +33,7 @@ def _make_test_context():
 
 def _eval(text):
     ctx = _make_test_context()
-    return clx._load_string(ctx, "<string>", text)
+    return clx._load_string(ctx, text)
 
 def _lazy_range(*args):
     assert len(args) <= 2
@@ -543,7 +543,7 @@ def test_quote():
 
 def test_def():
     ctx = _make_test_context()
-    res = clx._load_string(ctx, "<string>", "(def foo 42)")
+    res = clx._load_string(ctx, "(def foo 42)")
     assert res == 42
     assert clx.get_in(ctx.namespaces.deref(),
         L("user",
@@ -779,15 +779,18 @@ def test_loop():
 
 def test_in_ns():
     ctx = _make_test_context()
-    clx._load_string(ctx, "<string>", "(in-ns foo)")
-    assert clx._current_ns(ctx).deref() == "foo"
+    assert clx._load_string(ctx,
+        """
+        (in-ns foo)
+        *ns*
+        """) == "foo"
 
     ctx = _make_test_context()
     with pytest.raises(Exception, match=r"allowed only at top level"):
-        clx._load_string(ctx, "<string>", "(fn* [] (in-ns bar))")
+        clx._load_string(ctx, "(fn* [] (in-ns bar))")
 
     ctx = _make_test_context()
-    assert clx._load_string(ctx, "<string>",
+    assert clx._load_string(ctx,
         """
         (in-ns foo)
         (def bar 42)
@@ -795,7 +798,7 @@ def test_in_ns():
         """) == 42
 
     ctx = _make_test_context()
-    assert clx._load_string(ctx, "<string>",
+    assert clx._load_string(ctx,
         """
         (in-ns foo)
         (def bar 43)
@@ -1087,8 +1090,15 @@ def test_slurp():
 
 def test_load_file():
     ctx = _make_test_context()
+    clx._current_file(ctx).reset("<no-file>")
     hello_world = clx.load_file(ctx, "tests/hello-world.clj")
     assert hello_world() is K("hello-world")
+    assert clx._load_string(ctx, "*file*") == "<no-file>"
+
+def test_current_file():
+    ctx = _make_test_context()
+    clx._current_file(ctx).reset("some/file.clj")
+    assert clx._load_string(ctx, "*file*") == "some/file.clj"
 
 def test_atom():
     a = clx.atom(42)
