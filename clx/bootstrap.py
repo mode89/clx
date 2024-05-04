@@ -927,15 +927,15 @@ LocalContext = define_record("LocalContext",
 @dataclass(frozen=True)
 class Binding:
     py_name: str
+    meta: PersistentMap
 
 @dataclass(frozen=True)
-class ImportedBinding:
+class ImportedBinding(Binding):
     module: str
-    attribute: str
 
 @dataclass(frozen=True)
-class DynamicBinding:
-    py_name: str
+class DynamicBinding(Binding):
+    pass
 
 def init_context(namespaces):
     namespaces = {
@@ -987,7 +987,8 @@ def init_context(namespaces):
 
 def _intern(ctx, ns, name, value, dynamic=False):
     py_name = munge(f"{ns}/{name}")
-    binding = Binding(py_name) if not dynamic else DynamicBinding(py_name)
+    binding = Binding(py_name, None) \
+        if not dynamic else DynamicBinding(py_name, None)
     ctx.namespaces.swap(assoc_in, list_(ns, _K_BINDINGS, name), binding)
     ctx.py_globals[py_name] = value if not dynamic else ThreadLocal(value)
 
@@ -1044,8 +1045,8 @@ def macroexpand1(ctx, form):
         if is_symbol(head):
             binding = _resolve_symbol(ctx, None, head, None)
             if binding is not None:
-                obj = _eval_binding(ctx, binding)
-                if is_macro(obj):
+                if get(binding.meta, _K_MACRO_QMARK, False):
+                    obj = _binding_value(ctx, binding)
                     return obj(*form.rest())
                 else:
                     if get(binding, _K_MACRO_QMARK):
@@ -1095,7 +1096,8 @@ def _compile_def(ctx, lctx, form):
     current_ns = _current_ns(ctx).deref()
     py_name = munge(f"{current_ns}/{name.name}")
     ctx.namespaces.swap(assoc_in,
-        list_(current_ns, _K_BINDINGS, name.name), Binding(py_name))
+        list_(current_ns, _K_BINDINGS, name.name),
+        Binding(py_name, meta=meta(name)))
     value_expr, value_stmts = _compile(
         ctx, lctx.assoc(_K_TAIL_Q, False), third(form))
     return \
@@ -1147,7 +1149,8 @@ def _compile_let(ctx, lctx, form):
         body.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        lctx = assoc_in(lctx, list_(_K_ENV, _name.name), Binding(py_name))
+        lctx = assoc_in(lctx, list_(_K_ENV, _name.name),
+            Binding(py_name, meta=None))
     if len(form) == 3:
         body_expr, body_stmts = _compile(ctx, lctx, third(form))
         body.extend(body_stmts)
@@ -1230,10 +1233,11 @@ def _make_function_def(ctx, lctx, fname, params, body):
             rest_param = second(params)
             assert is_simple_symbol(rest_param), \
                 "rest parameters of function must be a simple symbol"
-            env = assoc(env, rest_param.name, Binding(munge(rest_param.name)))
+            env = assoc(env, rest_param.name,
+                Binding(munge(rest_param.name), meta=None))
             break
         pos_params.append(param)
-        env = assoc(env, param.name, Binding(munge(param.name)))
+        env = assoc(env, param.name, Binding(munge(param.name), meta=None))
         params = rest(params)
     lctx = assoc(lctx, _K_ENV, env)
 
@@ -1285,7 +1289,7 @@ def _compile_loop(ctx, lctx, form):
         stmts.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        binding = Binding(py_name)
+        binding = Binding(py_name, meta=None)
         loop_bindings.append(binding)
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
     lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
@@ -1492,8 +1496,9 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
             list_(current_ns, _K_IMPORTS, sym.namespace))
         if import_alias is not None:
             return ImportedBinding(
-                module=import_alias,
-                attribute=munge(sym.name))
+                munge(sym.name),
+                meta=None,
+                module=import_alias)
 
         binding = get_in(namespaces,
             list_(sym.namespace, _K_BINDINGS, sym.name))
@@ -1532,7 +1537,7 @@ def _binding_node(lctx, load_or_store, binding):
         return \
             _node(ast.Attribute, lctx,
                 _node(ast.Name, lctx, binding.module, ast.Load()),
-                binding.attribute,
+                binding.py_name,
                 load_or_store)
     elif type(binding) is DynamicBinding:
         assert type(load_or_store) is ast.Load
@@ -1543,12 +1548,12 @@ def _binding_node(lctx, load_or_store, binding):
     else:
         raise NotImplementedError()
 
-def _eval_binding(ctx, binding, not_found=_DUMMY):
+def _binding_value(ctx, binding, not_found=_DUMMY):
     if type(binding) is Binding:
         return ctx.py_globals.get(binding.py_name, not_found)
     elif type(binding) is ImportedBinding:
         return getattr(ctx.py_globals[binding.module],
-            binding.attribute, not_found)
+            binding.py_name, not_found)
     else:
         raise NotImplementedError()
 
@@ -1664,9 +1669,6 @@ def with_meta(obj, _meta):
 
 def vary_meta(obj, f, *args):
     return with_meta(obj, f(meta(obj), *args))
-
-def is_macro(obj):
-    return callable(obj) and get(meta(obj), _K_MACRO_QMARK, False)
 
 def is_counted(x):
     return isinstance(x, ICounted)

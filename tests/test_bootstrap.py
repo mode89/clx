@@ -807,39 +807,37 @@ def test_in_ns():
         """) == 43
 
 def test_macros():
-    assert clx.is_macro(_eval("(def foo (fn* [] 42))")) is False
-    assert clx.is_macro(_eval("(def foo ^{:macro? true} (fn* [] 42))"))
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* []
             (list '+ 1 2)))
         (foo)
         """) == 3
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* []
             '(+ 3 4 5)))
         (foo)
         """) == 12
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* [x]
             (list '+ x x)))
         (foo 42)
         """) == 84
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* [x]
             `(+ ~x 1 ~x ~x 2)))
         (foo 7)
         """) == 24
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* [x y]
             (let* [x2 [x x]
                    y3 [y y y]]
@@ -848,7 +846,7 @@ def test_macros():
         """) == 12
     assert _eval(
         """
-        (def bar ^{:macro? true}
+        (def ^{:macro? true} bar
           (fn* [x]
             `(let* [foo# ~x]
               (+ foo# foo#))))
@@ -857,7 +855,7 @@ def test_macros():
     with pytest.raises(Exception, match=r"'quux_\d+' not found"):
         _eval(
             """
-            (def foo ^{:macro? true}
+            (def ^{:macro? true} foo
               (fn* []
                 `(+ 1 quux#)))
             (def quux# 2)
@@ -865,7 +863,7 @@ def test_macros():
             """)
     assert _eval(
         """
-        (def foo ^{:macro? true}
+        (def ^{:macro? true} foo
           (fn* []
             `{42 (fn* [] 9001)}))
         (foo)

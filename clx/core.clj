@@ -9,29 +9,29 @@
 (def Exception
   (python* "Exception"))
 
-(def if ^{:macro? true}
+(def ^{:macro? true} if
   (fn* clx.core/if [pred then else]
     `(cond
        ~pred ~then
        true ~else)))
 
-(def if-not ^{:macro? true}
+(def ^{:macro? true} if-not
   (fn* clx.core/if-not [pred then else]
     `(cond
        ~pred ~else
        true ~then)))
 
-(def when ^{:macro? true}
+(def ^{:macro? true} when
   (fn* clx.core/when [pred & body]
     `(cond ~pred (do ~@body))))
 
-(def when-not ^{:macro? true}
+(def ^{:macro? true} when-not
   (fn* clx.core/when-not [pred & body]
     `(cond
        ~pred nil
        true (do ~@body))))
 
-(def assert ^{:macro? true}
+(def ^{:macro? true} assert
   (fn* clx.core/assert [tst & msg]
     `(when-not ~tst
        (throw (Exception ~@msg)))))
@@ -82,7 +82,7 @@
              "    raise Exception(\"Wrong number of arguments\")\n"
              "f(*" args ")"))))))
 
-(def fn ^{:macro? true}
+(def ^{:macro? true} fn
   (fn* clx.core/fn [& args]
     (if (symbol? (first args))
       (let* [fname (first args)]
@@ -97,14 +97,12 @@
              (do ~@(rest args))))
         (multi-arity-fn (gensym "___fn_") args)))))
 
-(def defn ^{:macro? true}
+(def ^{:macro? true} defn
   (fn* clx.core/defn [name & decl]
     `(def ~name
-      (with-meta
-        (fn ~name ~@decl)
-        ~(meta name)))))
+        (fn ~name ~@decl))))
 
-(def defmacro ^{:macro? true}
+(def ^{:macro? true} defmacro
   (fn* clx.core/defmacro [name & decl]
     `(defn ~(with-meta name {:macro? true}) ~@decl)))
 
