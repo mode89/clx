@@ -9,6 +9,7 @@ import re
 import sys
 import threading
 import types
+import weakref
 
 _DUMMY = object()
 
@@ -971,24 +972,24 @@ def init_context(namespaces):
 
     ctx = Context(atom(hash_map()), {})
 
-    def intern(ns, name, value, dynamic=False):
-        py_name = munge(f"{ns}/{name}")
-        binding = Binding(py_name) \
-            if not dynamic else DynamicBinding(py_name)
-        ctx.namespaces.swap(assoc_in,
-            list_(ns, _K_BINDINGS, name),
-            binding)
-        ctx.py_globals[py_name] = value \
-            if not dynamic else ThreadLocal(value)
-
     for ns_name, ns_bindings in namespaces.items():
         for name, value in ns_bindings.items():
-            intern(ns_name, name, value)
+            _intern(ctx, ns_name, name, value)
 
-    intern("clx.core", "*ns*", "user", dynamic=True)
-    intern("clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
+    # Don't make circular reference
+    _intern(ctx, "clx.core", "*context*", weakref.ref(ctx))
+    _intern(ctx, "clx.core", "*ns*", "user", dynamic=True)
+    _intern(ctx, "clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
+    _intern(ctx, "clx.core", "eval*",
+        lambda _ctx, form: _eval_form(_ctx, _local_context(), form))
 
     return ctx
+
+def _intern(ctx, ns, name, value, dynamic=False):
+    py_name = munge(f"{ns}/{name}")
+    binding = Binding(py_name) if not dynamic else DynamicBinding(py_name)
+    ctx.namespaces.swap(assoc_in, list_(ns, _K_BINDINGS, name), binding)
+    ctx.py_globals[py_name] = value if not dynamic else ThreadLocal(value)
 
 def _local_context( # pylint: disable=too-many-arguments
         env=hash_map(),

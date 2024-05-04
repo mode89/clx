@@ -181,3 +181,6 @@
      (if coll
        (recur (f acc (first coll)) (rest coll))
        acc))))
+
+(defn eval [form]
+  (eval* (*context*) form))

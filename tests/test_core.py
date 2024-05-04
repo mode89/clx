@@ -14,16 +14,21 @@ DEFN_RANGE = """
           (cons start (range* (+ start 1) end))))))
 """
 
-def clone_context():
-    return bs.Context(
-        namespaces=bs.atom(clx.bootstrap_context.namespaces.deref()),
-        py_globals=clx.bootstrap_context.py_globals.copy())
+TEST_CONTEXT = clx.init_context()
 
 @pytest.fixture
 def _eval():
+    namespaces = TEST_CONTEXT.namespaces.deref()
+    _globals = TEST_CONTEXT.py_globals.copy()
+
     def impl(text):
-        return bs._eval_string(clone_context(), text)
-    return impl
+        return bs._eval_string(TEST_CONTEXT, text)
+
+    yield impl
+
+    TEST_CONTEXT.namespaces.reset(namespaces)
+    TEST_CONTEXT.py_globals.clear()
+    TEST_CONTEXT.py_globals.update(_globals)
 
 def test_throw(_eval):
     with pytest.raises(Exception, match="foo"):
@@ -345,3 +350,11 @@ def test_reduce(_eval):
           42
           (range* 10))
         """) == 42 + sum(range(10))
+
+def test_eval(_eval):
+    assert _eval("(eval '(+ 1 2))") == 3
+    assert _eval(
+        """
+        (def x 42)
+        (eval '(+ x 5))
+        """) == 47

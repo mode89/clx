@@ -6,11 +6,15 @@ import clx.bootstrap as bs
 
 PKG_DIR = Path(__file__).parent
 
-bootstrap_context = bs.init_context({})
-bs.load_file(bootstrap_context, PKG_DIR / "core.clj")
+def init_context():
+    ctx = bs.init_context({})
+    bs.load_file(ctx, PKG_DIR / "core.clj")
+    return ctx
 
-_globals = bootstrap_context.py_globals
-core_ns = bootstrap_context.namespaces.deref().lookup("clx.core", None)
+DEFAULT_CONTEXT = init_context()
+
+_globals = DEFAULT_CONTEXT.py_globals
+core_ns = DEFAULT_CONTEXT.namespaces.deref().lookup("clx.core", None)
 core_mod = types.ModuleType("clx.core")
 for name, binding in core_ns.lookup(bs.keyword("bindings"), None).items():
     munged_name = bs.munge(name)
