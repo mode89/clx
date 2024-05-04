@@ -4,8 +4,8 @@ import re
 
 import pytest
 
-import clx.bootstrap as clx
-from clx.bootstrap import first, second, rest, next_, seq, lazy_seq, cons, \
+import clx.compiler as clx
+from clx.compiler import first, second, rest, next_, seq, lazy_seq, cons, \
     assoc, get, munge, _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword

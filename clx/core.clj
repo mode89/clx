@@ -181,4 +181,4 @@
        acc))))
 
 (defn eval [form]
-  (eval* (*context*) form))
+  (clx.compiler/eval* (clx.compiler/*context*) form))

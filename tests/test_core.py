@@ -3,7 +3,7 @@
 import pytest
 
 import clx
-import clx.bootstrap as bs
+import clx.compiler as comp
 
 DEFN_RANGE = """
   (defn range*
@@ -22,7 +22,7 @@ def _eval():
     _globals = TEST_CONTEXT.py_globals.copy()
 
     def impl(text):
-        return bs._eval_string(TEST_CONTEXT, text)
+        return comp._eval_string(TEST_CONTEXT, text)
 
     yield impl
 
@@ -60,7 +60,7 @@ def test_fn(_eval):
     assert foo() == 42
     assert foo(1) == 2
     assert foo(3, 4) == 7
-    assert foo(5, 6, 7, 8) == bs.list_(5, 6, 7, 8)
+    assert foo(5, 6, 7, 8) == comp.list_(5, 6, 7, 8)
 
 def test_defn(_eval):
     assert _eval(
@@ -87,7 +87,7 @@ def test_defn(_eval):
     assert foo() == 42
     assert foo(1) == 2
     assert foo(3, 4) == 7
-    assert foo(5, 6, 7, 8) == bs.list_(5, 6, 7, 8)
+    assert foo(5, 6, 7, 8) == comp.list_(5, 6, 7, 8)
 
 def test_defmacro(_eval):
     assert _eval(
@@ -106,7 +106,7 @@ def test_defmacro(_eval):
           ([x y] `(let [x# ~x y# ~y] (python* x# " + " y#)))
           ([x y & more] `(+ (+ ~x ~y) ~@more)))
         [(+) (+ 1) (+ 2 3) (+ 4 5 6) (+ 7 8 9 10 11)]
-        """) == bs.list_(0, 1, 5, 15, 45)
+        """) == comp.list_(0, 1, 5, 15, 45)
 
 def test_let(_eval):
     assert _eval(
@@ -213,8 +213,8 @@ def test_assert(_eval):
         _eval("(assert false \"Hello, World!\")")
 
 def test_lazy_seq(_eval):
-    assert _eval("(lazy-seq nil)") == bs.list_()
-    assert _eval("(lazy-seq '(1 2 3))") == bs.list_(1, 2, 3)
+    assert _eval("(lazy-seq nil)") == comp.list_()
+    assert _eval("(lazy-seq '(1 2 3))") == comp.list_(1, 2, 3)
     assert _eval(
         """
         (defn foo [x]
@@ -284,9 +284,9 @@ def test_operators(_eval):
     assert _eval("(>= 31 30)") is True
 
 def test_map(_eval):
-    assert _eval("(map inc nil)") == bs.list_()
-    assert _eval("(map inc '(1 2 3))") == bs.list_(2, 3, 4)
-    assert _eval("(map inc [1 2 3])") == bs.list_(2, 3, 4)
+    assert _eval("(map inc nil)") == comp.list_()
+    assert _eval("(map inc '(1 2 3))") == comp.list_(2, 3, 4)
+    assert _eval("(map inc [1 2 3])") == comp.list_(2, 3, 4)
     s = _eval(
         """
         (defn foo [x]
@@ -310,10 +310,10 @@ def test_map(_eval):
     assert ls.next().first() == 3
 
 def test_filter(_eval):
-    assert _eval("(filter nil nil)") == bs.list_()
-    assert _eval("(filter odd? nil)") == bs.list_()
-    assert _eval("(filter odd? '(1 2 3))") == bs.list_(1, 3)
-    assert _eval("(filter odd? [1 2 3])") == bs.list_(1, 3)
+    assert _eval("(filter nil nil)") == comp.list_()
+    assert _eval("(filter odd? nil)") == comp.list_()
+    assert _eval("(filter odd? '(1 2 3))") == comp.list_(1, 3)
+    assert _eval("(filter odd? [1 2 3])") == comp.list_(1, 3)
     s = _eval(
         """
         (defn foo [x]

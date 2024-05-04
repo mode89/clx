@@ -977,11 +977,11 @@ def init_context(namespaces):
             _intern(ctx, ns_name, name, value)
 
     # Don't make circular reference
-    _intern(ctx, "clx.core", "*context*", weakref.ref(ctx))
+    _intern(ctx, "clx.compiler", "*context*", weakref.ref(ctx))
+    _intern(ctx, "clx.compiler", "eval*",
+        lambda _ctx, form: _eval_form(_ctx, _local_context(), form))
     _intern(ctx, "clx.core", "*ns*", "user", dynamic=True)
     _intern(ctx, "clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
-    _intern(ctx, "clx.core", "eval*",
-        lambda _ctx, form: _eval_form(_ctx, _local_context(), form))
 
     return ctx
 
