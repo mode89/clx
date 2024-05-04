@@ -1090,6 +1090,9 @@ def test_merge():
     assert clx.merge(M("a", 1), M("a", 2), M("a", 3)) == M("a", 3)
     assert clx.merge(M("a", 1), M("b", 2), M("a", 3)) == M("a", 3, "b", 2)
 
+def test_eval_string():
+    assert _eval("") is None
+
 def test_slurp():
     with open("tests/examples/hello-world.clj", encoding="utf-8") as file:
         assert clx.slurp("tests/examples/hello-world.clj") == file.read()

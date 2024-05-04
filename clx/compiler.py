@@ -1012,6 +1012,7 @@ def _local_context( # pylint: disable=too-many-arguments
 def _eval_string(ctx, text):
     lctx = _local_context()
     tokens = list(tokenize(text))
+    result = None
     while tokens:
         form, tokens = read_form(tokens)
         result = _eval_form(ctx, lctx, form)
