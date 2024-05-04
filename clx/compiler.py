@@ -18,7 +18,7 @@ _DUMMY = object()
 #************************************************************
 
 _MUNGE_TABLE = {
-    "-": "_",
+    "-": "_DASH_",
     ".": "_DOT_",
     ":": "_COLON_",
     "+": "_PLUS_",
@@ -709,11 +709,11 @@ _K_ATTRIBUTE = keyword("attribute")
 _K_BINDINGS = keyword("bindings")
 _K_IMPORTS = keyword("imports")
 _K_MACRO_QMARK = keyword("macro?")
-_K_TOP_LEVEL_Q = keyword("top-level?")
+_K_TOP_LEVEL_Q = keyword("top_level?")
 _K_SHARED = keyword("shared")
 _K_LOCAL = keyword("local")
 _K_LOCK = keyword("lock")
-_K_LOOP_BINDINGS = keyword("loop-bindings")
+_K_LOOP_BINDINGS = keyword("loop_bindings")
 _K_TAIL_Q = keyword("tail?")
 
 #************************************************************

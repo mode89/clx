@@ -491,7 +491,7 @@ def test_munge():
     assert munge("foo") == "foo"
     assert munge("foo.bar/baz") == "foo_DOT_bar_SLASH_baz"
     assert munge("foo-bar.*baz*/+qux_fred!") == \
-        "foo_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_fred_BANG_"
+        "foo_DASH_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_fred_BANG_"
     assert munge("if") == "if_"
     assert munge("def") == "def_"
     with pytest.raises(Exception, match=r"reserved"):
@@ -500,7 +500,7 @@ def test_munge():
 def test_trace_local_context():
     assert _eval("(___local_context :line)") == 1
     assert _eval("(___local_context :column)") == 1
-    assert _eval("(___local_context :top-level?)") is True
+    assert _eval("(___local_context :top_level?)") is True
 
 def test_eval_value():
     assert _eval("nil") is None
@@ -550,7 +550,7 @@ def test_def():
           K("bindings"),
           "foo")).py_name == munge("user/foo")
     assert ctx.py_globals[munge("user/foo")] == 42
-    assert _eval("(def foo (___local_context :top-level?))") is True
+    assert _eval("(def foo (___local_context :top_level?))") is True
     with pytest.raises(Exception, match=r"Symbol 'foo' not found"):
         _eval("foo")
 
@@ -567,7 +567,7 @@ def test_do():
         (do (set-box 9001)
             (get-box))
         """) == 9001
-    assert _eval("(do (___local_context :top-level?))") is True
+    assert _eval("(do (___local_context :top_level?))") is True
 
 def test_call():
     assert _eval("(+ 1 2)") == 3
@@ -600,7 +600,7 @@ def test_let():
               (do (let* [b 2] b)
                   b))
             """)
-    assert _eval("(let* [a (___local_context :top-level?)] a)") is True
+    assert _eval("(let* [a (___local_context :top_level?)] a)") is True
 
 def test_cond():
     assert _eval("(cond)") is None
@@ -683,7 +683,7 @@ def test_fn():
         """
         (def foo
           (fn* []
-            (___local_context :top-level?)))
+            (___local_context :top_level?)))
         (foo)
         """) is False
     with pytest.raises(Exception, match=r"allowed only at top level"):
