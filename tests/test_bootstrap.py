@@ -868,6 +868,14 @@ def test_macros():
             `{42 (fn* [] 9001)}))
         (foo)
         """).lookup(42, None)() == 9001
+    with pytest.raises(Exception, match=r"Can't take value of a macro"):
+        _eval(
+            """
+            (def ^{:macro? true} foo
+              (fn* []
+                42))
+            foo
+            """)
 
 def test_dot():
     assert _eval("(. 'hello/world -name)") == "world"

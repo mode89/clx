@@ -1070,6 +1070,8 @@ def _compile(ctx, lctx, form):
         return _compile_map(ctx, lctx, form)
     elif isinstance(form, Symbol):
         binding = _resolve_symbol(ctx, lctx, form)
+        if get(binding.meta, _K_MACRO_QMARK, False):
+            raise Exception(f"Can't take value of a macro: {form}")
         return _binding_node(lctx, ast.Load(), binding), []
     else:
         return \
