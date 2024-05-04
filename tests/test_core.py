@@ -372,3 +372,9 @@ def test_load_file(_eval):
     assert _eval("(example/message)") == comp.keyword("hello", "world")
     assert _eval("example/ns") == "example"
     assert _eval("example/file") == "tests/examples/load-file.clj"
+
+def test_python_builtins(_eval):
+    assert _eval("(python/str 42)") == "42"
+    assert _eval("(python/abs -1234)") == 1234
+    assert _eval("(python/max 1 5 3 2 4)") == 5
+    assert _eval("(python/pow 2 10)") == 1024

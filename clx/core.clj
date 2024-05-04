@@ -185,3 +185,5 @@
 
 (defn load-file [path]
   (clx.compiler/load-file* (clx.compiler/*context*) path))
+
+(load-file "clx/python.clj")
