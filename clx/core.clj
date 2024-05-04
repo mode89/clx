@@ -182,3 +182,6 @@
 
 (defn eval [form]
   (clx.compiler/eval* (clx.compiler/*context*) form))
+
+(defn load-file [path]
+  (clx.compiler/load-file* (clx.compiler/*context*) path))

@@ -358,3 +358,17 @@ def test_eval(_eval):
         (def x 42)
         (eval '(+ x 5))
         """) == 47
+
+def test_load_file(_eval):
+    assert _eval(
+        """
+        (load-file "tests/examples/hello-world.clj")
+        (hello-world)
+        """) == comp.keyword("hello-world")
+
+    _eval("(load-file \"tests/examples/load-file.clj\")")
+    assert _eval("*file*") == "NO_SOURCE_PATH"
+    assert _eval("*ns*") == "user"
+    assert _eval("(example/message)") == comp.keyword("hello", "world")
+    assert _eval("example/ns") == "example"
+    assert _eval("example/file") == "tests/examples/load-file.clj"

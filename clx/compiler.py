@@ -980,6 +980,8 @@ def init_context(namespaces):
     _intern(ctx, "clx.compiler", "*context*", weakref.ref(ctx))
     _intern(ctx, "clx.compiler", "eval*",
         lambda _ctx, form: _eval_form(_ctx, _local_context(), form))
+    _intern(ctx, "clx.compiler", "load-file*",
+        lambda _ctx, path: load_file(_ctx, path))
     _intern(ctx, "clx.core", "*ns*", "user", dynamic=True)
     _intern(ctx, "clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
 
@@ -1026,10 +1028,18 @@ def _eval_form(ctx, lctx, form):
 
 def load_file(ctx, path):
     file_var = _current_file(ctx)
+    ns_var = _current_ns(ctx)
+
     prev_file = file_var.deref()
+    prev_ns = ns_var.deref()
+
     file_var.reset(path)
+
     result = _eval_string(ctx, slurp(path))
+
     file_var.reset(prev_file)
+    ns_var.reset(prev_ns)
+
     return result
 
 def macroexpand(ctx, form):
