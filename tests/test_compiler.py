@@ -486,6 +486,7 @@ def test_printer():
     assert clx.pr_str(V(1, True, "hello"), True) == "[1 true \"hello\"]"
     assert clx.pr_str(M("a", 1)) == "{a 1}"
     assert clx.pr_str(M("a", 1), True) == "{\"a\" 1}"
+    assert clx.pr_str(_lazy_range(5, 10)) == "(5 6 7 8 9)"
 
 def test_munge():
     assert munge("foo") == "foo"

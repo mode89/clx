@@ -260,7 +260,6 @@ class PersistentList( # pylint: disable=too-many-ancestors
         Hashable,
         Sequence,
         IMeta,
-        IPrintable,
         ICounted,
         ISeq,
         ISequential,
@@ -272,9 +271,9 @@ class PersistentList( # pylint: disable=too-many-ancestors
         self._hash = _hash
         self.__meta__ = _meta
     def __repr__(self):
-        return self.pr(True)
+        return pr_str(self, True)
     def __str__(self):
-        return self.pr(False)
+        return pr_str(self, False)
     def __eq__(self, other):
         if self is other:
             return True
@@ -310,10 +309,6 @@ class PersistentList( # pylint: disable=too-many-ancestors
             self._length,
             self._hash,
             _meta)
-    def pr(self, readably):
-        return "(" + \
-            " ".join(map(lambda x: pr_str(x, readably), self)) + \
-            ")"
     def count_(self):
         return self._length
     def first(self):
@@ -563,6 +558,10 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
         while s is not None:
             yield s.first()
             s = s.next()
+    def __repr__(self):
+        return pr_str(self, True)
+    def __str__(self):
+        return pr_str(self, False)
     def with_meta(self, _meta):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):
@@ -897,6 +896,10 @@ def pr_str(obj, readably=False):
         return obj
     if isinstance(obj, IPrintable):
         return obj.pr(readably)
+    if isinstance(obj, ISeq):
+        return "(" + \
+            " ".join(map(lambda x: pr_str(x, readably), obj)) + \
+            ")"
     return repr(obj) if readably else str(obj)
 
 def escape(text):
