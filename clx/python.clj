@@ -1,4 +1,4 @@
-(in-ns python)
+(in-ns 'python)
 
 (def builtins* (import* builtins))
 

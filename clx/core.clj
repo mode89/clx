@@ -1,4 +1,4 @@
-(in-ns clx.core)
+(in-ns 'clx.core)
 
 (import* operator)
 

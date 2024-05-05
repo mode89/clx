@@ -677,7 +677,6 @@ _S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
 _S_LOOP_STAR = symbol("loop*")
 _S_RECUR = symbol("recur")
-_S_IN_NS = symbol("in-ns")
 _S_DOT = symbol(".")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
@@ -979,14 +978,17 @@ def init_context(namespaces):
         for name, value in ns_bindings.items():
             _intern(ctx, ns_name, name, value)
 
+    weak_ctx = weakref.ref(ctx)
+
     # Don't make circular reference
-    _intern(ctx, "clx.compiler", "*context*", weakref.ref(ctx))
+    _intern(ctx, "clx.compiler", "*context*", weak_ctx)
     _intern(ctx, "clx.compiler", "eval*",
         lambda _ctx, form: _eval_form(_ctx, _local_context(), form))
     _intern(ctx, "clx.compiler", "load-file*",
         lambda _ctx, path: load_file(_ctx, path))
     _intern(ctx, "clx.core", "*ns*", "user", dynamic=True)
     _intern(ctx, "clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
+    _intern(ctx, "clx.core", "in-ns", lambda ns: _in_ns(weak_ctx(), ns))
 
     return ctx
 
@@ -1354,14 +1356,6 @@ def _compile_quote(_ctx, lctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
     return _node(ast.Constant, lctx, second(form)), []
 
-def _compile_in_ns(ctx, lctx, form):
-    assert lctx.top_level_QMARK_, "in-ns allowed only at top level"
-    assert len(form) == 2, "in-ns expects exactly 1 argument"
-    ns = second(form)
-    assert is_symbol(ns), "in-ns expects a symbol"
-    _current_ns(ctx).reset(ns.name)
-    return _node(ast.Constant, lctx, None), []
-
 def _compile_dot(ctx, lctx, form):
     assert len(form) >= 3, "dot expects at least 2 arguments"
     obj = second(form)
@@ -1439,7 +1433,6 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LOOP_STAR: _compile_loop,
     _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
-    _S_IN_NS: _compile_in_ns,
     _S_DOT: _compile_dot,
     _S_IMPORT_STAR: _compile_import,
     _S_PYTHON: _compile_python,
@@ -1828,6 +1821,9 @@ def merge(*maps):
         else:
             return m1.merge(m2)
     return functools.reduce(helper, maps, None)
+
+def _in_ns(ctx, ns):
+    _current_ns(ctx).reset(ns.name)
 
 def slurp(path):
     with open(path, "r", encoding="utf-8") as file:

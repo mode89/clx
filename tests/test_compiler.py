@@ -782,18 +782,14 @@ def test_in_ns():
     ctx = _make_test_context()
     assert clx._eval_string(ctx,
         """
-        (in-ns foo)
+        (in-ns 'foo)
         *ns*
         """) == "foo"
 
     ctx = _make_test_context()
-    with pytest.raises(Exception, match=r"allowed only at top level"):
-        clx._eval_string(ctx, "(fn* [] (in-ns bar))")
-
-    ctx = _make_test_context()
     assert clx._eval_string(ctx,
         """
-        (in-ns foo)
+        (in-ns 'foo)
         (def bar 42)
         bar
         """) == 42
@@ -801,9 +797,9 @@ def test_in_ns():
     ctx = _make_test_context()
     assert clx._eval_string(ctx,
         """
-        (in-ns foo)
+        (in-ns 'foo)
         (def bar 43)
-        (in-ns baz)
+        (in-ns 'baz)
         foo/bar
         """) == 43
 

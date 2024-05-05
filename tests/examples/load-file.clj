@@ -1,4 +1,4 @@
-(in-ns example)
+(in-ns 'example)
 
 (defn message []
   :hello/world)
