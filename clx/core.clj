@@ -106,6 +106,9 @@
   (fn* clx.core/defmacro [name & decl]
     `(defn ~(with-meta name {:macro? true}) ~@decl)))
 
+(defn not [x]
+  (if x false true))
+
 (defn even? [x]
   (python* "not " x " & 1"))
 

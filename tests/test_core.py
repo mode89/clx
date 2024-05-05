@@ -239,6 +239,16 @@ def test_lazy_seq(_eval):
     with pytest.raises(Exception):
         s.next().next()
 
+def test_not(_eval):
+    assert _eval("(not nil)") is True
+    assert _eval("(not false)") is True
+    assert _eval("(not true)") is False
+    assert _eval("(not 42)") is False
+    assert _eval("(not :hello)") is False
+    # TODO assert _eval("(not '())") is False
+    # TODO assert _eval("(not [])") is False
+    # TODO assert _eval("(not (python/list))") is False
+
 def test_even(_eval):
     assert _eval("(even? 0)") is True
     assert _eval("(even? 1)") is False
