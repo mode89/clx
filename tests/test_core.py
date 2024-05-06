@@ -408,3 +408,16 @@ def test_python_builtins(_eval):
     assert _eval("(python/abs -1234)") == 1234
     assert _eval("(python/max 1 5 3 2 4)") == 5
     assert _eval("(python/pow 2 10)") == 1024
+
+def test_str(_eval):
+    assert _eval("(str)") == ""
+    assert _eval("(str 42)") == "42"
+    assert _eval("(str 42 :hello)") == "42:hello"
+    assert _eval("(str 42 :hello \"world\")") == "42:helloworld"
+    assert _eval("(str \"hello\" nil :world)") == "hello:world"
+    assert _eval("(str nil)") == ""
+    assert _eval("(str nil nil)") == ""
+    assert _eval("(str nil 'foo  nil)") == "foo"
+    assert _eval("(str [1 2 3])") == "[1 2 3]"
+    assert _eval("(str '(1 2 3))") == "(1 2 3)"
+    assert _eval("(str {:a 1})") == "{:a 1}"

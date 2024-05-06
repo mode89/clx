@@ -189,3 +189,11 @@
        acc))))
 
 (load-file "clx/python.clj")
+
+(defn str [& args]
+  (.join ""
+    (map (fn [arg]
+           (if (some? arg)
+             (pr-str arg)
+             ""))
+         args)))
