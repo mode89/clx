@@ -239,6 +239,16 @@ def test_lazy_seq(_eval):
     with pytest.raises(Exception):
         s.next().next()
 
+def test_is_nil(_eval):
+    assert _eval("(nil? nil)") is True
+    assert _eval("(nil? false)") is False
+    assert _eval("(nil? true)") is False
+    assert _eval("(nil? 42)") is False
+    assert _eval("(nil? :hello)") is False
+    assert _eval("(nil? '())") is False
+    assert _eval("(nil? [])") is False
+    assert _eval("(nil? (python/list))") is False
+
 def test_some(_eval):
     assert _eval("(some? nil)") is False
     assert _eval("(some? false)") is True

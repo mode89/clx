@@ -106,6 +106,9 @@
   (fn* clx.core/defmacro [name & decl]
     `(defn ~(with-meta name {:macro? true}) ~@decl)))
 
+(defn nil? [x]
+  (python* x " is None"))
+
 (defn some? [x]
   (python* x " is not None"))
 
