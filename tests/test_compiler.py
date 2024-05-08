@@ -702,6 +702,54 @@ def test_fn():
         (foo 1)
         """) == 16
 
+def test_try():
+    assert _eval("(try nil)") is None
+    assert _eval("(try 42)") == 42
+    with pytest.raises(Exception, match=r"hello"):
+        _eval("""
+            (try
+              (python* "raise Exception('hello')"))
+        """)
+    assert _eval(
+        """
+        (let* [Exception (python* "Exception")
+               foo (Exception "foo")]
+          (try (python* "raise " foo)
+            (catch Exception ex*
+              (python* "str(" ex* ")"))))
+        """) == "foo"
+    assert _eval(
+        """
+        (def x nil)
+        (try
+          (python* x " = 42")
+          (finally
+            (python* x " += 1")))
+        x
+        """) == 43
+    assert _eval(
+        """
+        (def Exception (python* "Exception"))
+        (def RuntimeError (python* "RuntimeError"))
+        (def x 5)
+        (def y (try
+                 :hello
+                 (let* [ex (Exception "world")]
+                   (python* "raise " ex))
+                 (python* x " *= 3")
+                 x
+                 (catch Exception ex
+                   (python* x " += 1")
+                   x)
+                 (catch RuntimeError ex
+                   (python* x " += 100")
+                   42)
+                 (finally
+                   (python* x " *= 2")
+                   x)))
+        (list x y)
+        """) == L(12, 6)
+
 def test_loop():
     assert _eval(
         """
@@ -992,6 +1040,8 @@ def test_resolve_symbol():
     with pytest.raises(Exception, match=r"Symbol 'bar/foo' not found"):
         resolve(S("bar/foo"))
     assert resolve(S("list")) is clx.list_
+    with pytest.raises(Exception, match=r"expected a symbol"):
+        resolve(42)
 
 def test_apply():
     assert clx.apply(lambda: 42, []) == 42

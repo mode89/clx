@@ -5,6 +5,7 @@ from collections import namedtuple
 from collections.abc import Hashable, Iterator, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 import functools
+import itertools
 import re
 import sys
 import threading
@@ -675,6 +676,9 @@ _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
+_S_TRY = symbol("try")
+_S_CATCH = symbol("catch")
+_S_FINALLY = symbol("finally")
 _S_LOOP_STAR = symbol("loop*")
 _S_RECUR = symbol("recur")
 _S_DOT = symbol(".")
@@ -1282,6 +1286,78 @@ def _make_function_def(ctx, lctx, fname, params, body):
             body_stmts,
             [])
 
+def _compile_try(ctx, lctx, form):
+    lctx = assoc(lctx, _K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
+
+    is_catch = lambda f: is_list(f) and f.first() == _S_CATCH
+    is_finally = lambda f: is_list(f) and f.first() == _S_FINALLY
+    is_prologue = lambda f: is_catch(f) or is_finally(f)
+    id_body = lambda f: not is_prologue(f)
+
+    body = itertools.takewhile(id_body, form.rest())
+    body_expr, body_stmts = _compile(ctx, lctx, list_(_S_DO, *body))
+    prologue = list(itertools.dropwhile(id_body, form.rest()))
+
+    if prologue:
+        result = _gen_name("___try_")
+        result_store = _node(ast.Name, lctx, result, ast.Store())
+        result_load = _node(ast.Name, lctx, result, ast.Load())
+
+        if is_finally(prologue[-1]):
+            catch_clauses = prologue[:-1]
+            finally_clause = prologue[-1]
+        else:
+            catch_clauses = prologue
+            finally_clause = None
+
+        try_body = [
+            *body_stmts,
+            _node(ast.Assign, lctx, [result_store], body_expr),
+        ]
+
+        handlers = []
+        for clause in catch_clauses:
+            if is_finally(clause):
+                raise Exception("finally clause must be the last "
+                    "in try expression")
+            if not is_catch(clause):
+                raise Exception("only catch and finally clauses can "
+                    "follow catch in try expression")
+
+            clazz = _resolve_symbol(ctx, lctx, second(clause))
+            var = third(clause)
+            assert is_simple_symbol(var), \
+                "catch variable must be a simple symbol"
+
+            py_var = munge(var.name)
+            _lctx = assoc_in(lctx, list_(_K_ENV, var.name),
+                Binding(py_var, meta=None))
+            catch_expr, catch_stmts = \
+                _compile(ctx, _lctx,
+                    list_(_S_DO, *clause.rest().rest().rest()))
+
+            handler = _node(ast.ExceptHandler, lctx,
+                _binding_node(lctx, ast.Load(), clazz),
+                py_var, [
+                    *catch_stmts,
+                    _node(ast.Assign, lctx, [result_store], catch_expr),
+                ])
+            handlers.append(handler)
+
+        finalbody = []
+        if finally_clause is not None:
+            finally_expr, finally_stmts = \
+                _compile(ctx, lctx, list_(_S_DO, *finally_clause.rest()))
+            finalbody.extend([
+                *finally_stmts,
+                _node(ast.Expr, lctx, finally_expr),
+            ])
+
+        return result_load, \
+            [_node(ast.Try, lctx, try_body, handlers, [], finalbody)]
+    else:
+        return body_expr, body_stmts
+
 def _compile_loop(ctx, lctx, form):
     assert len(form) > 1, "loop* expects at least 1 argument"
     assert len(form) < 4, "loop* expects at most 2 arguments"
@@ -1427,6 +1503,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LET_STAR: _compile_let,
     _S_COND: _compile_cond,
     _S_FN_STAR: _compile_fn,
+    _S_TRY: _compile_try,
     _S_LOOP_STAR: _compile_loop,
     _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
@@ -1480,6 +1557,7 @@ def _compile_map(ctx, lctx, form):
         stmts
 
 def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
+    assert is_symbol(sym), "expected a symbol"
     if is_simple_symbol(sym):
         if lctx is not None:
             binding = lctx.env.lookup(sym.name, None)
