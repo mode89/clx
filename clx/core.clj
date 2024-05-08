@@ -197,3 +197,6 @@
              (pr-str arg)
              ""))
          args)))
+
+(defn instance? [t x]
+  (python* "isinstance(" x ", " t ")"))

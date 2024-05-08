@@ -421,3 +421,11 @@ def test_str(_eval):
     assert _eval("(str [1 2 3])") == "[1 2 3]"
     assert _eval("(str '(1 2 3))") == "(1 2 3)"
     assert _eval("(str {:a 1})") == "{:a 1}"
+
+def test_instance(_eval):
+    assert _eval("(instance? python/int 42)") is True
+    assert _eval("(instance? python/int 42.0)") is False
+    assert _eval("(instance? python/float 42.0)") is True
+    assert _eval("(instance? python/float 42)") is False
+    assert _eval("(instance? python/str \"hello\")") is True
+    assert _eval("(instance? python/str 42)") is False
