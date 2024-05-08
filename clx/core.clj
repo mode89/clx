@@ -138,6 +138,24 @@
 (def <= operator/le)
 (def >= operator/ge)
 
+(defmacro and
+  ([] true)
+  ([x] x)
+  ([x & xs]
+   `(let [x# ~x]
+     (if x#
+       (and ~@xs)
+       x#))))
+
+(defmacro or
+  ([] nil)
+  ([x] x)
+  ([x & xs]
+   `(let [x# ~x]
+     (if x#
+       x#
+       (or ~@xs)))))
+
 (defmacro let [bindings & body]
   (assert (vector? bindings) "bindings must be a vector")
   (assert (even? (count bindings))

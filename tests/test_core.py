@@ -313,6 +313,53 @@ def test_operators(_eval):
     assert _eval("(>= 29 29)") is True
     assert _eval("(>= 31 30)") is True
 
+def test_and(_eval):
+    assert _eval("(and)") is True
+    assert _eval("(and true)") is True
+    assert _eval("(and false)") is False
+    assert _eval("(and true true)") is True
+    assert _eval("(and true false)") is False
+    assert _eval("(and false true)") is False
+    assert _eval("(and false false)") is False
+    assert _eval("(and true true true)") is True
+    assert _eval("(and true true false)") is False
+    assert _eval("(and true false true)") is False
+    assert _eval("(and true false false)") is False
+    assert _eval("(and false true true)") is False
+    assert _eval("(and false true false)") is False
+    assert _eval("(and false false true)") is False
+    assert _eval("(and false false false)") is False
+    assert _eval("(and nil)") is None
+    assert _eval("(and true nil)") is None
+    assert _eval("(and nil false)") is None
+    assert _eval("(and false nil)") is False
+    assert _eval("(and nil nil)") is None
+    assert _eval("(and true true nil)") is None
+
+def test_or(_eval):
+    assert _eval("(or)") is None
+    assert _eval("(or true)") is True
+    assert _eval("(or false)") is False
+    assert _eval("(or true true)") is True
+    assert _eval("(or true false)") is True
+    assert _eval("(or false true)") is True
+    assert _eval("(or false false)") is False
+    assert _eval("(or true true true)") is True
+    assert _eval("(or true true false)") is True
+    assert _eval("(or true false true)") is True
+    assert _eval("(or true false false)") is True
+    assert _eval("(or false true true)") is True
+    assert _eval("(or false true false)") is True
+    assert _eval("(or false false true)") is True
+    assert _eval("(or false false false)") is False
+    assert _eval("(or nil)") is None
+    assert _eval("(or true nil)") is True
+    assert _eval("(or nil false)") is False
+    assert _eval("(or false nil)") is None
+    assert _eval("(or nil nil)") is None
+    assert _eval("(or false false nil)") is None
+    assert _eval("(or false nil false)") is False
+
 def test_map(_eval):
     assert _eval("(map inc nil)") == comp.list_()
     assert _eval("(map inc '(1 2 3))") == comp.list_(2, 3, 4)
