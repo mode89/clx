@@ -200,3 +200,11 @@
 
 (defn instance? [t x]
   (python* "isinstance(" x ", " t ")"))
+
+(defn re-find [re s]
+  (when-let [match (.search re s)]
+    (let [full-match (python* match "[0]")
+          groups (seq (.groups match))]
+      (if (some? groups)
+        (cons full-match groups)
+        full-match))))

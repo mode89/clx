@@ -429,3 +429,9 @@ def test_instance(_eval):
     assert _eval("(instance? python/float 42)") is False
     assert _eval("(instance? python/str \"hello\")") is True
     assert _eval("(instance? python/str 42)") is False
+
+def test_re_find(_eval):
+    assert _eval("(re-find #\"a\" \"hello\")") is None
+    assert _eval("(re-find #\"l\" \"hello\")") == "l"
+    assert _eval("(re-find #\"(e.)(l.)\" \"hello\")") == \
+        comp.list_("ello", "el", "lo")
