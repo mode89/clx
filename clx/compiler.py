@@ -699,6 +699,7 @@ _S_CONCAT = _core_symbol("concat")
 _S_KEYWORD = _core_symbol("keyword")
 _S_SYMBOL = _core_symbol("symbol")
 _S_APPLY = _core_symbol("apply")
+_S_RE_PATTERN = _core_symbol("re-pattern")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -779,6 +780,8 @@ def read_form(tokens):
         _meta, rest1 = read_form(rtokens)
         form, rest2 = read_form(rest1)
         return vary_meta(form, merge, _meta), rest2
+    elif tstring[0] == "#":
+        return read_dispatch(tstring, rtokens)
     elif tstring == "(":
         l, rtokens = read_collection(token, rtokens, list_, ")")
         l0 = l.first()
@@ -795,6 +798,14 @@ def read_form(tokens):
         return read_collection(token, rtokens, hash_map, "}")
     else:
         return read_atom(tstring), rtokens
+
+def read_dispatch(t0, tokens):
+    if t0 == "#":
+        form, _rest = read_form(tokens)
+        if type(form) is str:
+            return re.compile(form), _rest
+
+    raise Exception("Unsupported reader macro")
 
 def read_atom(token):
     assert isinstance(token, str), "expected a string"
@@ -960,6 +971,7 @@ def init_context(namespaces):
             "vec": vec,
             "hash-map": hash_map,
             "lazy-seq*": lazy_seq,
+            "re-pattern": lambda pattern: re.compile(pattern, 0),
             "first": first,
             "second": second,
             "rest": rest,
@@ -1664,7 +1676,8 @@ def _fix_constants(ctx, body, result):
                     Symbol,
                     PersistentList,
                     PersistentVector,
-                    PersistentMap)):
+                    PersistentMap,
+                    re.Pattern)):
                 name = _gen_name("___const_")
                 consts[name] = _compile_constant(ctx, lctx, node.value)
                 return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
@@ -1708,6 +1721,12 @@ def _compile_constant(ctx, lctx, value):
             _binding_node(lctx, ast.Load(),
                 _core_binding(ctx, _S_HASH_MAP)),
             args, [], lineno=0, col_offset=0)
+    elif type(value) is re.Pattern:
+        tree = ast.Call(
+            _binding_node(lctx, ast.Load(),
+                _core_binding(ctx, _S_RE_PATTERN)),
+            [ast.Constant(value.pattern, lineno=0, col_offset=0)],
+            [], lineno=0, col_offset=0)
     else:
         tree = ast.Constant(value, lineno=0, col_offset=0)
     if meta(value) is not None:

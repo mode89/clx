@@ -432,6 +432,7 @@ def test_read_string():
     with pytest.raises(Exception, match=r"Expected '\}'"):
         clx.read_string("{:a 7 \"b\" eight")
     assert clx.read_string("'x") == L(S("quote"), S("x"))
+    assert clx.read_string("#\"a.*b+\")") == re.compile("a.*b+")
 
 def test_quasiquote():
     assert clx.read_string("`()") == L()
@@ -971,6 +972,10 @@ def test_python():
         (python* foo "()")
         """) == 42
     assert _eval("(python* \"a = 42\")") is None
+
+def test_regex():
+    assert _eval("#\"[a-z]+\"") == re.compile("[a-z]+")
+    assert _eval("(re-pattern \"[\\s]?\")") == re.compile("[\\s]?")
 
 def test_meta():
     assert clx.meta(None) is None
