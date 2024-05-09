@@ -684,6 +684,7 @@ _S_RECUR = symbol("recur")
 _S_DOT = symbol(".")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
+_S_PYTHON_WITH = symbol("python/with")
 _S_LOCAL_CONTEXT = symbol("___local_context")
 _S_AMPER = symbol("&")
 
@@ -1496,6 +1497,53 @@ def _compile_python(ctx, lctx, form):
         result = _node(ast.Constant, lctx, None)
     return result, stmts
 
+def _compile_python_with(ctx, lctx, form):
+    assert len(form) >= 2, "python/with expects at least 1 argument"
+    bindings = second(form)
+    assert is_vector(bindings), "bindings of python/with must be a vector"
+    assert len(bindings) % 2 == 0, \
+        "bindings of python/with must have even number of elements"
+    body = form.rest().rest()
+
+    lctx1 = assoc(lctx, _K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
+    lctx2 = lctx1
+
+    stmts = []
+    items = []
+    for i in range(0, len(bindings), 2):
+        _name, cm = bindings[i], bindings[i + 1]
+        assert is_simple_symbol(_name), \
+            "binding name must be a simple symbol"
+
+        py_name = munge(_name.name)
+        lctx2 = assoc_in(lctx2, list_(_K_ENV, _name.name),
+            Binding(py_name, meta=None))
+
+        cm_expr, cm_stmts = _compile(ctx, lctx1, cm)
+        stmts.extend(cm_stmts)
+
+        items.append(
+            _node(ast.withitem, lctx,
+                cm_expr, _node(ast.Name, lctx, py_name, ast.Store())))
+
+    body_expr, body_stmts = _compile(ctx, lctx2, list_(_S_DO, *body))
+
+    result = _gen_name("___with_")
+    result_assign = lambda expr: \
+        _node(ast.Assign, lctx,
+            [_node(ast.Name, lctx, result, ast.Store())], expr)
+
+    return \
+        _node(ast.Name, lctx, result, ast.Load()), \
+        [
+            *stmts,
+            result_assign(_node(ast.Constant, lctx, None)),
+            _node(ast.With, lctx, items, [
+                *body_stmts,
+                result_assign(body_expr),
+            ])
+        ]
+
 def _trace_local_context(_ctx, lctx, form):
     path = form.rest()
     return _node(ast.Constant, lctx, get_in(lctx, path)), []
@@ -1513,6 +1561,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_DOT: _compile_dot,
     _S_IMPORT_STAR: _compile_import,
     _S_PYTHON: _compile_python,
+    _S_PYTHON_WITH: _compile_python_with,
     _S_LOCAL_CONTEXT: _trace_local_context,
 }
 

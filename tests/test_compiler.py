@@ -971,6 +971,45 @@ def test_python():
         """) == 42
     assert _eval("(python* \"a = 42\")") is None
 
+def test_python_with():
+    assert _eval(
+        """
+        (def contextmanager
+          (python* "__import__('contextlib').contextmanager"))
+        (def foo (python* "[]"))
+        (def cm
+          (contextmanager
+            (fn* []
+              (do (.append foo 1)
+                  (python* "yield " foo)
+                  (.append foo 2)))))
+        (.append foo
+          (python/with [cm* (cm)]
+            (.append cm* 3)
+            (python* "sum(" foo ")")))
+        foo
+        """) == [1, 3, 2, 4]
+    assert _eval(
+        """
+        (def Exception (python* "Exception"))
+        (def contextmanager
+          (python* "__import__('contextlib').contextmanager"))
+        (def foo (python* "[]"))
+        (def cm
+          (contextmanager
+            (fn* []
+              (try (python* "yield " foo)
+                (catch Exception ex
+                  nil)))))
+        (.append foo
+          (python/with [cm* (cm)]
+            (.append cm* 42)
+            (let* [ex (Exception "hello")]
+              (python* "raise " ex))
+            (python* "sum(" foo ")")))
+        foo
+        """) == [42, None]
+
 def test_regex():
     assert _eval("#\"[a-z]+\"") == re.compile("[a-z]+")
     assert _eval("(re-pattern \"[\\s]?\")") == re.compile("[\\s]?")
