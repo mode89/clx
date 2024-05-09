@@ -13,10 +13,13 @@ def init_context():
 
 DEFAULT_CONTEXT = init_context()
 
-_globals = DEFAULT_CONTEXT.py_globals
-core_ns = DEFAULT_CONTEXT.namespaces.deref().lookup("clx.core", None)
-core_mod = types.ModuleType("clx.core")
-for name, binding in core_ns.lookup(comp.keyword("bindings"), None).items():
-    munged_name = comp.munge(name)
-    core_mod.__dict__[munged_name] = _globals[binding.py_name]
-sys.modules["clx.core"] = core_mod
+def generate_module(ns_name):
+    _globals = DEFAULT_CONTEXT.py_globals
+    namespaces = DEFAULT_CONTEXT.namespaces.deref()
+    assert ns_name in namespaces, f"Namespace {ns_name} not found"
+    ns = namespaces.lookup(ns_name, None)
+    mod = types.ModuleType(ns_name)
+    for name, binding in ns.lookup(comp.keyword("bindings"), None).items():
+        munged_name = comp.munge(name)
+        mod.__dict__[munged_name] = _globals[binding.py_name]
+    sys.modules[ns_name.replace("-", "_")] = mod
