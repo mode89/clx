@@ -249,6 +249,17 @@ def test_is_nil(_eval):
     assert _eval("(nil? [])") is False
     assert _eval("(nil? (python/list))") is False
 
+def test_is_string(_eval):
+    assert _eval("(string? nil)") is False
+    assert _eval("(string? false)") is False
+    assert _eval("(string? true)") is False
+    assert _eval("(string? 42)") is False
+    assert _eval("(string? :hello)") is False
+    assert _eval("(string? '())") is False
+    assert _eval("(string? [])") is False
+    assert _eval("(string? (python/list))") is False
+    assert _eval("(string? \"hello\")") is True
+
 def test_some(_eval):
     assert _eval("(some? nil)") is False
     assert _eval("(some? false)") is True

@@ -109,6 +109,9 @@
 (defn nil? [x]
   (python* x " is None"))
 
+(defn string? [x]
+  (python* "type(" x ") is str"))
+
 (defn some? [x]
   (python* x " is not None"))
 
