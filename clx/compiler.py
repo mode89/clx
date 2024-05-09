@@ -1141,24 +1141,22 @@ def _compile_def(ctx, lctx, form):
         ]
 
 def _compile_do(ctx, lctx, form):
-    stmts = []
     forms = form.rest()
-    result_name = None
+    stmts = []
+    _lctx = lctx.assoc(_K_TAIL_Q, False)
     while forms:
         _f, forms = forms.first(), forms.rest()
-        f_result, f_stmts = _compile(
-            ctx, lctx.assoc(_K_TAIL_Q, False) if forms else lctx, _f)
-        stmts.extend(f_stmts)
-        result_name = _gen_name()
-        stmts.append(
-            _node(ast.Assign, lctx,
-                [_node(ast.Name, lctx, result_name, ast.Store())],
-                f_result))
-    return \
-        _node(ast.Name, lctx, result_name, ast.Load()) \
-            if result_name is not None \
-            else _node(ast.Constant, lctx, None), \
-        stmts
+        if forms:
+            # Not last form
+            _result, _stmts = _compile(ctx, _lctx, _f)
+            stmts.extend(_stmts)
+            stmts.append(_node(ast.Expr, lctx, _result))
+        else:
+            # Last form
+            _result, _stmts = _compile(ctx, lctx, _f)
+            stmts.extend(_stmts)
+            return _result, stmts
+    return _node(ast.Constant, lctx, None), []
 
 def _compile_let(ctx, lctx, form):
     assert len(form) > 1, "let* expects at least 1 argument"
