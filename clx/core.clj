@@ -98,9 +98,9 @@
         (multi-arity-fn (gensym "___fn_") args)))))
 
 (def ^{:macro? true} defn
-  (fn* clx.core/defn [name & decl]
-    `(def ~name
-        (fn ~name ~@decl))))
+  (fn* clx.core/defn [fname & decl]
+    `(def ~fname
+        (fn ~(symbol *ns* (.-name fname)) ~@decl))))
 
 (def ^{:macro? true} defmacro
   (fn* clx.core/defmacro [name & decl]
