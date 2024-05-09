@@ -690,8 +690,6 @@ def test_fn():
         """) is False
     with pytest.raises(Exception, match=r"allowed only at top level"):
         _eval("(fn* [] (def foo 1))")
-    foo = _eval("^{:bar \"baz\"} (fn* [])")
-    assert clx.meta(foo).get(K("bar")) == "baz"
     assert _eval("(fn* foo-bar/quux [] 42)").__name__ == munge("foo-bar/quux")
     assert _eval(
         """

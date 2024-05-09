@@ -1235,15 +1235,6 @@ def _compile_fn(ctx, lctx, form):
         ctx, lctx.assoc(_K_LOOP_BINDINGS, None), fname, params, body)
     stmts = [fdef]
 
-    _meta = meta(form)
-    if _meta is not None:
-        meta_expr, meta_stmts = _compile(
-            ctx, lctx.assoc(_K_TAIL_Q, False), _meta)
-        stmts.extend(meta_stmts)
-        expr = _node(ast.Call, lctx,
-            _binding_node(lctx, ast.Load(), _core_binding(ctx, _S_WITH_META)),
-            [expr, meta_expr], [])
-
     return expr, stmts
 
 def _make_function_def(ctx, lctx, fname, params, body):
