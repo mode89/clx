@@ -701,6 +701,41 @@ def test_fn():
         (foo 1)
         """) == 16
 
+def test_letfn():
+    assert _eval("(letfn [])") is None
+    assert _eval("(letfn [(foo [])])") is None
+    assert _eval("(letfn [(foo [] 42)] (foo))") == 42
+    assert _eval("(letfn [(foo [x] x)] (foo 43))") == 43
+    assert _eval("(letfn [(foo [x y] (+ x y))] (foo 44 45))") == 89
+    assert _eval(
+        """
+        (letfn [(foo [x y] (+ x y))
+                (bar [x] (foo x x))]
+          (bar 46))
+        """) == 92
+    assert _eval(
+        """
+        (letfn [(> [x y] (python* x " > " y))
+                (foo [x]
+                  (cond
+                    (> x 10) x
+                    :else (foo (+ x x))))]
+          (foo 1))
+        """) == 16
+    assert _eval(
+        """
+        (letfn [(foo [x]
+                  (cond
+                    (< x 4) (bar (+ x 1))
+                    :else 42))
+                (bar [x]
+                  (cond
+                    (< x 4) (foo (+ x 1))
+                    :else 43))
+                (< [x y] (python* x " < " y))]
+          [(foo 1) (bar 1)])
+        """) == L(43, 42)
+
 def test_try():
     assert _eval("(try nil)") is None
     assert _eval("(try 42)") == 42

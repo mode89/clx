@@ -676,6 +676,7 @@ _S_DO = symbol("do")
 _S_LET_STAR = symbol("let*")
 _S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
+_S_LETFN = symbol("letfn")
 _S_TRY = symbol("try")
 _S_CATCH = symbol("catch")
 _S_FINALLY = symbol("finally")
@@ -1226,16 +1227,15 @@ def _compile_fn(ctx, lctx, form):
         params = arg1
         body = third(form)
 
-    expr, fdef = _make_function_def(
-        ctx, lctx.assoc(_K_LOOP_BINDINGS, None), fname, params, body)
-    stmts = [fdef]
-
-    return expr, stmts
+    fexpr, fstmt = _make_function_def(ctx, lctx, fname, params, body)
+    return fexpr, [fstmt]
 
 def _make_function_def(ctx, lctx, fname, params, body):
     assert is_symbol(fname), "function name must be a symbol"
     assert isinstance(params, PersistentVector), \
         "function parameters must be a vector"
+
+    lctx = lctx.assoc(_K_LOOP_BINDINGS, None)
 
     pos_params = []
     rest_param = None
@@ -1283,6 +1283,36 @@ def _make_function_def(ctx, lctx, fname, params, body):
             ),
             body_stmts,
             [])
+
+def _compile_letfn(ctx, lctx, form):
+    fdefs = second(form)
+    assert is_vector(fdefs), \
+        "letfn expects a vector of function definitions"
+
+    # First, populate local context with function names
+    for fdef in fdefs:
+        assert is_list(fdef), "letfn function definition must be a list"
+        fname = first(fdef)
+        assert is_simple_symbol(fname), \
+            "function name must be a simple symbol"
+        py_name = munge(fname.name)
+        lctx = assoc_in(lctx, list_(_K_ENV, fname.name),
+            Binding(py_name, None))
+
+    stmts = []
+    for fdef in fdefs:
+        fname = first(fdef)
+        params = second(fdef)
+        assert is_vector(params), "function parameters must be a vector"
+        fbody = list_(_S_DO, *fdef.rest().rest())
+        _lctx = lctx.assoc(_K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
+        _fexpr, fstmt = _make_function_def(ctx, _lctx, fname, params, fbody)
+        stmts.append(fstmt)
+
+    body = list_(_S_DO, *form.rest().rest())
+    body_expr, body_stmts = _compile(ctx, lctx, body)
+    stmts.extend(body_stmts)
+    return body_expr, stmts
 
 def _compile_try(ctx, lctx, form):
     lctx = assoc(lctx, _K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
@@ -1548,6 +1578,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LET_STAR: _compile_let,
     _S_COND: _compile_cond,
     _S_FN_STAR: _compile_fn,
+    _S_LETFN: _compile_letfn,
     _S_TRY: _compile_try,
     _S_LOOP_STAR: _compile_loop,
     _S_RECUR: _compile_recur,
