@@ -524,13 +524,13 @@ def test_quote():
     assert _eval("'42") == 42
     assert _eval("'hello") == S("hello")
     assert _eval("':world") == K("world")
-    assert _eval("'()") == L()
+    assert _eval("'()") is L()
     assert _eval("'(1 :two \"three\" four)") == \
         L(1, K("two"), "three", S("four"))
-    assert _eval("'[]") == V()
+    assert _eval("'[]") is V()
     assert _eval("'[1 :two \"three\" four]") == \
         V(1, K("two"), "three", S("four"))
-    assert _eval("'{}") == M()
+    assert _eval("'{}") is M()
     assert _eval("'{1 :two \"three\" four}") == \
         M(1, K("two"), "three", S("four"))
     assert _eval(
@@ -1042,6 +1042,12 @@ def test_meta():
         M("foo", 42, K("bar"), 44)
     assert clx.meta(fred_with_meta) == M("foo", 42)
     assert clx.meta(clx.with_meta(fred_with_meta, None)) is None
+    assert clx.meta(clx.read_string("()")) is None
+    assert clx.meta(clx.read_string("(1 2)")) is not None
+    assert clx.meta(clx.read_string("[]")) is None
+    assert clx.meta(clx.read_string("[1 2]")) is None
+    assert clx.meta(clx.read_string("{}")) is None
+    assert clx.meta(clx.read_string("{1 2}")) is None
 
 def test_resolve_symbol():
     ctx = clx.Context(

@@ -790,7 +790,9 @@ def read_form(tokens):
             member = symbol(l0.name[1:])
             assert l.count_() > 1, "expected (.member target ...)"
             target = l.rest().first()
-            l = list_(_S_DOT, target, member, *l.rest().rest()).with_meta(
+            l = list_(_S_DOT, target, member, *l.rest().rest())
+        if l.count_() > 0:
+            l = l.with_meta(
                 hash_map(_K_LINE, token.line, _K_COLUMN, token.column))
         return l, rtokens
     elif tstring == "[":
@@ -848,13 +850,7 @@ def read_collection(
             raise Exception(f"Expected '{end}'")
         assert isinstance(token, Token), "expected a token"
         if token.string == end:
-            return \
-                with_meta(
-                    ctor(*elements),
-                    hash_map(
-                        _K_LINE, token0.line,
-                        _K_COLUMN, token0.column)), \
-                rest(tokens)
+            return ctor(*elements), rest(tokens)
         element, tokens = read_form(tokens)
         elements.append(element)
 
