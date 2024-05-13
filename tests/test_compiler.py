@@ -865,7 +865,7 @@ def test_in_ns():
     assert clx._eval_string(ctx,
         """
         (in-ns 'foo)
-        *ns*
+        (.deref *ns*)
         """) == "foo"
 
     ctx = _make_test_context()
@@ -1100,7 +1100,7 @@ def test_resolve_symbol():
                   K("imports"),  M()),
                 )),
         py_globals={
-            munge("clx.core/*ns*"): clx.ThreadLocal("user"),
+            munge("clx.core/*ns*"): clx.DynamicVar("user"),
         },
     )
     lctx = clx.LocalContext(
@@ -1229,15 +1229,23 @@ def test_slurp():
 
 def test_load_file():
     ctx = _make_test_context()
-    clx._current_file(ctx).reset("<no-file>")
+    clx._current_file(ctx).set("<no-file>")
     hello_world = clx.load_file(ctx, "tests/examples/hello-world.clj")
     assert hello_world() is K("hello-world")
-    assert clx._eval_string(ctx, "*file*") == "<no-file>"
+    assert clx._eval_string(ctx, "(.deref *file*)") == "<no-file>"
+
+    ctx = _make_test_context()
+    clx._eval_string(ctx, "(load-file \"tests/examples/load-file.clj\")")
+    assert clx._eval_string(ctx, "(.deref *file*)") == "NO_SOURCE_PATH"
+    assert clx._eval_string(ctx, "(.deref *ns*)") == "user"
+    assert clx._eval_string(ctx, "(example/message)") == K("hello", "world")
+    assert clx._eval_string(ctx, "example/ns") == "example"
+    assert clx._eval_string(ctx, "example/file") == "tests/examples/load-file.clj"
 
 def test_current_file():
     ctx = _make_test_context()
-    clx._current_file(ctx).reset("some/file.clj")
-    assert clx._eval_string(ctx, "*file*") == "some/file.clj"
+    clx._current_file(ctx).set("some/file.clj")
+    assert clx._eval_string(ctx, "(.deref *file*)") == "some/file.clj"
 
 def test_atom():
     a = clx.atom(42)

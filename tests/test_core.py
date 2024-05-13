@@ -103,17 +103,3 @@ def test_defmacro(_eval):
           ([x y & more] `(+ (+ ~x ~y) ~@more)))
         [(+) (+ 1) (+ 2 3) (+ 4 5 6) (+ 7 8 9 10 11)]
         """) == comp.list_(0, 1, 5, 15, 45)
-
-def test_load_file(_eval):
-    assert _eval(
-        """
-        (load-file "tests/examples/hello-world.clj")
-        (hello-world)
-        """) == comp.keyword("hello-world")
-
-    _eval("(load-file \"tests/examples/load-file.clj\")")
-    assert _eval("*file*") == "NO_SOURCE_PATH"
-    assert _eval("*ns*") == "user"
-    assert _eval("(example/message)") == comp.keyword("hello", "world")
-    assert _eval("example/ns") == "example"
-    assert _eval("example/file") == "tests/examples/load-file.clj"

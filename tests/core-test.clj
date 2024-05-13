@@ -275,7 +275,8 @@
 
 (deftest eval
   (is (= 3 (eval '(+ 1 2))))
-  (is (= 47 (eval '(+ core-test/FORTY-TWO 5)))))
+  (is (= "core-test" (eval '(.deref *ns*))))
+  (is (= 47 (eval '(+ FORTY-TWO 5)))))
 
 (deftest python-builtin
   (is (= "42" (python/str 42)))

@@ -12,7 +12,7 @@ import threading
 import types
 import weakref
 
-_DUMMY = object()
+_DUMMY = type("Dummy", (), {})()
 
 #************************************************************
 # Utilities
@@ -654,15 +654,35 @@ class Box:
         self._value = f(self._value, *args)
         return self._value
 
-class ThreadLocal:
+class DynamicVar:
     def __init__(self, value):
-        self._storage = threading.local()
-        self._storage.value = value
+        self._lock = threading.Lock()
+        self._root = value
+        self._stack = threading.local()
+        self._stack.value = None
+        self._is_bound = False
     def deref(self):
-        return self._storage.value
-    def reset(self, new_value):
-        self._storage.value = new_value
-        return new_value
+        with self._lock:
+            return self._root \
+                if not self._is_bound \
+                else self._stack.value.first()
+    def push(self, value):
+        with self._lock:
+            self._stack.value = cons(value, self._stack.value)
+            self._is_bound = True
+    def pop(self):
+        with self._lock:
+            assert self._is_bound, "dynamic var is not bound"
+            self._stack.value = self._stack.value.next()
+            self._is_bound = self._stack.value is not None
+    def set(self, value):
+        with self._lock:
+            assert self._stack.value is not None, \
+                "dynamic var is not bound by this thread"
+            self._stack.value = cons(value, self._stack.value.next())
+    def is_bound(self):
+        with self._lock:
+            return self._is_bound
 
 #************************************************************
 # Constants
@@ -990,8 +1010,10 @@ def init_context(namespaces):
     weak_ctx = weakref.ref(ctx)
 
     # Don't make circular reference to context
-    _intern(ctx, "clx.core", "*ns*", "user", dynamic=True)
-    _intern(ctx, "clx.core", "*file*", "NO_SOURCE_PATH", dynamic=True)
+    _intern(ctx, "clx.core", "*ns*", None, dynamic=True)
+    _current_ns(ctx).push("user")
+    _intern(ctx, "clx.core", "*file*", None, dynamic=True)
+    _current_file(ctx).push("NO_SOURCE_PATH")
     _intern(ctx, "clx.core", "in-ns", lambda ns: _in_ns(weak_ctx(), ns))
     _intern(ctx, "clx.core", "eval",
         lambda form: _eval_form(weak_ctx(), _local_context(), form))
@@ -1005,7 +1027,7 @@ def _intern(ctx, ns, name, value, dynamic=False):
     binding = Binding(py_name, None) \
         if not dynamic else Binding(py_name, hash_map(_K_DYNAMIC, True))
     ctx.namespaces.swap(assoc_in, list_(ns, _K_BINDINGS, name), binding)
-    ctx.py_globals[py_name] = value if not dynamic else ThreadLocal(value)
+    ctx.py_globals[py_name] = value if not dynamic else DynamicVar(value)
 
 def _local_context( # pylint: disable=too-many-arguments
         env=hash_map(),
@@ -1041,20 +1063,32 @@ def _eval_form(ctx, lctx, form):
     return eval(compile(result, file_name, "eval"), ctx.py_globals) # pylint: disable=eval-used
 
 def load_file(ctx, path):
-    file_var = _current_file(ctx)
-    ns_var = _current_ns(ctx)
+    return _with_bindings1(ctx,
+        lambda: _eval_string(ctx, slurp(path)),
+        "*file*", path,
+        "*ns*", _current_ns(ctx).deref())
 
-    prev_file = file_var.deref()
-    prev_ns = ns_var.deref()
+def _with_bindings1(ctx, body, *bindings):
+    _bindings = []
+    for name, value in zip(bindings[::2], bindings[1::2]):
+        binding = _resolve_symbol(ctx, None, symbol(name), None)
+        assert binding is not None, f"Can't resolve symbol '{name}'"
+        assert get(binding.meta, _K_DYNAMIC, False), \
+            f"Can't re-bind non-dynamic symbol '{name}'"
+        obj = _binding_object(ctx, binding)
+        _bindings.append(obj)
+        _bindings.append(value)
+    return _with_bindings(body, *_bindings)
 
-    file_var.reset(path)
-
-    result = _eval_string(ctx, slurp(path))
-
-    file_var.reset(prev_file)
-    ns_var.reset(prev_ns)
-
-    return result
+def _with_bindings(body, *bindings):
+    for obj, value in zip(bindings[::2], bindings[1::2]):
+        assert type(obj) is DynamicVar, "expected a dynamic var"
+        obj.push(value)
+    try:
+        return body()
+    finally:
+        for obj, _ in zip(bindings[::2], bindings[1::2]):
+            obj.pop()
 
 def macroexpand(ctx, form):
     while True:
@@ -1070,7 +1104,7 @@ def macroexpand1(ctx, form):
             binding = _resolve_symbol(ctx, None, head, None)
             if binding is not None:
                 if get(binding.meta, _K_MACRO_QMARK, False):
-                    obj = _binding_value(ctx, binding)
+                    obj = _binding_object(ctx, binding)
                     return obj(*form.rest())
                 else:
                     if get(binding, _K_MACRO_QMARK):
@@ -1121,6 +1155,7 @@ def _compile_def(ctx, lctx, form):
         "def expects a simple symbol as the first argument"
     current_ns = _current_ns(ctx).deref()
     py_name = munge(f"{current_ns}/{name.name}")
+    # TODO disallow redefinition of bound dynamic vars
     ctx.namespaces.swap(assoc_in,
         list_(current_ns, _K_BINDINGS, name.name),
         Binding(py_name, meta=meta(name)))
@@ -1640,6 +1675,7 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
                 return binding
 
         current_ns = _current_ns(ctx).deref()
+        assert type(current_ns) is str
         namespaces = ctx.namespaces.deref()
         binding = get_in(namespaces, list_(current_ns, _K_BINDINGS, sym.name))
         if binding is not None:
@@ -1650,6 +1686,7 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
             return binding
     else:
         current_ns = _current_ns(ctx).deref()
+        assert type(current_ns) is str
         namespaces = ctx.namespaces.deref()
         import_alias = get_in(namespaces,
             list_(current_ns, _K_IMPORTS, sym.namespace))
@@ -1666,6 +1703,10 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
     if not_found is _DUMMY:
         raise Exception(f"Symbol '{pr_str(sym)}' not found")
     return not_found
+
+def _resolve(ctx, _name):
+    binding = _resolve_symbol(ctx, None, symbol(_name), None)
+    return _binding_object(ctx, binding) if binding is not None else None
 
 def _current_ns(ctx):
     return ctx.py_globals[munge("clx.core/*ns*")]
@@ -1699,18 +1740,10 @@ def _binding_node(lctx, load_or_store, binding):
                 _node(ast.Name, lctx, module, ast.Load()),
                 binding.py_name,
                 load_or_store)
-    elif get(_meta, _K_DYNAMIC):
-        # We can modify the value referred by the object, but we are not
-        # allowed to modify the object itself
-        assert type(load_or_store) is ast.Load
-        return _node(ast.Call, lctx,
-            _node(ast.Attribute, lctx,
-                _node(ast.Name, lctx, binding.py_name, ast.Load()),
-                "deref", ast.Load()), [], [])
     else:
         return _node(ast.Name, lctx, binding.py_name, load_or_store)
 
-def _binding_value(ctx, binding, not_found=_DUMMY):
+def _binding_object(ctx, binding, not_found=_DUMMY):
     _meta = binding.meta
     if get(_meta, _K_LOCAL): # pylint: disable=no-else-raise
         raise Exception("Can't take value of a local binding")
@@ -1986,7 +2019,7 @@ def merge(*maps):
     return functools.reduce(helper, maps, None)
 
 def _in_ns(ctx, ns):
-    _current_ns(ctx).reset(ns.name)
+    _current_ns(ctx).set(ns.name)
 
 def slurp(path):
     with open(path, "r", encoding="utf-8") as file:

@@ -1,8 +1,9 @@
 (in-ns 'example)
 
-(defn message []
-  :hello/world)
+(def message
+  (fn* []
+    :hello/world))
 
-(def ns *ns*)
+(def ns (.deref *ns*))
 
-(def file *file*)
+(def file (.deref *file*))
