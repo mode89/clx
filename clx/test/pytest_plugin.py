@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import pytest
 
 import clx
@@ -19,8 +20,28 @@ class TestFile(pytest.File):
                 bindings = ns.lookup(comp.keyword("bindings"), None)
                 for name, binding in bindings.items():
                     if name.startswith("test-"):
-                        func = ctx.py_globals[binding.py_name]
                         items.append(
-                            pytest.Function.from_parent(
-                                self, name=name[5:], callobj=func))
+                            TestItem.from_parent(self,
+                                name=name[5:],
+                                ctx=ctx,
+                                path=self.path,
+                                ns=ns_name,
+                                func=ctx.py_globals[binding.py_name]))
         return items
+
+class TestItem(pytest.Item):
+    def __init__(self, *, ctx, path, ns, func, **kwargs):
+        super().__init__(**kwargs)
+        self.ctx = ctx
+        self.path = path
+        self.ns = ns
+        self.func = func
+
+    def runtest(self):
+        comp._with_bindings1(self.ctx,
+            self.func,
+            "*file*", self.path,
+            "*ns*", self.ns)
+
+    def repr_failure(self, excinfo):
+        return excinfo.getrepr(style="short")
