@@ -25,3 +25,4 @@
 - [ ] Protocols
 - [ ] Multi functions
 - [ ] REPL
+- [ ] Cache compiled code
