@@ -29,6 +29,56 @@
 
 (def FORTY-TWO 42)
 
+(deftest fn
+  (is (= 42 (eval '((fn [] 42)))))
+  (is (= 9002 (eval '(do (def f (fn inc [x] (+ x 1)))
+                         (f 9001)))))
+  (is (= 9 (eval '(do (def foo
+                        (fn [x y]
+                          (+ x 3)
+                          (+ y 7)))
+                      (foo 1 2)))))
+  (let [foo (eval '(fn ([] 42)
+                       ([x] (+ x 1))
+                       ([x y] (+ x y))
+                       ([x y & zs] (apply list x y zs))))]
+    (is (= 42 (foo)))
+    (is (= 2 (foo 1)))
+    (is (= 7 (foo 3 4)))
+    (is (= '(5 6 7 8) (foo 5 6 7 8)))))
+
+(deftest defn
+  (is (= 3 (eval '(do (defn add [x y] (+ x y))
+                      (add 1 2)))))
+  (is (= 25 (eval '(do (defn bar [x y]
+                         (+ x 10)
+                         (+ y 20))
+                       (bar 3 5)))))
+  (let [foo (eval '(defn foo
+                     ([] 42)
+                     ([x] (+ x 1))
+                     ([x y] (+ x y))
+                     ([x y & zs] (apply list x y zs))))]
+    (is (= 42 (foo)))
+    (is (= 2 (foo 1)))
+    (is (= 7 (foo 3 4)))
+    (is (= '(5 6 7 8) (foo 5 6 7 8)))))
+
+(deftest defmacro
+  (eval '(defmacro if* [pred then else]
+           (list 'cond pred then true else)))
+  (is (= 42 (eval '(if* true 42 (throw (Exception))))))
+  (eval '(defmacro plus
+           ([] 0)
+           ([x] x)
+           ([x y] `(let [x# ~x y# ~y] (python* x# " + " y#)))
+           ([x y & more] `(plus (plus ~x ~y) ~@more))))
+  (is (= [0 1 5 15 45] (eval '[(plus)
+                               (plus 1)
+                               (plus 2 3)
+                               (plus 4 5 6)
+                               (plus 7 8 9 10 11)]))))
+
 (deftest throw
   (raises Exception "Hello, World!"
     (throw (Exception "Hello, World!"))))
