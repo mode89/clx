@@ -100,7 +100,7 @@
 (def ^{:macro? true} defn
   (fn* clx.core/defn [fname & decl]
     `(def ~fname
-        (fn ~(symbol (.deref *ns*) (.-name fname)) ~@decl))))
+        (fn ~(symbol @*ns* (.-name fname)) ~@decl))))
 
 (def ^{:macro? true} defmacro
   (fn* clx.core/defmacro [name & decl]

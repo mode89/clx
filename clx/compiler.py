@@ -722,6 +722,7 @@ _S_KEYWORD = _core_symbol("keyword")
 _S_SYMBOL = _core_symbol("symbol")
 _S_APPLY = _core_symbol("apply")
 _S_RE_PATTERN = _core_symbol("re-pattern")
+_S_DEREF = _core_symbol("deref")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -807,6 +808,9 @@ def read_form(tokens):
         _meta, rest1 = read_form(rtokens)
         form, rest2 = read_form(rest1)
         return vary_meta(form, merge, _meta), rest2
+    elif tstring == "@":
+        form, _rest = read_form(rtokens)
+        return list_(_S_DEREF, form), _rest
     elif tstring[0] == "#":
         return read_dispatch(tstring, rtokens)
     elif tstring == "(":
@@ -987,6 +991,8 @@ def init_context(namespaces):
             "hash-map": hash_map,
             "lazy-seq*": lazy_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),
+            "atom": atom,
+            "deref": lambda x: x.deref(),
             "first": first,
             "second": second,
             "rest": rest,

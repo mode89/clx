@@ -865,7 +865,7 @@ def test_in_ns():
     assert clx._eval_string(ctx,
         """
         (in-ns 'foo)
-        (.deref *ns*)
+        @*ns*
         """) == "foo"
 
     ctx = _make_test_context()
@@ -1232,12 +1232,12 @@ def test_load_file():
     clx._current_file(ctx).set("<no-file>")
     hello_world = clx.load_file(ctx, "tests/examples/hello-world.clj")
     assert hello_world() is K("hello-world")
-    assert clx._eval_string(ctx, "(.deref *file*)") == "<no-file>"
+    assert clx._eval_string(ctx, "@*file*") == "<no-file>"
 
     ctx = _make_test_context()
     clx._eval_string(ctx, "(load-file \"tests/examples/load-file.clj\")")
-    assert clx._eval_string(ctx, "(.deref *file*)") == "NO_SOURCE_PATH"
-    assert clx._eval_string(ctx, "(.deref *ns*)") == "user"
+    assert clx._eval_string(ctx, "@*file*") == "NO_SOURCE_PATH"
+    assert clx._eval_string(ctx, "@*ns*") == "user"
     assert clx._eval_string(ctx, "(example/message)") == K("hello", "world")
     assert clx._eval_string(ctx, "example/ns") == "example"
     assert clx._eval_string(ctx, "example/file") == "tests/examples/load-file.clj"
@@ -1245,7 +1245,7 @@ def test_load_file():
 def test_current_file():
     ctx = _make_test_context()
     clx._current_file(ctx).set("some/file.clj")
-    assert clx._eval_string(ctx, "(.deref *file*)") == "some/file.clj"
+    assert clx._eval_string(ctx, "@*file*") == "some/file.clj"
 
 def test_atom():
     a = clx.atom(42)
@@ -1268,3 +1268,7 @@ def test_count():
     assert clx.count([1, 2, 3 ,4]) == 4
     assert clx.count((1, 2, 3, 4, 5, 6)) == 6
     assert clx.count(_lazy_range(0, 2000)) == 2000
+
+def test_deref():
+    assert _eval("(deref (atom 42))") == 42
+    assert _eval("@(atom 43)") == 43

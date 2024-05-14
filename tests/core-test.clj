@@ -325,7 +325,7 @@
 
 (deftest eval
   (is (= 3 (eval '(+ 1 2))))
-  (is (= "core-test" (eval '(.deref *ns*))))
+  (is (= "core-test" (eval '@*ns*)))
   (is (= 47 (eval '(+ FORTY-TWO 5)))))
 
 (deftest python-builtin
