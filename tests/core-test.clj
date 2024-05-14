@@ -359,3 +359,9 @@
   (is (= nil (re-find #"a" "hello")))
   (is (= "l" (re-find #"l" "hello")))
   (is (= '("ello" "el" "lo") (re-find #"(e.)(l.)" "hello"))))
+
+(deftest mapcat
+  (is (= '() (mapcat nil nil)))
+  (is (= '() (mapcat list nil)))
+  (is (= '(1 2 3) (mapcat list [1 2 3])))
+  (is (= '(1 2 2 3 3 4) (mapcat (fn [x] [x (+ x 1)]) [1 2 3]))))

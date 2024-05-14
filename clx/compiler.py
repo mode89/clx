@@ -998,6 +998,7 @@ def init_context(namespaces):
             "rest": rest,
             "next": next_,
             "seq": seq,
+            "concat*": _concat,
             "concat": concat,
             "cons": cons,
             "count": count,
@@ -2001,17 +2002,20 @@ def assoc_in(obj, path, value):
         return assoc(obj, path0, value)
 
 def concat(*colls):
-    num_colls = len(colls)
-    if num_colls == 0:
+    return _concat(colls)
+
+def _concat(colls):
+    colls = seq(colls)
+    if colls is None:
         return _EMPTY_LIST
-    elif num_colls == 1:
-        return lazy_seq(lambda: colls[0])
+    elif colls.next() is None:
+        return lazy_seq(colls.first)
     else:
-        coll0 = colls[0]
-        colls = colls[1:]
+        c0 = seq(colls.first())
+        cs = colls.rest()
         def _seq():
-            return cons(first(coll0), concat(rest(coll0), *colls)) \
-                if seq(coll0) else concat(*colls)
+            return cons(c0.first(), _concat(cons(c0.rest(), cs))) \
+                if c0 is not None else _concat(cs)
         return lazy_seq(_seq)
 
 def merge(*maps):

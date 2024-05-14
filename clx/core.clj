@@ -229,3 +229,6 @@
       (if (some? groups)
         (cons full-match groups)
         full-match))))
+
+(defn mapcat [f coll]
+  (concat* (map f coll)))
