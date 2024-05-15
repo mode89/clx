@@ -1,5 +1,6 @@
 (in-ns 'core-test)
 
+(import* inspect)
 (import* types)
 (import* pytest)
 
@@ -365,3 +366,20 @@
   (is (= '() (mapcat list nil)))
   (is (= '(1 2 3) (mapcat list [1 2 3])))
   (is (= '(1 2 2 3 3 4) (mapcat (fn [x] [x (+ x 1)]) [1 2 3]))))
+
+(deftest defrecord
+  (let [Foo (eval '(defrecord Foo [a b c]))]
+    (is (inspect/isclass Foo))
+    (is (instance? Foo (Foo 1 2 3)))
+    (is (= 1 (.-a (Foo 1 2 3))))
+    (is (= 2 (.-b (Foo 1 2 3))))
+    (is (= 3 (.-c (Foo 1 2 3))))
+    (is (= 1 (:a (Foo 1 2 3))))
+    (is (= 2 (:b (Foo 1 2 3))))
+    (is (= 3 (:c (Foo 1 2 3))))
+    (is (nil? (:d (Foo 1 2 3))))
+    (is (= (Foo 1 2 3) (Foo 1 2 3)))
+    (is (not= (Foo 1 2 3) (Foo 1 4 3)))
+    (is (= (Foo 4 2 3) (assoc (Foo 1 2 3) :a 4)))
+    (is (= (Foo 1 5 3) (assoc (Foo 1 2 3) :b 5)))
+    (is (= (Foo 1 2 6) (assoc (Foo 1 2 3) :c 6)))))

@@ -232,3 +232,70 @@
 
 (defn mapcat [f coll]
   (concat* (map f coll)))
+
+; TODO it should update namespaces without touching py_globals
+(defmacro declare [name]
+  `(def ~name nil))
+
+(defmacro type* [cname cbases & fspecs]
+  `(python/type
+     ~(str cname)
+     (python/tuple ~cbases)
+     (python/dict
+       (hash-map
+         ~@(mapcat
+             (fn [fspec]
+               (let [fname (first fspec)
+                     fname* (symbol (str cname "." fname))
+                     fargs (second fspec)
+                     fbody (rest (rest fspec))]
+                 [(str fname)
+                  `(fn ~fname* ~fargs
+                     ~@fbody)]))
+             fspecs)))))
+
+(defmacro defrecord [tname fields]
+  (assert (symbol? tname) "record name must be a symbol")
+  (assert (vector? fields) "record fields must be a vector")
+  (let [qtname (symbol @*ns* (name tname))
+        self (gensym "self_")
+        other (gensym "other_")
+        make-assoc (fn make-assoc [field]
+                     (let [value (gensym "value_")
+                           fname (symbol (str qtname "-assoc-" field))]
+                       `(fn ~fname [~self ~value]
+                          (~tname
+                            ~@(map
+                                (fn [f]
+                                  (if (= f field)
+                                    value
+                                    `(. ~self ~(symbol (str "-" f)))))
+                                fields)))))]
+    `(do (declare ~tname)
+         (let [assocs# (python/dict
+                         (hash-map
+                           ~@(mapcat
+                               (fn [field]
+                                 [(keyword field) (make-assoc field)])
+                               fields)))]
+          (def ~tname
+            (clx.core/type* ~qtname [clx.core/IAssociative]
+              (__init__ [~self ~@fields]
+                ~@(map (fn [f]
+                         `(python* ~self "." ~f " = " ~f))
+                       fields))
+              (__eq__ [~self ~other]
+                (and (instance? ~tname ~other)
+                     ~@(map (fn [f]
+                              (let [f* (symbol (str "-" f))]
+                                `(= (. ~self ~f*) (. ~other ~f*))))
+                            fields)))
+              (lookup [~self k not-found]
+                (python/getattr ~self (.-munged k) not-found))
+              (assoc [~self & kvs#]
+                (python*
+                  "obj = " ~self "\n"
+                  "for k, v in zip(" kvs# "[::2], " kvs# "[1::2]):\n"
+                  "  obj = " assocs# "[k](obj, v)\n"
+                  "obj"))))
+          ~tname))))

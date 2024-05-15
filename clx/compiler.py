@@ -977,6 +977,7 @@ def init_context(namespaces):
     namespaces = {
         "user": {},
         "clx.core": {
+            "IAssociative": IAssociative,
             "+": lambda *args: sum(args),
             "with-meta": with_meta,
             "meta": meta,
@@ -1002,6 +1003,7 @@ def init_context(namespaces):
             "concat": concat,
             "cons": cons,
             "count": count,
+            "assoc": assoc,
             "pr-str": pr_str,
             "gensym": lambda prefix="___gen_": symbol(_gen_name(prefix)),
         },
