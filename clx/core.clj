@@ -213,10 +213,9 @@
 
 (defn str [& args]
   (.join ""
-    (map (fn [arg]
-           (if (some? arg)
-             (pr-str arg)
-             ""))
+    (map #(if (some? %)
+             (pr-str %)
+             "")
          args)))
 
 (defn instance? [t x]
@@ -266,17 +265,15 @@
                        `(fn ~fname [~self ~value]
                           (~tname
                             ~@(map
-                                (fn [f]
-                                  (if (= f field)
+                                #(if (= % field)
                                     value
-                                    `(. ~self ~(symbol (str "-" f)))))
+                                    `(. ~self ~(symbol (str "-" %))))
                                 fields)))))]
     `(do (declare ~tname)
          (let [assocs# (python/dict
                          (hash-map
                            ~@(mapcat
-                               (fn [field]
-                                 [(keyword field) (make-assoc field)])
+                               #(vector (keyword %) (make-assoc %))
                                fields)))]
           (def ~tname
             (clx.core/type* ~qtname [clx.core/IAssociative]
@@ -286,9 +283,8 @@
                        fields))
               (__eq__ [~self ~other]
                 (and (instance? ~tname ~other)
-                     ~@(map (fn [f]
-                              (let [f* (symbol (str "-" f))]
-                                `(= (. ~self ~f*) (. ~other ~f*))))
+                     ~@(map #(let [f* (symbol (str "-" %))]
+                              `(= (. ~self ~f*) (. ~other ~f*)))
                             fields)))
               (lookup [~self k not-found]
                 (python/getattr ~self (.-munged k) not-found))

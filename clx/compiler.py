@@ -453,7 +453,7 @@ class PersistentMap(
         return PersistentMap(copy, None)
     def merge(self, other):
         copy = self._impl.copy()
-        copy.update(other)
+        copy.update(other._impl)
         return PersistentMap(copy, None)
 
 _EMPTY_MAP = PersistentMap({}, None)
@@ -837,8 +837,43 @@ def read_dispatch(t0, tokens):
         form, _rest = read_form(tokens)
         if type(form) is str:
             return re.compile(form), _rest
+        elif type(form) is PersistentList:
+            return _function_shorthand(form), _rest
 
     raise Exception("Unsupported reader macro")
+
+def _function_shorthand(form):
+    args = {}
+
+    def genarg(x):
+        return gensym(f"___arg_{x}_")
+
+    def transform(form):
+        if type(form) is Symbol:
+            if match := re.fullmatch(r"%(&|\d*)", form.name):
+                arg = match[1] if match[1] else "1"
+                if arg not in args:
+                    args[arg] = genarg(arg)
+                return args[arg]
+            else:
+                return form
+        else:
+            return form
+    body = postwalk(transform, form)
+
+    varg = args.pop("&", None)
+    argn = max(map(int, args.keys()), default=0)
+
+    def make_arg(i):
+        _i = str(i)
+        return args[_i] if _i in args else genarg(_i)
+
+    argv = [make_arg(i) for i in range(1, argn + 1)]
+    if varg:
+        argv.append(_S_AMPER)
+        argv.append(varg)
+
+    return list_(_S_FN_STAR, vec(argv), body)
 
 def read_atom(token):
     assert isinstance(token, str), "expected a string"
@@ -1004,8 +1039,9 @@ def init_context(namespaces):
             "cons": cons,
             "count": count,
             "assoc": assoc,
+            "get": get,
             "pr-str": pr_str,
-            "gensym": lambda prefix="___gen_": symbol(_gen_name(prefix)),
+            "gensym": gensym,
         },
         **namespaces,
     }
@@ -2036,3 +2072,23 @@ def _in_ns(ctx, ns):
 def slurp(path):
     with open(path, "r", encoding="utf-8") as file:
         return file.read()
+
+def gensym(prefix="___gen_"):
+    return symbol(_gen_name(prefix))
+
+def walk(inner, outer, form):
+    if type(form) is PersistentList:
+        return outer(with_meta(
+            _list_from_iterable(map(inner, form)),
+            meta(form)))
+    elif type(form) is PersistentVector:
+        return outer(vec(map(inner, form)))
+    elif type(form) is PersistentMap:
+        return outer(PersistentMap(dict(map(inner, form.items())), None))
+    elif type(form) is tuple: # items of PersistentMap
+        return outer(tuple(map(inner, form)))
+    else:
+        return outer(form)
+
+def postwalk(f, form):
+    return walk(lambda _form: postwalk(f, _form), f, form)

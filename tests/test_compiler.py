@@ -1272,3 +1272,44 @@ def test_count():
 def test_deref():
     assert _eval("(deref (atom 42))") == 42
     assert _eval("@(atom 43)") == 43
+
+def test_walk():
+    identity = lambda x: x
+    inc = lambda x: x + 1
+    assert clx.walk(None, identity, None) is None
+    assert clx.walk(identity, identity, L()) == L()
+    assert type(clx.walk(inc, identity, L(1, 2, 3))) is clx.PersistentList
+    assert clx.walk(inc, identity, L(1, 2, 3)) == L(2, 3, 4)
+    assert clx.meta(clx.walk(identity, identity,
+        clx.with_meta(L(1, 2, 3), M("foo", 42)))) == M("foo", 42)
+    assert type(clx.walk(inc, identity, V(4, 5, 6))) is clx.PersistentVector
+    assert clx.walk(inc, identity, V(4, 5, 6)) == V(5, 6, 7)
+    assert clx.walk(inc, sum, V(1, 2, 3)) == 9
+    assert type(clx.walk(identity, identity, M("a", 1, K("b"), 2))) is clx.PersistentMap
+    assert clx.walk(identity, identity, M("a", 1, K("b"), 2)) == M("a", 1, K("b"), 2)
+    inner_map = lambda kv: (kv[0] + kv[0], inc(kv[1]))
+    assert clx.walk(inner_map, identity, M("c", 7, "d", 8)) == M("cc", 8, "dd", 9)
+
+def test_postwalk():
+    identity = lambda x: x
+    assert clx.postwalk(identity, None) is None
+    assert clx.postwalk(identity, L()) == L()
+    assert clx.postwalk(
+        lambda x: x + 1 if isinstance(x, int) else x,
+        L(1, 2, 3)) == L(2, 3, 4)
+    assert clx.postwalk(
+        lambda x: x + 1 if isinstance(x, int) else x,
+        M("e", 9)) == M("e", 10)
+
+def test_function_shorthand():
+    # TODO (#()) == '()
+    assert _eval("#(+ 1 2)")() == 3
+    assert _eval("#(+ % %)")(4) == 8
+    assert _eval("#(+ %1 %)")(5) == 10
+    assert _eval("#(+ %1 %2)")(6, 42) == 48
+    assert _eval("#(vector %5 %2)")(1, 2, 3, 4, 5) == V(5, 2)
+    assert _eval("#(count %&)")(4, 5, 6) == 3
+    assert _eval("#(+ %1 %2 (apply + %&))")(3, 4, 5, 6) == 18
+    assert _eval("#(let* [x % y %2] (+ x y %1))")(7, 8) == 22
+    assert _eval("#(get {%1 %2 %3 %4} %5)")("a", 1, K("b"), 2, K("b")) == 2
+    # TODO nesting
