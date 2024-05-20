@@ -369,6 +369,15 @@
   (is (= '() (drop 4 [1 2 3])))
   (is (= '(9) (drop 9 (range* 10)))))
 
+(deftest partition
+  (is (= '() (partition nil nil)))
+  (is (= '() (partition 2 nil)))
+  (is (= '() (partition 2 '(1))))
+  (is (= '((1 2)) (partition 2 '(1 2))))
+  (is (= '((1 2)) (partition 2 '(1 2 3))))
+  (is (= '((1 2) (3 4)) (partition 2 [1 2 3 4])))
+  (is (= '((1 2 3) (4 5 6)) (partition 3 [1 2 3 4 5 6 7 8]))))
+
 (deftest eval
   (is (= 3 (eval '(+ 1 2))))
   (is (= "core-test" (eval '@*ns*)))

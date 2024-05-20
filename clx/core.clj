@@ -318,3 +318,10 @@
       (if (and (pos? n) coll)
         (recur (dec n) (rest coll))
         coll))))
+
+(defn partition [n coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (let [s0 (take n s)]
+        (when (= n (count s0))
+          (cons s0 (partition n (drop n s))))))))
