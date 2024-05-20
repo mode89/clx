@@ -208,6 +208,24 @@
   (is (= 1 (dec 2)))
   (is (= -3 (dec -2))))
 
+(deftest zero?
+  (is (= true (zero? 0)))
+  (is (= false (zero? 1)))
+  (is (= false (zero? 2)))
+  (is (= false (zero? -1))))
+
+(deftest pos?
+  (is (= false (pos? 0)))
+  (is (= true (pos? 1)))
+  (is (= true (pos? 2)))
+  (is (= false (pos? -1))))
+
+(deftest neg?
+  (is (= false (neg? 0)))
+  (is (= false (neg? 1)))
+  (is (= false (neg? 2)))
+  (is (= true (neg? -1))))
+
 (deftest operators
   (is (= 3 (+ 1 2)))
   (is (= -1 (- 3 4)))

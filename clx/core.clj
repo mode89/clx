@@ -130,6 +130,15 @@
 (defn dec [x]
   (python* x " - 1"))
 
+(defn zero? [x]
+  (python* x " == 0"))
+
+(defn pos? [x]
+  (python* x " > 0"))
+
+(defn neg? [x]
+  (python* x " < 0"))
+
 (def + operator/add)
 (def - operator/sub)
 (def * operator/mul)
