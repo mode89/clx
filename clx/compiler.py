@@ -108,6 +108,11 @@ class ICounted(ABC):
     def count_(self):
         raise NotImplementedError()
 
+class IIndexed(ICounted, ABC):
+    @abstractmethod
+    def nth(self, index, not_found):
+        raise NotImplementedError()
+
 class ISeqable(ABC):
     @abstractmethod
     def seq(self):
@@ -348,7 +353,7 @@ class PersistentVector(
         Sequence,
         IMeta,
         IPrintable,
-        ICounted,
+        IIndexed,
         ISeqable,
         ISequential):
     def __init__(self, impl, _meta):
@@ -377,6 +382,10 @@ class PersistentVector(
             "]"
     def count_(self):
         return len(self._impl)
+    def nth(self, index, not_found):
+        return self._impl[index] \
+            if 0 <= index < len(self._impl) \
+            else not_found
     def seq(self):
         size = len(self._impl)
         if size == 0:
@@ -580,7 +589,7 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
                 self._func = None
             return self._seq
 
-class IndexedSeq(IMeta, ICounted, ISeq, ISequential):
+class IndexedSeq(IMeta, IIndexed, ISeq, ISequential):
     def __init__(self, coll, index, _meta):
         self._coll = coll
         self._index = index
@@ -592,6 +601,10 @@ class IndexedSeq(IMeta, ICounted, ISeq, ISequential):
         return IndexedSeq(self._coll, self._index, _meta)
     def count_(self):
         return len(self._coll) - self._index
+    def nth(self, index, not_found):
+        return self._coll[index + self._index] \
+            if 0 <= index < len(self._coll) - self._index \
+            else not_found
     def first(self):
         return self._coll[self._index]
     def next(self):
@@ -1040,6 +1053,7 @@ def init_context(namespaces):
             "count": count,
             "assoc": assoc,
             "get": get,
+            "nth": nth,
             "pr-str": pr_str,
             "gensym": gensym,
         },
@@ -2013,6 +2027,29 @@ def get(obj, key, not_found=None):
         return obj.lookup(key, not_found)
     else:
         return not_found
+
+def nth(coll, n, not_found=_DUMMY):
+    if coll is None:
+        return None if not_found is _DUMMY else not_found
+    elif isinstance(coll, IIndexed):
+        result = coll.nth(n, not_found)
+        if result is _DUMMY:
+            raise IndexError("Index out of bounds")
+        return result
+    elif isinstance(coll, ISeqable):
+        if n < 0:
+            raise IndexError("Index out of bounds")
+        coll = seq(coll)
+        while coll is not None and n > 0:
+            coll = next_(coll)
+            n -= 1
+        if coll is None:
+            if not_found is _DUMMY:
+                raise IndexError("Index out of bounds")
+            return not_found
+        return first(coll)
+    else:
+        raise NotImplementedError("nth not supported for this type")
 
 def assoc(obj, *kvs):
     assert len(kvs) % 2 == 0, "assoc expects even number of arguments"

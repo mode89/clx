@@ -6,7 +6,7 @@ import pytest
 
 import clx.compiler as clx
 from clx.compiler import first, second, rest, next_, seq, lazy_seq, cons, \
-    assoc, get, munge, _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
+    assoc, get, munge, nth, _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
 S = clx.symbol
@@ -358,6 +358,10 @@ def test_indexed_seq():
     assert clx.meta(clx.with_meta(s, M(1, 2))) == M(1, 2)
     assert clx.meta(s) is None
     assert s == L("r", "l", "d")
+    assert s.nth(0, None) == "r"
+    assert s.nth(1, None) == "l"
+    assert s.nth(2, None) == "d"
+    assert s.nth(3, 42) == 42
 
 def test_hash_map():
     m0 = M()
@@ -1165,6 +1169,33 @@ def test_get_in():
     assert get_in(M("a", M("b", 2)), L("a", "c")) is None
     assert get_in(M("a", M("b", 2)), L("b", "c"), 3) == 3
     assert get_in(M("a", M("b", 2)), L("a", "b", "c")) is None
+
+def test_nth():
+    assert nth(None, 0) is None
+    assert nth(None, 1) is None
+    assert nth(None, 2) is None
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(), 0)
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(), 1)
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(), 2)
+    assert nth(L(1), 0) == 1
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(1), 1)
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(1), 2)
+    assert nth(L(1, 2), 0) == 1
+    assert nth(L(1, 2), 1) == 2
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(L(1, 2), 2)
+    assert nth(L(1, 2), 2, 42) == 42
+    assert nth(V(1, 2, 3), 0) == 1
+    assert nth(V(1, 2, 3), 1) == 2
+    assert nth(V(1, 2, 3), 2) == 3
+    with pytest.raises(Exception, match=r"Index out of bounds"):
+        nth(V(1, 2, 3), 3)
+    assert nth(V(1, 2, 3), 3, 42) == 42
 
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)
