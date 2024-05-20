@@ -304,3 +304,17 @@
                   "  obj = " assocs# "[k](obj, v)\n"
                   "obj"))))
           ~tname))))
+
+(defn take [n coll]
+  (lazy-seq
+    (when (pos? n)
+      (when-let [s (seq coll)]
+        (cons (first s) (take (dec n) (rest s)))))))
+
+(defn drop [n coll]
+  (lazy-seq
+    (loop* [n n
+            coll (seq coll)]
+      (if (and (pos? n) coll)
+        (recur (dec n) (rest coll))
+        coll))))
