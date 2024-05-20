@@ -325,3 +325,15 @@
       (let [s0 (take n s)]
         (when (= n (count s0))
           (cons s0 (partition n (drop n s))))))))
+
+(defmacro doseq [bindings & body]
+  (assert (vector? bindings) "bindings must be a vector")
+  ; TODO allow multiple bindings
+  (assert (= 2 (count bindings)) "bindings must have exactly two elements")
+  (let [b (bindings 0)
+        s (bindings 1)]
+    `(loop* [s# (seq ~s)]
+      (when s#
+        (let [~b (first s#)]
+          ~@body
+          (recur (next s#)))))))

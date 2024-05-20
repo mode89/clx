@@ -437,3 +437,16 @@
     (is (= (Foo 4 2 3) (assoc (Foo 1 2 3) :a 4)))
     (is (= (Foo 1 5 3) (assoc (Foo 1 2 3) :b 5)))
     (is (= (Foo 1 2 6) (assoc (Foo 1 2 3) :c 6)))))
+
+(deftest doseq
+  (is (= nil (eval '(let [sum (atom 0)]
+                      (doseq [x [1 2 3]]
+                        (.swap sum #(+ % x)))))))
+  (is (= 6 (eval '(let [sum (atom 0)]
+                    (doseq [x [1 2 3]]
+                      (.swap sum #(+ % x)))
+                    @sum))))
+  (is (= 0 (eval '(let [sum (atom 0)]
+                    (doseq [x []]
+                      (.swap sum #(+ % x)))
+                    @sum)))))
