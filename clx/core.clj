@@ -1,6 +1,8 @@
 (in-ns 'clx.core)
 
 (import* operator)
+(import* pathlib)
+(import* sys)
 
 (def throw
   (fn* clx.core/throw [x]
@@ -218,7 +220,38 @@
        (recur (f acc (first coll)) (rest coll))
        acc))))
 
-(load-file "clx/python.clj")
+(defn take [n coll]
+  (lazy-seq
+    (when (pos? n)
+      (when-let [s (seq coll)]
+        (cons (first s) (take (dec n) (rest s)))))))
+
+(defn drop [n coll]
+  (lazy-seq
+    (loop* [n n
+            coll (seq coll)]
+      (if (and (pos? n) coll)
+        (recur (dec n) (rest coll))
+        coll))))
+
+(defn partition [n coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (let [s0 (take n s)]
+        (when (= n (count s0))
+          (cons s0 (partition n (drop n s))))))))
+
+(defmacro doseq [bindings & body]
+  (assert (vector? bindings) "bindings must be a vector")
+  ; TODO allow multiple bindings
+  (assert (= 2 (count bindings)) "bindings must have exactly two elements")
+  (let [b (bindings 0)
+        s (bindings 1)]
+    `(loop* [s# (seq ~s)]
+      (when s#
+        (let [~b (first s#)]
+          ~@body
+          (recur (next s#)))))))
 
 (defn str [& args]
   (.join ""
@@ -226,6 +259,17 @@
              (pr-str %)
              "")
          args)))
+
+(defn load [& paths]
+  (doseq [p paths]
+    (loop* [sys-path (seq sys/path)]
+      (when-let [spath (first sys-path)]
+        (let [candidate (pathlib/Path (str spath "/" p ".clj"))]
+          (if (.exists candidate)
+            (load-file (str candidate))
+            (recur (rest sys-path))))))))
+
+(load "clx/python")
 
 (defn instance? [t x]
   (python* "isinstance(" x ", " t ")"))
@@ -304,36 +348,3 @@
                   "  obj = " assocs# "[k](obj, v)\n"
                   "obj"))))
           ~tname))))
-
-(defn take [n coll]
-  (lazy-seq
-    (when (pos? n)
-      (when-let [s (seq coll)]
-        (cons (first s) (take (dec n) (rest s)))))))
-
-(defn drop [n coll]
-  (lazy-seq
-    (loop* [n n
-            coll (seq coll)]
-      (if (and (pos? n) coll)
-        (recur (dec n) (rest coll))
-        coll))))
-
-(defn partition [n coll]
-  (lazy-seq
-    (when-let [s (seq coll)]
-      (let [s0 (take n s)]
-        (when (= n (count s0))
-          (cons s0 (partition n (drop n s))))))))
-
-(defmacro doseq [bindings & body]
-  (assert (vector? bindings) "bindings must be a vector")
-  ; TODO allow multiple bindings
-  (assert (= 2 (count bindings)) "bindings must have exactly two elements")
-  (let [b (bindings 0)
-        s (bindings 1)]
-    `(loop* [s# (seq ~s)]
-      (when s#
-        (let [~b (first s#)]
-          ~@body
-          (recur (next s#)))))))
