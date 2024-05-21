@@ -889,6 +889,16 @@ def test_in_ns():
         foo/bar
         """) == 43
 
+def test_refer():
+    assert _eval(
+        """
+        (refer* 'clx.core 'second 'my-second)
+        (my-second '(1 42 3))
+        """) == 42
+    with pytest.raises(Exception,
+            match=r"Symbol 'hundredth' not found in namespace 'clx.core'"):
+        _eval("(refer* 'clx.core 'hundredth)")
+
 def test_macros():
     assert _eval(
         """

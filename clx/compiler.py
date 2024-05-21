@@ -1078,6 +1078,9 @@ def init_context(namespaces):
         lambda form: _eval_form(weak_ctx(), _local_context(), form))
     _intern(ctx, "clx.core", "load-file",
         lambda path: load_file(weak_ctx(), path))
+    _intern(ctx, "clx.core", "refer*",
+        lambda from_ns, sym, _as=None:
+            _refer(weak_ctx(), from_ns, sym, _as))
 
     return ctx
 
@@ -2105,6 +2108,23 @@ def merge(*maps):
 
 def _in_ns(ctx, ns):
     _current_ns(ctx).set(ns.name)
+
+def _refer(ctx, from_ns, sym, _as):
+    assert is_simple_symbol(from_ns), \
+        "refer expects source namespace to be a simple symbol"
+    assert is_simple_symbol(sym), \
+        "refer expects referred symbol to be a simple symbol"
+    _as = sym if _as is None else _as
+    assert is_simple_symbol(_as), "refer expects alias to be a simple symbol"
+    def _update(namespaces):
+        cur_ns = _current_ns(ctx).deref()
+        binding = get_in(namespaces,
+            list_(from_ns.name, _K_BINDINGS, sym.name))
+        assert binding is not None, \
+            f"Symbol '{sym.name}' not found in namespace '{from_ns.name}'"
+        return assoc_in(namespaces,
+            list_(cur_ns, _K_BINDINGS, _as.name), binding)
+    ctx.namespaces.swap(_update)
 
 def slurp(path):
     with open(path, "r", encoding="utf-8") as file:
