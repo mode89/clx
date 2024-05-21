@@ -2,7 +2,7 @@
 import pytest
 
 import clx
-import clx.compiler as comp
+import clx.bootstrap as boot
 
 def pytest_collect_file(file_path, parent):
     if file_path.name.endswith("-test.clj"):
@@ -12,12 +12,12 @@ class TestFile(pytest.File):
     def collect(self):
         ctx = clx.DEFAULT_CONTEXT
         namespaces0 = ctx.namespaces.deref()
-        comp.load_file(ctx, self.path)
+        boot.load_file(ctx, self.path)
         namespaces1 = ctx.namespaces.deref()
         items = []
         for ns_name, ns in namespaces1.items():
             if ns_name not in namespaces0 and ns_name.endswith("-test"):
-                bindings = ns.lookup(comp.keyword("bindings"), None)
+                bindings = ns.lookup(boot.keyword("bindings"), None)
                 for name, binding in bindings.items():
                     if name.startswith("test-"):
                         items.append(
@@ -38,7 +38,7 @@ class TestItem(pytest.Item):
         self.func = func
 
     def runtest(self):
-        comp._with_bindings1(self.ctx,
+        boot._with_bindings1(self.ctx,
             self.func,
             "*file*", self.path,
             "*ns*", self.ns)
