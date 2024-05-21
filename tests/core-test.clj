@@ -2,24 +2,12 @@
 
 (import* inspect)
 (import* types)
-(import* pytest)
 
-(defmacro deftest [tname & body]
-  `(defn ~(symbol (str "test-" tname)) []
-     ~@body))
+(load "clx/test")
 
-(defmacro is [x]
-  `(assert ~x "Test failed"))
-
-(defmacro raises [ex-type arg0 & args]
-  (if (string? arg0)
-    `(let [pattern# ~arg0]
-       (python/with [_ (python* pytest/raises
-                         "(" ~ex-type ", match=" pattern# ")")]
-         ~@args))
-    `(python/with [_ (pytest/raises ~ex-type)]
-       ~arg0
-       ~@args)))
+(refer* 'clx.test 'deftest)
+(refer* 'clx.test 'is)
+(refer* 'clx.test 'raises)
 
 (defn range*
   ([end] (range* 0 end))
