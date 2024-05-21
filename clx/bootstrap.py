@@ -750,6 +750,7 @@ _K_IMPORTED_FROM = keyword("imported-from")
 _K_ATTRIBUTE = keyword("attribute")
 _K_BINDINGS = keyword("bindings")
 _K_IMPORTS = keyword("imports")
+_K_ALIASES = keyword("aliases")
 _K_MACRO_QMARK = keyword("macro?")
 _K_TOP_LEVEL_Q = keyword("top_level?")
 _K_SHARED = keyword("shared")
@@ -1081,6 +1082,8 @@ def init_context(namespaces):
     _intern(ctx, "clx.core", "refer*",
         lambda from_ns, sym, _as=None:
             _refer(weak_ctx(), from_ns, sym, _as))
+    _intern(ctx, "clx.core", "alias",
+        lambda _as, ns: _alias(weak_ctx(), _as, ns))
 
     return ctx
 
@@ -1747,15 +1750,24 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
         if binding is not None:
             return binding
     else:
+        namespaces = ctx.namespaces.deref()
         current_ns = _current_ns(ctx).deref()
         assert type(current_ns) is str
-        namespaces = ctx.namespaces.deref()
-        import_alias = get_in(namespaces,
+
+        _import = get_in(namespaces,
             list_(current_ns, _K_IMPORTS, sym.namespace))
-        if import_alias is not None:
+        if _import is not None:
             return Binding(
                 munge(sym.name),
-                meta=hash_map(_K_IMPORTED_FROM, import_alias))
+                meta=hash_map(_K_IMPORTED_FROM, _import))
+
+        aliased_ns = get_in(namespaces,
+            list_(current_ns, _K_ALIASES, sym.namespace))
+        if aliased_ns is not None:
+            binding = get_in(namespaces,
+                list_(aliased_ns, _K_BINDINGS, sym.name))
+            if binding is not None:
+                return binding
 
         binding = get_in(namespaces,
             list_(sym.namespace, _K_BINDINGS, sym.name))
@@ -2124,6 +2136,16 @@ def _refer(ctx, from_ns, sym, _as):
             f"Symbol '{sym.name}' not found in namespace '{from_ns.name}'"
         return assoc_in(namespaces,
             list_(cur_ns, _K_BINDINGS, _as.name), binding)
+    ctx.namespaces.swap(_update)
+
+def _alias(ctx, _as, ns):
+    assert is_simple_symbol(_as), "alias must be a simple symbol"
+    assert is_simple_symbol(ns), \
+        "alias expects namespace to be a simple symbol"
+    def _update(namespaces):
+        cur_ns = _current_ns(ctx).deref()
+        return assoc_in(namespaces,
+            list_(cur_ns, _K_ALIASES, _as.name), ns.name)
     ctx.namespaces.swap(_update)
 
 def slurp(path):

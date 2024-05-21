@@ -899,6 +899,13 @@ def test_refer():
             match=r"Symbol 'hundredth' not found in namespace 'clx.core'"):
         _eval("(refer* 'clx.core 'hundredth)")
 
+def test_alias():
+    assert _eval(
+        """
+        (alias 'core* 'clx.core)
+        (core*/second '(1 42 3))
+        """) == 42
+
 def test_macros():
     assert _eval(
         """
@@ -1107,7 +1114,8 @@ def test_resolve_symbol():
             "user",
                 M(K("bindings"), M("foo", 1,
                                    "bar", 2),
-                  K("imports"),  M()),
+                  K("imports"),  M(),
+                  K("aliases"),  M("bz", "baz")),
             "baz",
                 M(K("bindings"), M("quux", 3,
                                    "fred", 4),
@@ -1132,6 +1140,7 @@ def test_resolve_symbol():
     assert resolve(S("baz/fred")) == 4
     assert resolve(S("user/foo")) == 1
     assert resolve(S("user/bar")) == 2
+    assert resolve(S("bz/quux")) == 3
     with pytest.raises(Exception, match=r"Symbol 'user/baz' not found"):
         resolve(S("user/baz"))
     with pytest.raises(Exception, match=r"Symbol 'bar/foo' not found"):
