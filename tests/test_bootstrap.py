@@ -73,7 +73,6 @@ def test_keyword():
     assert K(S("baz")) is K("baz")
     assert K(S("foo/bar")) is K("foo/bar")
     assert K(K("quux")) is K("quux")
-    assert str(K("foo/bar")) == ":foo/bar"
     assert K(None, "foo") is K("foo")
     assert K("foo")(M(K("foo"), 42)) == 42
     assert K("foo")(M(K("bar"), 42)) is None
@@ -103,7 +102,6 @@ def test_symbol():
     assert not clx.is_simple_symbol(S("foo/bar"))
     assert S("/").name == "/"
     assert S("/").namespace is None
-    assert str(S("foo/bar")) == "foo/bar"
 
 def test_list():
     assert isinstance(L(), clx.PersistentList)
@@ -470,7 +468,7 @@ def test_quasiquote():
                 L(_S_LIST, L(S("quote"), S("a"))),
                 L(_S_LIST, S("b")),
                 S("c")))
-    assert re.fullmatch(r"\(quote x_\d+\)", str(clx.read_string("`x#")))
+    assert re.fullmatch(r"\(quote x_\d+\)", clx.pr_str(clx.read_string("`x#")))
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")
 

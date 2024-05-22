@@ -93,11 +93,6 @@ def munge(obj):
 # Types
 #************************************************************
 
-class IPrintable(ABC):
-    @abstractmethod
-    def pr(self, readably):
-        raise NotImplementedError()
-
 class IMeta(ABC):
     @abstractmethod
     def with_meta(self, _meta):
@@ -145,16 +140,14 @@ class ICollection(ABC):
 class ISequential(ABC):
     pass
 
-class Symbol(Hashable, IMeta, IPrintable):
+class Symbol(Hashable, IMeta):
     def __init__(self, _namespace, _name, _meta):
         self.name = sys.intern(_name)
         self.namespace = sys.intern(_namespace) if _namespace else None
         self._hash = hash((self.namespace, self.name))
         self.__meta__ = _meta
-    def __repr__(self):
-        return self.pr(True)
     def __str__(self):
-        return self.pr(False)
+        return f"Symbol({self.namespace}, {self.name})"
     def __eq__(self, other):
         return isinstance(other, Symbol) \
             and self.name is other.name \
@@ -163,9 +156,6 @@ class Symbol(Hashable, IMeta, IPrintable):
         return self._hash
     def with_meta(self, _meta):
         return Symbol(self.namespace, self.name, _meta)
-    def pr(self, readably):
-        return f"{self.namespace}/{self.name}" \
-            if self.namespace else self.name
 
 def symbol(arg1, arg2=None):
     if arg2 is None:
@@ -191,7 +181,7 @@ def is_symbol(obj):
 def is_simple_symbol(obj):
     return isinstance(obj, Symbol) and obj.namespace is None
 
-class Keyword(Hashable, IPrintable):
+class Keyword(Hashable):
     def __init__(self, _namespace, _name):
         self.name = sys.intern(_name)
         if _namespace is None:
@@ -205,15 +195,10 @@ class Keyword(Hashable, IPrintable):
         return self is other
     def __hash__(self):
         return self._hash
-    def __repr__(self):
-        return self.pr(True)
     def __str__(self):
-        return self.pr(False)
+        return f"Keyword({self.namespace}, {self.name})"
     def __call__(self, coll, not_found=None):
         return get(coll, self, not_found)
-    def pr(self, readably):
-        return f":{self.namespace}/{self.name}" \
-            if self.namespace else f":{self.name}"
 
 KEYWORD_TABLE = {}
 KEYWORD_TABLE_LOCK = threading.Lock()
@@ -276,10 +261,6 @@ class PersistentList( # pylint: disable=too-many-ancestors
         self._length = length
         self._hash = _hash
         self.__meta__ = _meta
-    def __repr__(self):
-        return pr_str(self, True)
-    def __str__(self):
-        return pr_str(self, False)
     def __eq__(self, other):
         if self is other:
             return True
@@ -352,7 +333,6 @@ class PersistentVector(
         Hashable,
         Sequence,
         IMeta,
-        IPrintable,
         IIndexed,
         ISeqable,
         ISequential):
@@ -376,10 +356,6 @@ class PersistentVector(
         return self._impl[index]
     def with_meta(self, _meta):
         return PersistentVector(self._impl, _meta)
-    def pr(self, readably):
-        return "[" + \
-            " ".join(map(lambda x: pr_str(x, readably), self)) + \
-            "]"
     def count_(self):
         return len(self._impl)
     def nth(self, index, not_found):
@@ -411,17 +387,12 @@ class PersistentMap(
         Hashable,
         Mapping,
         IMeta,
-        IPrintable,
         ICounted,
         ISeqable,
         IAssociative):
     def __init__(self, impl, _meta):
         self._impl = impl
         self.__meta__ = _meta
-    def __repr__(self):
-        return self.pr(True)
-    def __str__(self):
-        return self.pr(False)
     def __eq__(self, other):
         if type(other) is PersistentMap:
             return self._impl == other._impl
@@ -439,14 +410,6 @@ class PersistentMap(
         return self._impl.get(key, not_found)
     def with_meta(self, _meta):
         return PersistentMap(self._impl, _meta)
-    def pr(self, readably):
-        ret = functools.reduce(
-            lambda acc, kv:
-                acc.conj(pr_str(kv[1], readably))
-                    .conj(pr_str(kv[0], readably)),
-            self.items(),
-            list_())
-        return "{" + " ".join(ret) + "}"
     def count_(self):
         return len(self._impl)
     def seq(self):
@@ -568,10 +531,6 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
         while s is not None:
             yield s.first()
             s = s.next()
-    def __repr__(self):
-        return pr_str(self, True)
-    def __str__(self):
-        return pr_str(self, False)
     def with_meta(self, _meta):
         return LazySeq(self._func, self._seq, _meta)
     def first(self):
@@ -989,19 +948,36 @@ class ReaderError(Exception):
 def pr_str(obj, readably=False):
     if obj is None:
         return "nil"
-    if isinstance(obj, bool):
+    elif isinstance(obj, bool):
         return "true" if obj else "false"
-    if isinstance(obj, str):
+    elif isinstance(obj, str):
         if readably:
             return "\"" + escape(obj) + "\""
         return obj
-    if isinstance(obj, IPrintable):
-        return obj.pr(readably)
-    if isinstance(obj, ISeq):
+    elif type(obj) is Symbol:
+        return f"{obj.namespace}/{obj.name}" \
+            if obj.namespace else obj.name
+    elif type(obj) is Keyword:
+        return f":{obj.namespace}/{obj.name}" \
+            if obj.namespace else f":{obj.name}"
+    elif type(obj) is PersistentVector:
+        return "[" + \
+            " ".join(map(lambda x: pr_str(x, readably), obj)) + \
+            "]"
+    elif type(obj) is PersistentMap:
+        kvs = functools.reduce(
+            lambda acc, kv:
+                acc.conj(pr_str(kv[1], readably))
+                    .conj(pr_str(kv[0], readably)),
+            obj.items(),
+            list_())
+        return "{" + " ".join(kvs) + "}"
+    elif isinstance(obj, ISeq):
         return "(" + \
             " ".join(map(lambda x: pr_str(x, readably), obj)) + \
             ")"
-    return repr(obj) if readably else str(obj)
+    else:
+        return repr(obj) if readably else str(obj)
 
 def escape(text):
     return text \
