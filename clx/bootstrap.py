@@ -1179,30 +1179,39 @@ def macroexpand1(ctx, form):
     return form
 
 def _compile(ctx, lctx, form):
-    lctx = _update_source_location(lctx, form)
-    form = macroexpand(ctx, form)
-    if isinstance(form, PersistentList):
-        head = form.first()
-        compiler = _SPECIAL_FORM_COMPILERS[head] \
-            if is_symbol(head) and head in _SPECIAL_FORM_COMPILERS \
-            else _compile_call
-        return compiler(ctx, lctx, form)
-    elif isinstance(form, PersistentVector):
-        return _compile_vector(ctx, lctx, form)
-    elif isinstance(form, PersistentMap):
-        return _compile_map(ctx, lctx, form)
-    elif isinstance(form, Symbol):
-        binding = _resolve_symbol(ctx, lctx, form)
-        if get(binding.meta, _K_MACRO_QMARK, False):
-            raise Exception(f"Can't take value of a macro: {form}")
-        return _binding_node(lctx, ast.Load(), binding), []
-    else:
-        return \
-            ast.Constant(
-                form,
-                lineno=lctx.line,
-                col_offset=lctx.column), \
-            []
+    try:
+        lctx = _update_source_location(lctx, form)
+        form = macroexpand(ctx, form)
+        if isinstance(form, PersistentList):
+            head = form.first()
+            compiler = _SPECIAL_FORM_COMPILERS[head] \
+                if is_symbol(head) and head in _SPECIAL_FORM_COMPILERS \
+                else _compile_call
+            return compiler(ctx, lctx, form)
+        elif isinstance(form, PersistentVector):
+            return _compile_vector(ctx, lctx, form)
+        elif isinstance(form, PersistentMap):
+            return _compile_map(ctx, lctx, form)
+        elif isinstance(form, Symbol):
+            binding = _resolve_symbol(ctx, lctx, form)
+            if get(binding.meta, _K_MACRO_QMARK, False):
+                raise Exception(f"Can't take value of a macro: {form}")
+            return _binding_node(lctx, ast.Load(), binding), []
+        else:
+            return \
+                ast.Constant(
+                    form,
+                    lineno=lctx.line,
+                    col_offset=lctx.column), \
+                []
+    except SyntaxError:
+        raise
+    except Exception as ex:
+        fname = _current_file(ctx).deref()
+        ftext = slurp(fname) if fname != "NO_SOURCE_PATH" else ""
+        line = ftext.splitlines()[lctx.line - 1] if ftext else ""
+        raise SyntaxError(str(ex),
+            (fname, lctx.line, lctx.column, line,)) from ex
 
 def _update_source_location(lctx, form):
     _meta = meta(form)
