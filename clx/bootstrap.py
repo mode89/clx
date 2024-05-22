@@ -803,48 +803,53 @@ def tokenize(text):
 
 def read_form(tokens):
     token = first(tokens)
-    assert isinstance(token, Token), "expected a token"
-    rtokens = rest(tokens)
-    tstring = token.string
-    if tstring == "'":
-        form, _rest = read_form(rtokens)
-        return list_(_S_QUOTE, form), _rest
-    elif tstring == "`":
-        form, _rest = read_form(rtokens)
-        return quasiquote(_gen_name("_"), form), _rest
-    elif tstring == "~":
-        form, _rest = read_form(rtokens)
-        return list_(_S_UNQUOTE, form), _rest
-    elif tstring == "~@":
-        form, _rest = read_form(rtokens)
-        return list_(_S_SPLICE_UNQUOTE, form), _rest
-    elif tstring == "^":
-        _meta, rest1 = read_form(rtokens)
-        form, rest2 = read_form(rest1)
-        return vary_meta(form, merge, _meta), rest2
-    elif tstring == "@":
-        form, _rest = read_form(rtokens)
-        return list_(_S_DEREF, form), _rest
-    elif tstring[0] == "#":
-        return read_dispatch(tstring, rtokens)
-    elif tstring == "(":
-        l, rtokens = read_collection(token, rtokens, list_, ")")
-        l0 = l.first()
-        if type(l0) is Symbol and l0.name[0] == "." and l0.name != ".":
-            member = symbol(l0.name[1:])
-            assert l.count_() > 1, "expected (.member target ...)"
-            target = l.rest().first()
-            l = list_(_S_DOT, target, member, *l.rest().rest())
-        if l.count_() > 0:
-            l = l.with_meta(
-                hash_map(_K_LINE, token.line, _K_COLUMN, token.column))
-        return l, rtokens
-    elif tstring == "[":
-        return read_collection(token, rtokens, vector, "]")
-    elif tstring == "{":
-        return read_collection(token, rtokens, hash_map, "}")
-    else:
-        return read_atom(tstring), rtokens
+    try:
+        assert isinstance(token, Token), "expected a token"
+        rtokens = rest(tokens)
+        tstring = token.string
+        if tstring == "'":
+            form, _rest = read_form(rtokens)
+            return list_(_S_QUOTE, form), _rest
+        elif tstring == "`":
+            form, _rest = read_form(rtokens)
+            return quasiquote(_gen_name("_"), form), _rest
+        elif tstring == "~":
+            form, _rest = read_form(rtokens)
+            return list_(_S_UNQUOTE, form), _rest
+        elif tstring == "~@":
+            form, _rest = read_form(rtokens)
+            return list_(_S_SPLICE_UNQUOTE, form), _rest
+        elif tstring == "^":
+            _meta, rest1 = read_form(rtokens)
+            form, rest2 = read_form(rest1)
+            return vary_meta(form, merge, _meta), rest2
+        elif tstring == "@":
+            form, _rest = read_form(rtokens)
+            return list_(_S_DEREF, form), _rest
+        elif tstring[0] == "#":
+            return read_dispatch(tstring, rtokens)
+        elif tstring == "(":
+            l, rtokens = read_collection(token, rtokens, list_, ")")
+            l0 = l.first()
+            if type(l0) is Symbol and l0.name[0] == "." and l0.name != ".":
+                member = symbol(l0.name[1:])
+                assert l.count_() > 1, "expected (.member target ...)"
+                target = l.rest().first()
+                l = list_(_S_DOT, target, member, *l.rest().rest())
+            if l.count_() > 0:
+                l = l.with_meta(
+                    hash_map(_K_LINE, token.line, _K_COLUMN, token.column))
+            return l, rtokens
+        elif tstring == "[":
+            return read_collection(token, rtokens, vector, "]")
+        elif tstring == "{":
+            return read_collection(token, rtokens, hash_map, "}")
+        else:
+            return read_atom(tstring), rtokens
+    except ReaderError:
+        raise
+    except Exception as ex:
+        raise ReaderError(str(ex), token.line, token.column) from ex
 
 def read_dispatch(t0, tokens):
     if t0 == "#":
@@ -970,6 +975,12 @@ def _quasiquote_sequence(suffix, form):
         else:
             return list_(_S_LIST, quasiquote(suffix, _f))
     return list_(_S_CONCAT, *map(entry, form))
+
+class ReaderError(Exception):
+    def __init__(self, message, line, column):
+        super().__init__(message)
+        self.line = line
+        self.column = column
 
 #************************************************************
 # Printer
@@ -1114,7 +1125,15 @@ def _eval_string(ctx, text):
     tokens = list(tokenize(text))
     result = None
     while tokens:
-        form, tokens = read_form(tokens)
+        try:
+            form, tokens = read_form(tokens)
+        except ReaderError as ex:
+            raise SyntaxError(str(ex), (
+                _current_file(ctx).deref(),
+                ex.line,
+                ex.column,
+                text.splitlines()[ex.line - 1],
+            )) from ex
         result = _eval_form(ctx, lctx, form)
     return result
 
