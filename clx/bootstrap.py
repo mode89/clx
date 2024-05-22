@@ -3,7 +3,8 @@ import ast
 from bisect import bisect_left
 from collections import namedtuple
 from collections.abc import Hashable, Iterator, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, make_dataclass
+import dataclasses
 import functools
 import itertools
 import re
@@ -184,12 +185,7 @@ def is_simple_symbol(obj):
 class Keyword(Hashable):
     def __init__(self, _namespace, _name):
         self.name = sys.intern(_name)
-        if _namespace is None:
-            self.namespace = None
-            self.munged = munge(_name)
-        else:
-            self.namespace = sys.intern(_namespace)
-            self.munged = munge(_namespace + "/" + _name)
+        self.namespace = sys.intern(_namespace) if _namespace else None
         self._hash = hash((_namespace, _name))
     def __eq__(self, other):
         return self is other
@@ -447,38 +443,33 @@ def define_record(name, *fields):
     for field in fields:
         assert is_simple_keyword(field), \
             "field names must be simple keywords"
-    init_args = ", ".join([f.munged for f in fields])
-    init_fields = "; ".join(
-        [f"self.{f.munged} = {f.munged}" for f in fields])
-    def assoc_method(field):
-        params = ", ".join(
-            ["value" if f is field else f"self.{f.munged}" for f in fields])
-        return f"lambda self, value: {name}({params})"
-    assoc_methods = [f"kw_{f.munged}: {assoc_method(f)}" for f in fields]
-    _ns = {
-        **{f"kw_{munge(f.name)}": keyword(f) for f in fields},
-        "IRecord": IRecord,
-    }
-    exec( # pylint: disable=exec-used
-        f"""
-assoc_methods = {{
-  {", ".join(assoc_methods)}
-}}
 
-class {name}(IRecord):
-  def __init__(self, {init_args}):
-    {init_fields}
-  def lookup(self, field, not_found):
-    return getattr(self, field.munged, not_found)
-  def assoc(self, *kvs):
-    obj = self
-    for k, v in zip(kvs[::2], kvs[1::2]):
-      obj = assoc_methods[k](obj, v)
-    return obj
-cls = {name}
-        """,
-        _ns)
-    return _ns["cls"]
+    ns = {}
+    init_args = ", ".join(map(munge, fields))
+    init_set_fields = "\n  ".join(
+        f"self.{munge(f)} = {munge(f)}" for f in fields)
+    exec( # pylint: disable=exec-used
+        f"def init(self, {init_args}):\n"
+        f"  {init_set_fields}",
+        ns)
+
+    def make_getter(field):
+        fmunged = munge(field)
+        return lambda self: getattr(self, fmunged)
+    getters = {f: make_getter(f) for f in fields}
+
+    return make_dataclass(
+        name,
+        bases=(IRecord,),
+        fields=[munge(f) for f in fields],
+        namespace={
+            "__init__": ns["init"],
+            "lookup": lambda self, field, not_found:
+                getters.get(field, lambda _: not_found)(self),
+            "assoc": lambda self, *kvs:
+                dataclasses.replace(self,
+                    **dict(zip(map(munge, kvs[::2]), kvs[1::2]))),
+        })
 
 class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _first, _rest, _meta):

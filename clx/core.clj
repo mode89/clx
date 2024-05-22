@@ -323,7 +323,14 @@
                                     `(. ~self ~(symbol (str "-" %))))
                                 fields)))))]
     `(do (declare ~tname)
-         (let [assocs# (python/dict
+         (let [getters# (python/dict
+                          (hash-map
+                            ~@(mapcat
+                               #(vector (keyword %)
+                                  `(fn [~self]
+                                     (. ~self ~(symbol (str "-" %)))))
+                               fields)))
+               assocs# (python/dict
                          (hash-map
                            ~@(mapcat
                                #(vector (keyword %) (make-assoc %))
@@ -340,7 +347,8 @@
                               `(= (. ~self ~f*) (. ~other ~f*)))
                             fields)))
               (lookup [~self k not-found]
-                (python/getattr ~self (.-munged k) not-found))
+                (let [getter (.get getters# k (fn [~self] not-found))]
+                  (getter ~self)))
               (assoc [~self & kvs#]
                 (python*
                   "obj = " ~self "\n"
