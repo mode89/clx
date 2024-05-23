@@ -83,6 +83,9 @@ def test_symbol():
     assert not boot.is_simple_symbol(S("foo/bar"))
     assert S("/").name == "/"
     assert S("/").namespace is None
+    assert S("".join(["a" for _ in range(100)])) == \
+        S("".join(["a" for _ in range(100)]))
+    assert S(None, "foo") == S("foo")
 
 def test_list():
     assert isinstance(L(), PersistentList)

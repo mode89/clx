@@ -13,8 +13,8 @@ import weakref
 
 from clx.types import \
     IMeta, ICounted, IAssociative, IIndexed, ISeqable, ISeq, IRecord, \
-    Symbol, symbol, \
-    Keyword, keyword, \
+    Symbol, symbol, is_symbol, is_simple_symbol, \
+    Keyword, keyword, is_keyword, is_simple_keyword, \
     PersistentList, _EMPTY_LIST, list_, _list_from_iterable, \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, \
@@ -101,18 +101,6 @@ def munge(obj):
 #************************************************************
 # Types
 #************************************************************
-
-def is_symbol(obj):
-    return isinstance(obj, Symbol)
-
-def is_simple_symbol(obj):
-    return isinstance(obj, Symbol) and obj.namespace is None
-
-def is_keyword(obj):
-    return isinstance(obj, Keyword)
-
-def is_simple_keyword(obj):
-    return isinstance(obj, Keyword) and obj.namespace is None
 
 def is_list(obj):
     return type(obj) is PersistentList
@@ -548,6 +536,8 @@ def init_context(namespaces):
             "meta": meta,
             "apply": apply,
             "keyword": keyword,
+            "keyword?": is_keyword,
+            "simple-keyword?": is_simple_keyword,
             "symbol": symbol,
             "symbol?": is_symbol,
             "list": list_,

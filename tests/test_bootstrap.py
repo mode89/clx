@@ -116,6 +116,7 @@ def test_read_string():
     assert clx.read_string("[4 5 6]") == V(4, 5, 6)
     with pytest.raises(Exception, match=r"Expected '\]'"):
         clx.read_string("[4 5 6")
+    assert clx.read_string("[eight]") == V(S("eight"))
     assert clx.read_string("{:a 7 \"b\" eight}") == \
         M(K("a"), 7, "b", S("eight"))
     with pytest.raises(Exception, match=r"Expected '\}'"):
@@ -207,6 +208,7 @@ def test_eval_value():
     assert _eval("[42 :foo \"bar\"]") == V(42, K("foo"), "bar")
     assert _eval("{}") == M()
     assert _eval("{1 2 3 4}") == M(1, 2, 3, 4)
+    assert _eval("{:foo 42}") == M(K("foo"), 42)
     assert _eval("{:foo 42 \"bar\" :baz}") == M(K("foo"), 42, "bar", K("baz"))
 
 def test_quote():

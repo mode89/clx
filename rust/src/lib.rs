@@ -1,12 +1,26 @@
-use pyo3::prelude::*;
+mod utils;
+mod symbol;
+mod keyword;
 
-#[pyfunction]
-fn hello(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
+use pyo3_ffi::*;
 
-#[pymodule]
-fn clx_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(hello, m)?)?;
-    Ok(())
+#[no_mangle]
+pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
+    static mut MODULE: PyModuleDef = PyModuleDef {
+        m_base: PyModuleDef_HEAD_INIT,
+        m_name: "clx_rust\0".as_ptr().cast(),
+        m_doc: std::ptr::null(),
+        m_size: -1,
+        m_methods: std::ptr::null_mut(),
+        m_slots: std::ptr::null_mut(),
+        m_traverse: None,
+        m_clear: None,
+        m_free: None,
+    };
+    let module = unsafe { PyModule_Create(std::ptr::addr_of_mut!(MODULE)) };
+
+    symbol::init_module(module);
+    keyword::init_module(module);
+
+    module
 }

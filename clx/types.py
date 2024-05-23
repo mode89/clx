@@ -1,12 +1,18 @@
 from abc import abstractmethod, ABC
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
-import sys
 import threading
+
+# pylint: disable=unused-import
+from clx_rust import \
+    Symbol, symbol, is_symbol, is_simple_symbol, \
+    Keyword, keyword, is_keyword, is_simple_keyword
 
 class IMeta(ABC):
     @abstractmethod
     def with_meta(self, _meta):
         raise NotImplementedError()
+
+IMeta.register(Symbol)
 
 class ICounted(ABC):
     @abstractmethod
@@ -52,96 +58,6 @@ class ISequential(ABC):
 
 class IRecord(IAssociative, ABC):
     pass
-
-class Symbol(Hashable, IMeta):
-    def __init__(self, _namespace, _name, _meta):
-        self.name = sys.intern(_name)
-        self.namespace = sys.intern(_namespace) if _namespace else None
-        self._hash = hash((self.namespace, self.name))
-        self.__meta__ = _meta
-    def __str__(self):
-        return f"Symbol({self.namespace}, {self.name})"
-    def __eq__(self, other):
-        return isinstance(other, Symbol) \
-            and self.name is other.name \
-            and self.namespace is other.namespace
-    def __hash__(self):
-        return self._hash
-    def with_meta(self, _meta):
-        return Symbol(self.namespace, self.name, _meta)
-
-def symbol(arg1, arg2=None):
-    if arg2 is None:
-        if isinstance(arg1, str):
-            if arg1[0] == "/":
-                return Symbol(None, arg1, None)
-            elif "/" in arg1:
-                _ns, name = arg1.split("/", 1)
-                return Symbol(_ns, name, None)
-            else:
-                return Symbol(None, arg1, None)
-        elif isinstance(arg1, Symbol):
-            return arg1
-        else:
-            raise Exception(
-                "symbol expects a string or a Symbol as the first argument")
-    else:
-        return Symbol(arg1, arg2, None)
-
-class Keyword(Hashable):
-    def __init__(self, _namespace, _name):
-        self.name = sys.intern(_name)
-        self.namespace = sys.intern(_namespace) if _namespace else None
-        self._hash = hash((_namespace, _name))
-    def __eq__(self, other):
-        return self is other
-    def __hash__(self):
-        return self._hash
-    def __str__(self):
-        return f"Keyword({self.namespace}, {self.name})"
-    def __call__(self, obj, not_found=None):
-        return obj.lookup(self, not_found)
-
-KEYWORD_TABLE = {}
-KEYWORD_TABLE_LOCK = threading.Lock()
-
-def keyword(arg1, arg2=None):
-    if arg2 is None:
-        if isinstance(arg1, str):
-            if "/" in arg1:
-                _ns, _name = arg1.split("/", 1)
-                qname = sys.intern(arg1)
-            else:
-                _ns = None
-                _name = arg1
-                qname = sys.intern(_name)
-        elif isinstance(arg1, Symbol):
-            _ns = arg1.namespace
-            _name = arg1.name
-            qname = f"{_ns}/{_name}" if _ns else _name
-            qname = sys.intern((_ns + "/" + _name) if _ns else _name)
-        elif isinstance(arg1, Keyword):
-            return arg1
-        else:
-            raise Exception(
-                "keyword expects a string, a Keyword, or a Symbol as the "
-                "first argument")
-    else:
-        if arg1 is None:
-            _ns = None
-            _name = arg2
-            qname = sys.intern(_name)
-        else:
-            _ns = arg1
-            _name = arg2
-            qname = sys.intern(_ns + "/" + _name)
-    with KEYWORD_TABLE_LOCK:
-        if qname in KEYWORD_TABLE:
-            return KEYWORD_TABLE[qname]
-        else:
-            new_kw = Keyword(_ns, _name)
-            KEYWORD_TABLE[qname] = new_kw
-            return new_kw
 
 class PersistentList( # pylint: disable=too-many-ancestors
         Hashable,
