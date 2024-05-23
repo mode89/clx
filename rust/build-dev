@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+MODULE=clx_rust
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+TARGET_DIR=${SCRIPT_DIR}/target
+
+cargo build --release --manifest-path ${SCRIPT_DIR}/Cargo.toml
+ln -sf "release/lib${MODULE}.so" "${TARGET_DIR}/${MODULE}.so"

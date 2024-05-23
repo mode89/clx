@@ -16,3 +16,4 @@ disable=
   too-many-statements,
   unidiomatic-typecheck,
   unnecessary-lambda-assignment,
+extension-pkg-allow-list=clx_rust

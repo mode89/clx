@@ -1,0 +1,14 @@
+[package]
+name = "clx-rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "clx_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
+
+[profile.release]
+opt-level = 3
