@@ -15,7 +15,7 @@ from clx.types import \
     IMeta, ICounted, IAssociative, IIndexed, ISeqable, ISeq, IRecord, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
-    PersistentList, _EMPTY_LIST, list_, _list_from_iterable, \
+    PersistentList, list_, _list_from_iterable, \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, \
     cons, lazy_seq, seq, \
@@ -1513,7 +1513,7 @@ def next_(coll):
 def rest(coll):
     coll = seq(coll)
     if coll is None:
-        return _EMPTY_LIST
+        return list_()
     return coll.rest()
 
 def second(coll):
@@ -1585,7 +1585,7 @@ def concat(*colls):
 def _concat(colls):
     colls = seq(colls)
     if colls is None:
-        return _EMPTY_LIST
+        return list_()
     elif colls.next() is None:
         return lazy_seq(colls.first)
     else:

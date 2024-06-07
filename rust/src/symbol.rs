@@ -1,4 +1,5 @@
 use crate::utils;
+use crate::protocols::*;
 use utils::PyObj;
 use std::ffi::{CStr, CString};
 use std::collections::hash_map::DefaultHasher;
@@ -18,61 +19,34 @@ pub struct Symbol {
     pub name: PyObj,
     pub namespace: PyObj,
     meta: PyObj,
-    hash: Option<i64>,
+    hash: Option<isize>,
 }
 
 pub fn symbol_type() -> &'static PyObj {
-    utils::lazy_static!(PyObj, {
-        let members = vec![
-            utils::member_def!(0, name),
-            utils::member_def!(1, namespace),
-            utils::member_def!(2, __meta__),
-            utils::PY_MEMBER_DEF_DUMMY
-        ];
-
-        let methods = utils::lazy_static!(Vec<PyMethodDef>, { vec![
-            utils::method_def!("with_meta", symbol_with_meta),
-            utils::PY_METHOD_DEF_DUMMY,
-        ]});
-
-        let slots = vec![
-            utils::generic_dealloc_slot::<Symbol>(),
-            PyType_Slot {
-                slot: Py_tp_members,
-                pfunc: members.as_ptr() as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_methods,
-                pfunc: methods.as_ptr() as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_repr,
-                pfunc: symbol_repr as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_hash,
-                pfunc: symbol_hash as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_richcompare,
-                pfunc: symbol_compare as *mut _,
-            },
-            utils::PY_TYPE_SLOT_DUMMY
-        ];
-
-        let spec = PyType_Spec {
-            name: utils::static_cstring!("clx_rust.Symbol").as_ptr().cast(),
-            basicsize: std::mem::size_of::<Symbol>() as i32,
-            itemsize: 0,
-            flags: (Py_TPFLAGS_DEFAULT |
-                    Py_TPFLAGS_DISALLOW_INSTANTIATION) as u32,
-            slots: slots.as_ptr() as *mut PyType_Slot,
-        };
-
-        unsafe {
-            PyObj::own(PyType_FromSpec(&spec as *const _ as *mut _))
+    utils::static_type!(
+        utils::TypeSpec {
+            name: "clx_rust.Symbol",
+            bases: vec![
+                imeta_type(),
+            ],
+            flags: Py_TPFLAGS_DEFAULT |
+                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            size: std::mem::size_of::<Symbol>(),
+            dealloc: Some(utils::generic_dealloc::<Symbol>),
+            repr: Some(symbol_repr),
+            hash: Some(symbol_hash),
+            compare: Some(symbol_compare),
+            members: vec![
+                "name",
+                "namespace",
+                "__meta__"
+            ],
+            methods: vec![
+                ("with_meta", symbol_with_meta),
+            ],
+            ..Default::default()
         }
-    })
+    )
 }
 
 unsafe extern "C" fn symbol(
@@ -172,7 +146,7 @@ unsafe extern "C" fn symbol_repr(
 
 unsafe extern "C" fn symbol_hash(
     self_: *mut PyObject,
-) -> i64 {
+) -> isize {
     let self_ = PyObj::borrow(self_);
     let self_ = self_.as_ref::<Symbol>();
     match self_.hash {
@@ -189,7 +163,7 @@ unsafe extern "C" fn symbol_hash(
                 *self_.name, std::ptr::null_mut());
             name.hash(&mut hasher);
 
-            let hash = hasher.finish() as i64;
+            let hash = hasher.finish() as isize;
             self_.hash = Some(hash);
             hash
         }
@@ -250,7 +224,7 @@ unsafe extern "C" fn is_symbol(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::handle_gil!({
         PyObj::from(Py_TYPE(*args) == symbol_type().as_ptr()).into_ptr()
     })
 }
@@ -260,7 +234,7 @@ unsafe extern "C" fn is_simple_symbol(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::handle_gil!({
         let obj = PyObj::borrow(*args);
         if obj.type_ptr() == symbol_type().as_ptr() {
             let sym = obj.as_ref::<Symbol>();

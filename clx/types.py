@@ -4,40 +4,14 @@ import threading
 
 # pylint: disable=unused-import
 from clx_rust import \
+    IMeta, ICounted, ISeqable, ISeq, ICollection, ISequential, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
-    Keyword, keyword, is_keyword, is_simple_keyword
-
-class IMeta(ABC):
-    @abstractmethod
-    def with_meta(self, _meta):
-        raise NotImplementedError()
-
-IMeta.register(Symbol)
-
-class ICounted(ABC):
-    @abstractmethod
-    def count_(self):
-        raise NotImplementedError()
+    Keyword, keyword, is_keyword, is_simple_keyword, \
+    PersistentList, list_, is_list
 
 class IIndexed(ICounted, ABC):
     @abstractmethod
     def nth(self, index, not_found):
-        raise NotImplementedError()
-
-class ISeqable(ABC):
-    @abstractmethod
-    def seq(self):
-        raise NotImplementedError()
-
-class ISeq(ISeqable, ABC):
-    @abstractmethod
-    def first(self):
-        raise NotImplementedError()
-    @abstractmethod
-    def next(self):
-        raise NotImplementedError()
-    @abstractmethod
-    def rest(self):
         raise NotImplementedError()
 
 class IAssociative(ABC):
@@ -48,94 +22,14 @@ class IAssociative(ABC):
     def assoc(self, *kvs):
         raise NotImplementedError()
 
-class ICollection(ABC):
-    @abstractmethod
-    def conj(self, value):
-        raise NotImplementedError()
-
-class ISequential(ABC):
-    pass
-
 class IRecord(IAssociative, ABC):
     pass
 
-class PersistentList( # pylint: disable=too-many-ancestors
-        Hashable,
-        Sequence,
-        IMeta,
-        ICounted,
-        ISeq,
-        ISequential,
-        ICollection):
-    def __init__(self, _first, _rest, length, _hash, _meta):
-        self._first = _first
-        self._rest = _rest
-        self._length = length
-        self._hash = _hash
-        self.__meta__ = _meta
-    def __eq__(self, other):
-        if self is other:
-            return True
-        elif type(other) is PersistentList:
-            if self._length != other._length:
-                return False
-            else:
-                lst1, lst2 = self, other
-                while lst1._length > 0:
-                    if lst1._first != lst2._first:
-                        return False
-                    lst1, lst2 = lst1._rest, lst2._rest
-                return True
-        else:
-            return _equiv_sequential(self, other)
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = hash(tuple(self))
-        return self._hash
-    def __len__(self):
-        return self._length
-    def __iter__(self):
-        lst = self
-        while lst._length > 0:
-            yield lst._first
-            lst = lst._rest
-    def __getitem__(self, index):
-        raise NotImplementedError()
-    def with_meta(self, _meta):
-        return PersistentList(
-            self._first,
-            self._rest,
-            self._length,
-            self._hash,
-            _meta)
-    def count_(self):
-        return self._length
-    def first(self):
-        return self._first
-    def next(self):
-        if self._length <= 1:
-            return None
-        return self._rest
-    def rest(self):
-        return self._rest
-    def seq(self):
-        return self
-    def conj(self, value):
-        return PersistentList(value, self, self._length + 1, None, None)
-
-_EMPTY_LIST = PersistentList(None, None, 0, None, None)
-_EMPTY_LIST.rest = lambda: _EMPTY_LIST
-_EMPTY_LIST.seq = lambda: None
-
-def list_(*elements):
-    return _list_from_iterable(elements)
-
 def _list_from_iterable(iterable):
     _list = iterable if isinstance(iterable, list) else list(iterable)
-    result = _EMPTY_LIST
+    result = list_()
     for elem in reversed(_list):
-        result = PersistentList(
-            elem, result, result._length + 1, None, None) # pylint: disable=protected-access
+        result = result.conj(elem)
     return result
 
 class PersistentVector(
@@ -300,7 +194,7 @@ class LazySeq(Hashable, IMeta, ISeq, ISequential):
         return s.next() if s is not None else None
     def rest(self):
         s = self.seq()
-        return s.rest() if s is not None else _EMPTY_LIST
+        return s.rest() if s is not None else list_()
     def seq(self):
         s = self._force1()
         while type(s) is LazySeq:
@@ -341,7 +235,7 @@ class IndexedSeq(IMeta, IIndexed, ISeq, ISequential):
         return None
     def rest(self):
         _next = self.next()
-        return _next if _next is not None else _EMPTY_LIST
+        return _next if _next is not None else list_()
     def seq(self):
         return self
 
@@ -365,7 +259,7 @@ def _equiv_sequential(x, y):
 
 def cons(obj, coll):
     if coll is None:
-        return PersistentList(obj, _EMPTY_LIST, 1, None, None)
+        return list_().conj(obj)
     elif isinstance(coll, ISeq):
         return Cons(obj, coll, _meta=None)
     else:

@@ -22,55 +22,25 @@ pub struct Keyword {
     ob_base: PyObject,
     name: PyObj,
     namespace: PyObj,
-    hash: Option<i64>,
+    hash: Option<isize>,
 }
 
-fn keyword_type() -> &'static PyObj {
-    utils::lazy_static!(PyObj, {
-        let members = vec![
-            utils::member_def!(0, name),
-            utils::member_def!(1, namespace),
-            utils::PY_MEMBER_DEF_DUMMY
-        ];
-
-        let slots = vec![
-            utils::generic_dealloc_slot::<Keyword>(),
-            PyType_Slot {
-                slot: Py_tp_members,
-                pfunc: members.as_ptr() as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_repr,
-                pfunc: keyword_repr as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_hash,
-                pfunc: keyword_hash as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_richcompare,
-                pfunc: keyword_compare as *mut _,
-            },
-            PyType_Slot {
-                slot: Py_tp_call,
-                pfunc: keyword_call as *mut _,
-            },
-            utils::PY_TYPE_SLOT_DUMMY
-        ];
-
-        let spec = PyType_Spec {
-            name: utils::static_cstring!("clx_rust.Keyword").as_ptr().cast(),
-            basicsize: std::mem::size_of::<Keyword>() as i32,
-            itemsize: 0,
-            flags: (Py_TPFLAGS_DEFAULT |
-                    Py_TPFLAGS_DISALLOW_INSTANTIATION) as u32,
-            slots: slots.as_ptr() as *mut PyType_Slot,
-        };
-
-        unsafe {
-            PyObj::own(PyType_FromSpec(&spec as *const _ as *mut _))
+pub fn keyword_type() -> &'static PyObj {
+    utils::static_type!(
+        utils::TypeSpec {
+            name: "clx_rust.Keyword",
+            flags: Py_TPFLAGS_DEFAULT |
+                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            size: std::mem::size_of::<Keyword>(),
+            dealloc: Some(utils::generic_dealloc::<Keyword>),
+            repr: Some(keyword_repr),
+            hash: Some(keyword_hash),
+            compare: Some(keyword_compare),
+            call: Some(keyword_call),
+            members: vec![ "name", "namespace" ],
+            ..Default::default()
         }
-    })
+    )
 }
 
 unsafe extern "C" fn keyword(
@@ -209,7 +179,7 @@ unsafe extern "C" fn keyword_repr(
 
 unsafe extern "C" fn keyword_hash(
     self_: *mut PyObject,
-) -> i64 {
+) -> isize {
     let self_ = PyObj::borrow(self_);
     let keyword = self_.as_ref::<Keyword>();
     match (*keyword).hash {
@@ -226,7 +196,7 @@ unsafe extern "C" fn keyword_hash(
                 *keyword.name, std::ptr::null_mut());
             name.hash(&mut hasher);
 
-            let hash = hasher.finish() as i64;
+            let hash = hasher.finish() as isize;
             (*keyword).hash = Some(hash);
             hash
         }
@@ -276,7 +246,7 @@ unsafe extern "C" fn keyword_call(
         if PyArg_UnpackTuple(args, "Keyword.__call__()\0".as_ptr().cast(),
                 1, 2, &coll, &default) != 0 {
             result = PyObject_CallMethodObjArgs(coll,
-                utils::static_pystring!("lookup"),
+                utils::static_pystring!("lookup").into_ptr(),
                 self_,
                 if !default.is_null() {
                     default
@@ -294,7 +264,7 @@ unsafe extern "C" fn is_keyword(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::handle_gil!({
         PyObj::from(Py_TYPE(*args) == keyword_type().as_ptr()).into_ptr()
     })
 }
@@ -304,7 +274,7 @@ unsafe extern "C" fn is_simple_keyword(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::handle_gil!({
         let argo = PyObj::borrow(*args);
         if argo.type_is(keyword_type()) {
             let arg = argo.as_ref::<Keyword>();

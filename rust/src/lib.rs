@@ -1,6 +1,8 @@
 mod utils;
+mod protocols;
 mod symbol;
 mod keyword;
+mod list;
 
 use pyo3_ffi::*;
 
@@ -19,8 +21,10 @@ pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
     };
     let module = unsafe { PyModule_Create(std::ptr::addr_of_mut!(MODULE)) };
 
+    protocols::init_module(module);
     symbol::init_module(module);
     keyword::init_module(module);
+    list::init_module(module);
 
     module
 }
