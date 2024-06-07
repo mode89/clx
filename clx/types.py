@@ -349,7 +349,6 @@ def _equiv_sequential(x, y):
     assert isinstance(x, ISequential), "expected a sequential"
     if isinstance(y, ISequential):
         x, y = x.seq(), y.seq()
-        print(x, y)
         while True:
             if x is None:
                 return y is None
