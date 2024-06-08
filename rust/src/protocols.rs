@@ -9,6 +9,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_type!(module, ISeq, iseq_type());
     utils::module_add_type!(module, ISequential, isequential_type());
     utils::module_add_type!(module, ICollection, icollection_type());
+    utils::module_add_type!(module, IIndexed, iindexed_type());
 }
 
 extern "C" fn dummy_method(
@@ -82,6 +83,18 @@ pub fn icollection_type() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("conj", dummy_method),
+        ],
+        ..Default::default()
+    })
+}
+
+pub fn iindexed_type() -> &'static PyObj {
+    utils::static_type!(utils::TypeSpec {
+        name: "clx_rust.IIndexed",
+        bases: vec![icounted_type()],
+        flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        methods: vec![
+            ("nth", dummy_method),
         ],
         ..Default::default()
     })

@@ -4,15 +4,13 @@ import threading
 
 # pylint: disable=unused-import
 from clx_rust import \
-    IMeta, ICounted, ISeqable, ISeq, ICollection, ISequential, \
+    IMeta, ICounted, ISeqable, ISeq, ICollection, ISequential, IIndexed, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
-    PersistentList, list_, is_list
+    PersistentList, list_, is_list, \
+    PersistentVector, vector, is_vector
 
-class IIndexed(ICounted, ABC):
-    @abstractmethod
-    def nth(self, index, not_found):
-        raise NotImplementedError()
+Iterable.register(PersistentVector)
 
 class IAssociative(ABC):
     @abstractmethod
@@ -32,52 +30,11 @@ def _list_from_iterable(iterable):
         result = result.conj(elem)
     return result
 
-class PersistentVector(
-        Hashable,
-        Sequence,
-        IMeta,
-        IIndexed,
-        ISeqable,
-        ISequential):
-    def __init__(self, impl, _meta):
-        self._impl = impl
-        self.__meta__ = _meta
-    def __eq__(self, other):
-        return self is other \
-            or (type(other) is PersistentVector \
-                and self._impl == other._impl) \
-            or _equiv_sequential(self, other)
-    def __hash__(self):
-        raise NotImplementedError()
-    def __len__(self):
-        return len(self._impl)
-    def __iter__(self):
-        return iter(self._impl)
-    def __getitem__(self, index):
-        return self._impl[index]
-    def __call__(self, index):
-        return self._impl[index]
-    def with_meta(self, _meta):
-        return PersistentVector(self._impl, _meta)
-    def count_(self):
-        return len(self._impl)
-    def nth(self, index, not_found):
-        return self._impl[index] \
-            if 0 <= index < len(self._impl) \
-            else not_found
-    def seq(self):
-        size = len(self._impl)
-        return IndexedSeq(self._impl, 0, None) if size > 0 else None
-
-_EMPTY_VECTOR = PersistentVector([], _meta=None)
-_EMPTY_VECTOR.seq = lambda: None
-
 def vec(coll):
-    lst = list(coll)
-    return PersistentVector(lst, None) if lst else _EMPTY_VECTOR
-
-def vector(*elements):
-    return vec(elements)
+    if not coll:
+        return vector()
+    else:
+        return vector(*coll)
 
 class PersistentMap(
         Hashable,

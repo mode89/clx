@@ -5,7 +5,7 @@ from clx.types import \
     Symbol, symbol, \
     Keyword, keyword, \
     PersistentList, list_, \
-    PersistentVector, vector, \
+    PersistentVector, vector, vec, \
     PersistentMap, hash_map, \
     IndexedSeq, cons, lazy_seq, seq, \
     Atom, atom
@@ -146,6 +146,8 @@ def test_vector():
     assert v.seq() is None
     with pytest.raises(IndexError):
         v[0] # pylint: disable=pointless-statement
+    with pytest.raises(TypeError):
+        v[None] # pylint: disable=pointless-statement
     v1 = V(1)
     assert len(v1) == 1
     assert v1.seq().first() == 1
@@ -177,10 +179,27 @@ def test_vector():
     assert V(1, 2, 3) == _lazy_range(1, 4)
     assert V(1, 2, 3) != [1, 2, 3]
     assert V(1, 2, 3) != (1, 2, 3)
+    assert V(*range(1000)) == V(*range(1000))
     assert V(42, 9001)(0) == 42
     assert V(42, 9001)(1) == 9001
     with pytest.raises(IndexError):
         V(42, 9001)(2)
+    with pytest.raises(TypeError):
+        V(42, 9001)(None)
+    vl = vec(range(3))
+    assert isinstance(vl, PersistentVector)
+    assert vl == V(0, 1, 2)
+    assert V(1, 2, 3).nth(0) == 1
+    assert V(1, 2, 3).nth(1) == 2
+    assert V(1, 2, 3).nth(2) == 3
+    assert V(1, 2, 3).nth(3, 42) == 42
+    with pytest.raises(IndexError):
+        V(1, 2, 3).nth(3)
+    with pytest.raises(IndexError):
+        V(1, 2, 3).nth(-1)
+    with pytest.raises(TypeError):
+        V(1, 2, 3).nth(None)
+    assert [*V(1, 2, 3)] == [1, 2, 3]
 
 def test_hash_map():
     m0 = M()

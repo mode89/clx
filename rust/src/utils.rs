@@ -125,6 +125,16 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn as_int(&self) -> Option<isize> {
+        let val = unsafe { PyLong_AsLong(self.0) };
+        if val == -1 && unsafe { !PyErr_Occurred().is_null() } {
+            None
+        } else {
+            Some(val as isize)
+        }
+    }
+
+    #[inline]
     pub fn is_none(&self) -> bool {
         unsafe { self.0 == Py_None() }
     }
@@ -514,6 +524,7 @@ pub struct TypeSpec {
     pub compare: Option<richcmpfunc>,
     pub iter: Option<getiterfunc>,
     pub next: Option<iternextfunc>,
+    pub sq_item: Option<ssizeargfunc>,
     pub members: Vec<&'static str>,
     pub methods: Vec<(&'static str, _PyCFunctionFast)>,
 }
@@ -654,7 +665,7 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         sq_length: spec.length,
         sq_concat: None,
         sq_repeat: None,
-        sq_item: None,
+        sq_item: spec.sq_item,
         sq_ass_item: None,
         sq_contains: None,
         sq_inplace_concat: None,

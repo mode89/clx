@@ -3,6 +3,7 @@ mod protocols;
 mod symbol;
 mod keyword;
 mod list;
+mod vector;
 
 use pyo3_ffi::*;
 
@@ -25,6 +26,7 @@ pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
     symbol::init_module(module);
     keyword::init_module(module);
     list::init_module(module);
+    vector::init_module(module);
 
     module
 }
