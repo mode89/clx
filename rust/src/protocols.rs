@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::utils;
 use pyo3_ffi::*;
 
@@ -24,7 +25,7 @@ extern "C" fn dummy_method(
 }
 
 pub fn imeta_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.IMeta",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -35,7 +36,7 @@ pub fn imeta_type() -> &'static PyObj {
 }
 
 pub fn icounted_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.ICounted",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -46,7 +47,7 @@ pub fn icounted_type() -> &'static PyObj {
 }
 
 pub fn iseqable_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.ISeqable",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -57,7 +58,7 @@ pub fn iseqable_type() -> &'static PyObj {
 }
 
 pub fn iseq_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.ISeq",
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
@@ -71,7 +72,7 @@ pub fn iseq_type() -> &'static PyObj {
 }
 
 pub fn isequential_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.ISequential",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         ..Default::default()
@@ -79,7 +80,7 @@ pub fn isequential_type() -> &'static PyObj {
 }
 
 pub fn icollection_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.ICollection",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -90,7 +91,7 @@ pub fn icollection_type() -> &'static PyObj {
 }
 
 pub fn iindexed_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.IIndexed",
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
@@ -102,7 +103,7 @@ pub fn iindexed_type() -> &'static PyObj {
 }
 
 pub fn iassociative_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.IAssociative",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![

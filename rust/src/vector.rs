@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
@@ -19,8 +20,8 @@ pub struct Vector {
 }
 
 pub fn vector_type() -> &'static PyObj {
-    utils::static_type!(
-        utils::TypeSpec {
+    static_type!(
+        TypeSpec {
             name: "clx_rust.PersistentVector",
             bases: vec![
                 imeta_type(),
@@ -47,7 +48,7 @@ pub fn vector_type() -> &'static PyObj {
                 ("seq", py_vector_seq),
                 // TODO ("conj", py_vector_conj),
             ],
-            ..utils::TypeSpec::default()
+            ..TypeSpec::default()
         }
     )
 }

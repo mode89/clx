@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
@@ -20,8 +21,8 @@ pub struct HashMap {
 }
 
 pub fn hash_map_type() -> &'static PyObj {
-    utils::static_type!(
-        utils::TypeSpec {
+    static_type!(
+        TypeSpec {
             name: "clx_rust.PersistentHashMap",
             bases: vec![
                 imeta_type(),
@@ -51,7 +52,7 @@ pub fn hash_map_type() -> &'static PyObj {
                 ("seq", py_hash_map_seq),
                 // TODO ("conj", py_vector_conj),
             ],
-            ..utils::TypeSpec::default()
+            ..TypeSpec::default()
         }
     )
 }
@@ -413,7 +414,7 @@ pub struct HashMapIterator<'a> {
 }
 
 pub fn hash_map_iterator_type() -> &'static PyObj {
-    utils::static_type!(utils::TypeSpec {
+    static_type!(TypeSpec {
         name: "clx_rust.PersistentHashMapIterator",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
         size: std::mem::size_of::<HashMapIterator>(),

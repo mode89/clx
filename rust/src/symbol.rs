@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::utils;
 use crate::protocols::*;
 use std::ffi::{CStr, CString};
@@ -23,8 +24,8 @@ pub struct Symbol {
 }
 
 pub fn symbol_type() -> &'static PyObj {
-    utils::static_type!(
-        utils::TypeSpec {
+    static_type!(
+        TypeSpec {
             name: "clx_rust.Symbol",
             bases: vec![
                 imeta_type(),

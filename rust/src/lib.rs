@@ -1,5 +1,6 @@
 mod utils;
 mod object;
+mod type_object;
 mod protocols;
 mod symbol;
 mod keyword;

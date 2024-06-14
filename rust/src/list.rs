@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::utils;
 use crate::protocols::*;
 use pyo3_ffi::*;
@@ -23,8 +24,8 @@ pub struct List {
 }
 
 pub fn list_type() -> &'static PyObj {
-    utils::static_type!(
-        utils::TypeSpec {
+    static_type!(
+        TypeSpec {
             name: "clx_rust.PersistentList",
             bases: vec![
                 imeta_type(),
@@ -51,7 +52,7 @@ pub fn list_type() -> &'static PyObj {
                 ("seq", py_list_seq),
                 ("conj", py_list_conj),
             ],
-            ..utils::TypeSpec::default()
+            ..TypeSpec::default()
         }
     )
 }

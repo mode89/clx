@@ -1,4 +1,5 @@
 use crate::object::PyObj;
+use crate::type_object::*;
 use crate::symbol::*;
 use crate::utils;
 use std::ffi::{CStr, CString};
@@ -26,8 +27,8 @@ pub struct Keyword {
 }
 
 pub fn keyword_type() -> &'static PyObj {
-    utils::static_type!(
-        utils::TypeSpec {
+    static_type!(
+        TypeSpec {
             name: "clx_rust.Keyword",
             flags: Py_TPFLAGS_DEFAULT |
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
