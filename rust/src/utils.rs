@@ -144,38 +144,6 @@ macro_rules! handle_gil {
 
 pub(crate) use handle_gil;
 
-#[allow(unused_macros)]
-macro_rules! member_def {
-    ($index:expr, $name:expr) => {
-        PyMemberDef {
-            name: utils::static_cstring!(stringify!($name)).as_ptr().cast(),
-            type_code: Py_T_OBJECT_EX,
-            offset: (std::mem::size_of::<PyObject>() +
-                     std::mem::size_of::<PyObj>() * $index) as isize,
-            flags: Py_READONLY,
-            doc: std::ptr::null(),
-        }
-    };
-}
-
-#[allow(unused_imports)]
-pub(crate) use member_def;
-
-#[allow(unused_macros)]
-macro_rules! method_def {
-    ($name:expr, $func:expr) => {
-        PyMethodDef {
-            ml_name: utils::static_cstring!($name).as_ptr().cast(),
-            ml_meth: PyMethodDefPointer { _PyCFunctionFast: $func },
-            ml_flags: METH_FASTCALL,
-            ml_doc: std::ptr::null(),
-        }
-    };
-}
-
-#[allow(unused_imports)]
-pub(crate) use method_def;
-
 pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
     unsafe {
         std::ptr::drop_in_place::<T>(obj.cast());
