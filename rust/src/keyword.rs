@@ -1,6 +1,6 @@
+use crate::object::PyObj;
 use crate::symbol::*;
 use crate::utils;
-use utils::PyObj;
 use std::ffi::{CStr, CString};
 use std::sync::Mutex;
 use std::collections::{

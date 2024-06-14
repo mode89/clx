@@ -1,6 +1,6 @@
+use crate::object::PyObj;
 use crate::utils;
 use crate::protocols::*;
-use utils::PyObj;
 use pyo3_ffi::*;
 use std::collections::LinkedList;
 use std::collections::hash_map::DefaultHasher;

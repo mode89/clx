@@ -1,6 +1,6 @@
+use crate::object::PyObj;
 use crate::utils;
 use crate::protocols::*;
-use utils::PyObj;
 use std::ffi::{CStr, CString};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};

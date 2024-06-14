@@ -1,7 +1,7 @@
+use crate::object::PyObj;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
-use utils::PyObj;
 use pyo3_ffi::*;
 
 pub fn init_module(module: *mut PyObject) {
