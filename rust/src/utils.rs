@@ -1,5 +1,6 @@
 use pyo3_ffi::*;
 use std::ffi::CString;
+use std::hash::{Hash, Hasher};
 
 pub const PY_TYPE_SLOT_DUMMY: PyType_Slot = PyType_Slot {
     slot: 0,
@@ -170,8 +171,8 @@ impl PyObj {
     }
 
     #[inline]
-    pub fn equals(&self, other: &PyObj) -> bool {
-        unsafe { PyObject_RichCompareBool(self.0, other.0, Py_EQ) == 1 }
+    pub fn py_hash(&self) -> isize {
+        unsafe { PyObject_Hash(self.0) }
     }
 
     #[inline]
@@ -202,6 +203,22 @@ impl From<i64> for PyObj {
         PyObj::own(unsafe { PyLong_FromLong(val) })
     }
 }
+
+impl Hash for PyObj {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_isize(self.py_hash());
+    }
+}
+
+impl PartialEq for PyObj {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { PyObject_RichCompareBool(self.0, other.0, Py_EQ) == 1 }
+    }
+}
+
+impl Eq for PyObj {}
 
 macro_rules! lazy_static {
     ($type:ty, $code:block) => {
@@ -434,7 +451,7 @@ pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> bool {
             return false;
         } else if x.is(&y) {
             return true;
-        } else if !first(&x).equals(&first(&y)) {
+        } else if first(&x) != first(&y) {
             return false;
         } else {
             x = next(&x);

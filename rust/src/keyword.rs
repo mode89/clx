@@ -182,7 +182,7 @@ unsafe extern "C" fn keyword_hash(
 ) -> isize {
     let self_ = PyObj::borrow(self_);
     let keyword = self_.as_ref::<Keyword>();
-    match (*keyword).hash {
+    match keyword.hash {
         Some(hash) => hash,
         None => {
             let mut hasher = DefaultHasher::new();

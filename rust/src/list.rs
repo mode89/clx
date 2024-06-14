@@ -3,6 +3,8 @@ use crate::protocols::*;
 use utils::PyObj;
 use pyo3_ffi::*;
 use std::collections::LinkedList;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, list_);
@@ -56,11 +58,13 @@ pub fn list_type() -> &'static PyObj {
 
 pub fn empty_list() -> PyObj {
     utils::lazy_static!(PyObj, {
+        let mut hasher = DefaultHasher::new();
+        "empty_list".hash(&mut hasher);
         _list(PyObj::none(),
             PyObj::none(),
             PyObj::none(),
             0,
-            Some(PyObj::none().hash()))
+            Some(hasher.finish() as isize))
     }).clone()
 }
 
@@ -173,7 +177,7 @@ fn list_eq(self_: &PyObj, other: &PyObj) -> bool {
                 let mut l1 = lself;
                 let mut l2 = lother;
                 while l1.length > 0 {
-                    if !l1.first.equals(&l2.first) {
+                    if l1.first != l2.first {
                         return false
                     }
                     l1 = unsafe { l1.rest.as_ref::<List>() };
@@ -359,8 +363,6 @@ extern "C" fn py_list_hash(
         if let Some(hash) = self_.hash {
             hash
         } else {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
             let mut nodes: LinkedList<*mut List> = LinkedList::new();
             let mut l = self_ as *mut List;
             unsafe {
@@ -372,8 +374,8 @@ extern "C" fn py_list_hash(
             while let Some(l) = nodes.pop_back() {
                 let mut hasher = DefaultHasher::new();
                 let l = unsafe { &mut *l };
-                l.rest.hash().hash(&mut hasher);
-                l.first.hash().hash(&mut hasher);
+                l.rest.hash(&mut hasher);
+                l.first.hash(&mut hasher);
                 l.hash = Some(hasher.finish() as isize);
             }
             self_.hash.unwrap()

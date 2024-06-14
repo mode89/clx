@@ -125,7 +125,7 @@ fn vector_eq(self_: &PyObj, other: &PyObj) -> bool {
             let vother = unsafe { other.as_ref::<Vector>() };
             if vself.impl_.len() == vother.impl_.len() {
                 for i in 0..vself.impl_.len() {
-                    if !vself.impl_[i].equals(&vother.impl_[i]) {
+                    if vself.impl_[i] != vother.impl_[i] {
                         return false;
                     }
                 }
