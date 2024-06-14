@@ -4,6 +4,7 @@ mod symbol;
 mod keyword;
 mod list;
 mod vector;
+mod hash_map;
 
 use pyo3_ffi::*;
 
@@ -27,6 +28,7 @@ pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
     keyword::init_module(module);
     list::init_module(module);
     vector::init_module(module);
+    hash_map::init_module(module);
 
     module
 }

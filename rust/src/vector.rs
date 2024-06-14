@@ -33,10 +33,10 @@ pub fn vector_type() -> &'static PyObj {
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
             size: std::mem::size_of::<Vector>(),
             dealloc: Some(utils::generic_dealloc::<Vector>),
-            length: Some(py_vector_len),
+            sequence_length: Some(py_vector_len),
             compare: Some(py_vector_compare),
             // TODO hash: Some(py_vector_hash),
-            sq_item: Some(py_vector_item),
+            sequence_item: Some(py_vector_item),
             call: Some(py_vector_call),
             members: vec![ "__meta__" ],
             methods: vec![

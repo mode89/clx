@@ -17,7 +17,7 @@ from clx.types import \
     Keyword, keyword, is_keyword, is_simple_keyword, \
     PersistentList, list_, _list_from_iterable, \
     PersistentVector, vec, vector, \
-    PersistentMap, hash_map, \
+    PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     Atom, atom
 
@@ -1651,7 +1651,7 @@ def walk(inner, outer, form):
     elif type(form) is PersistentVector:
         return outer(vec(map(inner, form)))
     elif type(form) is PersistentMap:
-        return outer(PersistentMap(dict(map(inner, form.items())), None))
+        return outer(hash_map_from(map(inner, form.items())))
     elif type(form) is tuple: # items of PersistentMap
         return outer(tuple(map(inner, form)))
     else:

@@ -1,24 +1,20 @@
-from abc import abstractmethod, ABC
-from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+from abc import ABC
+from collections.abc import Hashable, Iterable, Iterator, Sequence
 import threading
 
 # pylint: disable=unused-import
 from clx_rust import \
     IMeta, ICounted, ISeqable, ISeq, ICollection, ISequential, IIndexed, \
+    IAssociative, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
     PersistentList, list_, is_list, \
-    PersistentVector, vector, is_vector
+    PersistentVector, vector, is_vector, \
+    PersistentHashMap, hash_map, hash_map_from, is_hash_map
+
+PersistentMap = PersistentHashMap
 
 Iterable.register(PersistentVector)
-
-class IAssociative(ABC):
-    @abstractmethod
-    def lookup(self, key, not_found):
-        raise NotImplementedError()
-    @abstractmethod
-    def assoc(self, *kvs):
-        raise NotImplementedError()
 
 class IRecord(IAssociative, ABC):
     pass
@@ -35,60 +31,6 @@ def vec(coll):
         return vector()
     else:
         return vector(*coll)
-
-class PersistentMap(
-        Hashable,
-        Mapping,
-        IMeta,
-        ICounted,
-        ISeqable,
-        IAssociative):
-    def __init__(self, impl, _meta):
-        self._impl = impl
-        self.__meta__ = _meta
-    def __eq__(self, other):
-        if type(other) is PersistentMap:
-            return self._impl == other._impl
-        else:
-            raise NotImplementedError()
-    def __hash__(self):
-        raise NotImplementedError()
-    def __len__(self):
-        return len(self._impl)
-    def __iter__(self):
-        return iter(self._impl)
-    def __getitem__(self, key):
-        return self._impl[key]
-    def __call__(self, key, not_found=None):
-        return self._impl.get(key, not_found)
-    def with_meta(self, _meta):
-        return PersistentMap(self._impl, _meta)
-    def count_(self):
-        return len(self._impl)
-    def seq(self):
-        if len(self._impl) == 0:
-            return None
-        raise NotImplementedError()
-    def lookup(self, key, not_found):
-        return self._impl.get(key, not_found)
-    def assoc(self, *kvs):
-        copy = self._impl.copy()
-        for key, value in zip(kvs[::2], kvs[1::2]):
-            copy[key] = value
-        return PersistentMap(copy, None)
-    def merge(self, other):
-        copy = self._impl.copy()
-        copy.update(other)
-        return PersistentMap(copy, None)
-
-_EMPTY_MAP = PersistentMap({}, None)
-
-def hash_map(*elements):
-    num = len(elements)
-    assert num % 2 == 0, "hash-map expects even number of elements"
-    if num == 0:
-        return _EMPTY_MAP
-    return PersistentMap(dict(zip(elements[::2], elements[1::2])), None)
 
 class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
     def __init__(self, _first, _rest, _meta):

@@ -10,6 +10,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_type!(module, ISequential, isequential_type());
     utils::module_add_type!(module, ICollection, icollection_type());
     utils::module_add_type!(module, IIndexed, iindexed_type());
+    utils::module_add_type!(module, IAssociative, iassociative_type());
 }
 
 extern "C" fn dummy_method(
@@ -97,5 +98,24 @@ pub fn iindexed_type() -> &'static PyObj {
             ("nth", dummy_method),
         ],
         ..Default::default()
+    })
+}
+
+pub fn iassociative_type() -> &'static PyObj {
+    utils::static_type!(utils::TypeSpec {
+        name: "clx_rust.IAssociative",
+        flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        methods: vec![
+            ("lookup", dummy_method),
+            ("assoc", dummy_method),
+        ],
+        ..Default::default()
+    })
+}
+
+pub fn mapping_type() -> &'static PyObj {
+    utils::lazy_static!(PyObj, {
+        let module = PyObj::import("collections.abc");
+        module.get_attr(&utils::static_pystring!("Mapping")).unwrap()
     })
 }

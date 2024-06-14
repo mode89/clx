@@ -149,13 +149,22 @@ def test_quasiquote():
                 L(_S_LIST, S("b")),
                 S("c")))
     assert clx.read_string("`{}") == L(_S_APPLY, _S_HASH_MAP, L(_S_CONCAT))
-    assert clx.read_string("`{1 a ~b ~@c}") == \
-        L(_S_APPLY, _S_HASH_MAP,
+
+    x = clx.read_string("`{1 a ~b ~@c}")
+    assert \
+        x == L(_S_APPLY, _S_HASH_MAP,
             L(_S_CONCAT,
                 L(_S_LIST, 1),
                 L(_S_LIST, L(S("quote"), S("a"))),
                 L(_S_LIST, S("b")),
-                S("c")))
+                S("c"))) or \
+        x == L(_S_APPLY, _S_HASH_MAP,
+            L(_S_CONCAT,
+                L(_S_LIST, S("b")),
+                S("c"),
+                L(_S_LIST, 1),
+                L(_S_LIST, L(S("quote"), S("a")))))
+
     assert re.fullmatch(r"\(quote x_\d+\)", clx.pr_str(clx.read_string("`x#")))
     with pytest.raises(Exception, match=r"splice-unquote not in list"):
         clx.read_string("`~@a")

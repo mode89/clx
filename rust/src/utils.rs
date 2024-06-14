@@ -136,6 +136,13 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn tuple2(obj1: PyObj, obj2: PyObj) -> PyObj {
+        PyObj::from_owned_ptr(unsafe {
+            PyTuple_Pack(2, obj1.into_ptr(), obj2.into_ptr())
+        })
+    }
+
+    #[inline]
     pub fn is_none(&self) -> bool {
         unsafe { self.0 == Py_None() }
     }
@@ -176,8 +183,43 @@ impl PyObj {
     }
 
     #[inline]
-    pub fn hash(&self) -> isize {
-        unsafe { PyObject_Hash(self.0) as isize }
+    pub fn get_item(&self, key: &PyObj) -> Option<PyObj> {
+        let ptr = unsafe { PyObject_GetItem(self.0, key.0) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(PyObj::from_owned_ptr(ptr))
+        }
+    }
+
+    #[inline]
+    pub fn get_attr(&self, name: &PyObj) -> Option<PyObj> {
+        let ptr = unsafe { PyObject_GetAttr(self.0, name.0) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(PyObj::from_owned_ptr(ptr))
+        }
+    }
+
+    #[inline]
+    pub fn get_iter(&self) -> Option<PyObj> {
+        let ptr = unsafe { PyObject_GetIter(self.0) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(PyObj::from_owned_ptr(ptr))
+        }
+    }
+
+    #[inline]
+    pub fn next(&self) -> Option<PyObj> {
+        let ptr = unsafe { PyIter_Next(self.0) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(PyObj::from_owned_ptr(ptr))
+        }
     }
 
     #[inline]
@@ -185,6 +227,14 @@ impl PyObj {
         PyObj::from_owned_ptr(unsafe {
             PyObject_CallMethodObjArgs(self.0, name.0,
                 std::ptr::null::<PyObject>())
+        })
+    }
+
+    #[inline]
+    pub fn import(name: &str) -> PyObj {
+        PyObj::from_owned_ptr(unsafe {
+            let name = std::ffi::CString::new(name).unwrap();
+            PyImport_ImportModule(name.as_ptr())
         })
     }
 }
@@ -536,12 +586,14 @@ pub struct TypeSpec {
     pub dealloc: Option<destructor>,
     pub repr: Option<reprfunc>,
     pub hash: Option<hashfunc>,
-    pub length: Option<lenfunc>,
     pub call: Option<ternaryfunc>,
     pub compare: Option<richcmpfunc>,
     pub iter: Option<getiterfunc>,
     pub next: Option<iternextfunc>,
-    pub sq_item: Option<ssizeargfunc>,
+    pub sequence_length: Option<lenfunc>,
+    pub sequence_item: Option<ssizeargfunc>,
+    pub mapping_length: Option<lenfunc>,
+    pub mapping_subscript: Option<binaryfunc>,
     pub members: Vec<&'static str>,
     pub methods: Vec<(&'static str, _PyCFunctionFast)>,
 }
@@ -561,7 +613,8 @@ pub fn _make_type(tbuf: &'static _TypeBuffer) -> PyObj {
 
     let otype = type_from_spec(&spec, bases);
     let _type = unsafe { otype.as_ref::<PyTypeObject>() };
-    _type.tp_as_sequence = &tbuf.sq_methods as *const _ as *mut _;
+    _type.tp_as_sequence = &tbuf.sequence_methods as *const _ as *mut _;
+    _type.tp_as_mapping = &tbuf.mapping_methods as *const _ as *mut _;
     otype
 }
 
@@ -571,7 +624,8 @@ pub struct _TypeBuffer {
     spec: TypeSpec,
     name: CString,
     slots: Vec<PyType_Slot>,
-    sq_methods: PySequenceMethods,
+    sequence_methods: PySequenceMethods,
+    mapping_methods: PyMappingMethods,
     _member_names: Vec<CString>,
     _members: Vec<PyMemberDef>,
     _method_names: Vec<CString>,
@@ -678,17 +732,23 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
 
     slots.push(PY_TYPE_SLOT_DUMMY);
 
-    let sq_methods = PySequenceMethods {
-        sq_length: spec.length,
+    let sequence_methods = PySequenceMethods {
+        sq_length: spec.sequence_length,
         sq_concat: None,
         sq_repeat: None,
-        sq_item: spec.sq_item,
+        sq_item: spec.sequence_item,
         sq_ass_item: None,
         sq_contains: None,
         sq_inplace_concat: None,
         sq_inplace_repeat: None,
         was_sq_ass_slice: std::ptr::null_mut(),
         was_sq_slice: std::ptr::null_mut(),
+    };
+
+    let mapping_methods = PyMappingMethods {
+        mp_length: spec.mapping_length,
+        mp_subscript: spec.mapping_subscript,
+        mp_ass_subscript: None,
     };
 
     _TypeBuffer {
@@ -699,6 +759,7 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         _method_names,
         _methods,
         slots,
-        sq_methods,
+        sequence_methods,
+        mapping_methods,
     }
 }

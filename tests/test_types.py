@@ -6,7 +6,7 @@ from clx.types import \
     Keyword, keyword, \
     PersistentList, list_, \
     PersistentVector, vector, vec, \
-    PersistentMap, hash_map, \
+    PersistentMap, hash_map, hash_map_from, \
     IndexedSeq, cons, lazy_seq, seq, \
     Atom, atom
 
@@ -211,6 +211,7 @@ def test_hash_map():
     assert m0 is M()
     assert type(m1) is PersistentMap
     assert m1.lookup("a", None) == 1
+    assert m1.lookup("b", 42) == 42
     assert m1 == M("a", 1)
     assert type(m2) is PersistentMap
     assert m2 == M("a", 1, "b", 2)
@@ -220,9 +221,15 @@ def test_hash_map():
     assert m4 == M("a", 5, "b", 6, "c", 3, "d", 4)
     assert M(1, 2, 3, 4)(1) == 2
     assert M(1, 2, 3, 4)(2) is None
+    assert M(1, 2, 3, 4)(2, 42) == 42
     assert M(1, 2, 3, 4)(3) == 4
     assert M(1, 2, 3, 4)(4) is None
     assert dict(M(1, 2, 3, 4)) == {1: 2, 3: 4}
+    assert hash_map_from([]) is M()
+    assert hash_map_from([("a", 42)]) == M("a", 42)
+    assert hash_map_from([[9001, "foo"]]) == M(9001, "foo")
+    assert len(M()) == 0
+    assert len(M("a", 1)) == 1
 
 def test_cons():
     assert cons(1, None).first() == 1

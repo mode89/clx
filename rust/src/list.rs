@@ -37,7 +37,7 @@ pub fn list_type() -> &'static PyObj {
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
             size: std::mem::size_of::<List>(),
             dealloc: Some(list_dealloc),
-            length: Some(py_list_len),
+            sequence_length: Some(py_list_len),
             compare: Some(py_list_compare),
             hash: Some(py_list_hash),
             iter: Some(py_list_iter),
