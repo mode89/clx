@@ -4,6 +4,8 @@ use crate::list;
 use crate::utils;
 use crate::protocols::*;
 use pyo3_ffi::*;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, vector);
@@ -66,7 +68,9 @@ fn _vector(impl_: Vec<PyObj>, meta: PyObj, hash: Option<isize>) -> PyObj {
 
 fn empty_vector() -> PyObj {
     utils::lazy_static!(PyObj, {
-        _vector(vec![], PyObj::none(), None)
+        let mut hasher = DefaultHasher::new();
+        "empty_vector".hash(&mut hasher);
+        _vector(vec![], PyObj::none(), Some(hasher.finish() as isize))
     }).clone()
 }
 
