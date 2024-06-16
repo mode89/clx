@@ -55,52 +55,45 @@ unsafe extern "C" fn symbol(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
-        if nargs < 1 || nargs > 2 {
-            return utils::raise_exception(
-                "symbol() takes 1 or 2 positional arguments");
-        }
-
-        let obj = if nargs == 1 {
-            let arg = PyObj::borrow(*args);
-            if arg.type_is(symbol_type()) {
-                return utils::incref(*args);
-            }
-
-            let arg_ptr = PyUnicode_AsUTF8AndSize(*args, std::ptr::null_mut());
-            if arg_ptr.is_null() {
-                return utils::raise_exception(
-                    "symbol() argument must be a string");
-            }
-
-            let obj = PyObj::alloc(symbol_type());
-            let sym = obj.as_ref::<Symbol>();
-            let arg = CStr::from_ptr(arg_ptr).to_str().unwrap();
-            match arg.chars().position(|c| c == '/') {
-                Some(index) => {
-                    if arg == "/" {
-                        std::ptr::write(&mut sym.namespace, PyObj::none());
-                        std::ptr::write(&mut sym.name,
-                            utils::intern_string(
-                                utils::static_cstring!("/")));
-                    } else {
-                        let (ns, name) = arg.split_at(index);
-                        let ns = CString::new(ns).unwrap();
-                        std::ptr::write(&mut sym.namespace,
-                            utils::intern_string(ns.as_c_str()));
-                        std::ptr::write(&mut sym.name,
-                            utils::intern_string(
-                                CStr::from_ptr(name[1..].as_ptr().cast())));
+    utils::wrap_body!({
+        if nargs == 1 {
+            let argo = PyObj::borrow(*args);
+            if argo.type_is(symbol_type()) {
+                Ok(argo)
+            } else if let Ok(arg) = argo.as_cstr() {
+                let arg = arg.to_str().unwrap();
+                match arg.chars().position(|c| c == '/') {
+                    Some(index) => {
+                        if arg == "/" {
+                            Ok(_symbol(
+                                PyObj::none(),
+                                utils::intern_string(
+                                    utils::static_cstring!("/")),
+                                PyObj::none(),
+                                None))
+                        } else {
+                            let (ns, name) = arg.split_at(index);
+                            let ns = CString::new(ns).unwrap();
+                            Ok(_symbol(
+                                utils::intern_string(ns.as_c_str()),
+                                utils::intern_string(
+                                    CStr::from_ptr(name[1..].as_ptr().cast())),
+                                PyObj::none(),
+                                None))
+                        }
+                    }
+                    None => {
+                        Ok(_symbol(
+                            PyObj::none(),
+                            argo.intern_string_in_place(),
+                            PyObj::none(),
+                            None))
                     }
                 }
-                None => {
-                    std::ptr::write(&mut sym.namespace, PyObj::none());
-                    std::ptr::write(&mut sym.name,
-                        utils::intern_string_in_place(PyObj::borrow(*args)));
-                }
+            } else {
+                utils::raise_exception("symbol() argument must be a string")
             }
-            obj
-        } else {
+        } else if nargs == 2 {
             let ns = PyObj::borrow(*args);
             if !ns.is_none() && !ns.is_string() {
                 return utils::raise_exception(
@@ -113,18 +106,33 @@ unsafe extern "C" fn symbol(
                     "symbol name must be a string");
             }
 
-            let obj = PyObj::alloc(symbol_type());
-            let sym = obj.as_ref::<Symbol>();
-            std::ptr::write(&mut sym.namespace,
-                utils::intern_string_in_place(ns));
-            std::ptr::write(&mut sym.name, name);
-            obj
-        };
-        let sym = obj.as_ref::<Symbol>();
-        std::ptr::write(&mut sym.meta, PyObj::none());
-        sym.hash = None;
-        obj.into_ptr()
+            Ok(_symbol(
+                ns.intern_string_in_place(),
+                name,
+                PyObj::none(),
+                None))
+        } else {
+            utils::raise_exception("symbol() takes 1 or 2 arguments")
+        }
     })
+}
+
+#[inline]
+fn _symbol(
+    namespace: PyObj,
+    name: PyObj,
+    meta: PyObj,
+    hash: Option<isize>
+) -> PyObj {
+    let obj = PyObj::alloc(symbol_type());
+    unsafe {
+        let sym = obj.as_ref::<Symbol>();
+        std::ptr::write(&mut sym.namespace, namespace);
+        std::ptr::write(&mut sym.name, name);
+        std::ptr::write(&mut sym.meta, meta);
+        sym.hash = hash;
+    }
+    obj
 }
 
 unsafe extern "C" fn symbol_repr(
@@ -133,15 +141,12 @@ unsafe extern "C" fn symbol_repr(
     let self_ = PyObj::borrow(self_);
     let self_ = self_.as_ref::<Symbol>();
     if self_.namespace.is_none() {
-        let name = PyUnicode_AsUTF8AndSize(*self_.name,
-            std::ptr::null_mut());
-        PyUnicode_FromFormat("%s\0".as_ptr().cast(), name)
+        PyUnicode_FromFormat("%s\0".as_ptr().cast(),
+            self_.name.as_cstr().unwrap().as_ptr())
     } else {
-        let namespace = PyUnicode_AsUTF8AndSize(*self_.namespace,
-            std::ptr::null_mut());
-        let name = PyUnicode_AsUTF8AndSize(*self_.name,
-            std::ptr::null_mut());
-        PyUnicode_FromFormat("%s/%s\0".as_ptr().cast(), namespace, name)
+        PyUnicode_FromFormat("%s/%s\0".as_ptr().cast(),
+            self_.namespace.as_cstr().unwrap().as_ptr(),
+            self_.name.as_cstr().unwrap().as_ptr())
     }
 }
 
@@ -156,13 +161,9 @@ unsafe extern "C" fn symbol_hash(
             let mut hasher = DefaultHasher::new();
 
             if !self_.namespace.is_none() {
-                let namespace = PyUnicode_AsUTF8AndSize(
-                    *self_.namespace, std::ptr::null_mut());
-                namespace.hash(&mut hasher);
+                self_.namespace.as_cstr().unwrap().hash(&mut hasher);
             }
-            let name = PyUnicode_AsUTF8AndSize(
-                *self_.name, std::ptr::null_mut());
-            name.hash(&mut hasher);
+            self_.name.as_cstr().unwrap().hash(&mut hasher);
 
             let hash = hasher.finish() as isize;
             self_.hash = Some(hash);
@@ -176,28 +177,24 @@ unsafe extern "C" fn symbol_compare(
     other: *mut PyObject,
     op: i32,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let other = PyObj::borrow(other);
         if other.type_is(symbol_type()) {
             let self_ = PyObj::borrow(self_);
             let self_ = self_.as_ref::<Symbol>();
             let other = other.as_ref::<Symbol>();
-            PyObj::from(match op {
-                pyo3_ffi::Py_EQ => {
-                    *self_.namespace == *other.namespace
-                        && *self_.name == *other.name
-                }
-                pyo3_ffi::Py_NE => {
-                    *self_.namespace != *other.namespace
-                        || *self_.name != *other.name
-                }
-                _ => {
-                    return utils::raise_exception(
-                        "symbol comparison not supported");
-                }
-            }).into_ptr()
+            match op {
+                pyo3_ffi::Py_EQ => Ok(PyObj::from(
+                    self_.namespace.is(&other.namespace) &&
+                    self_.name.is(&other.name))),
+                pyo3_ffi::Py_NE => Ok(PyObj::from(
+                    !self_.namespace.is(&other.namespace) ||
+                    !self_.name.is(&other.name))),
+                _ => utils::raise_exception(
+                    "symbol comparison not supported")
+            }
         } else {
-            utils::ref_false()
+            Ok(PyObj::from(false))
         }
     })
 }
@@ -207,16 +204,14 @@ unsafe extern "C" fn symbol_with_meta(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let self_ = self_.as_ref::<Symbol>();
-        let new_obj = PyObj::alloc(symbol_type());
-        let new_sym = new_obj.as_ref::<Symbol>();
-        std::ptr::write(&mut new_sym.name, self_.name.clone());
-        std::ptr::write(&mut new_sym.namespace, self_.namespace.clone());
-        std::ptr::write(&mut new_sym.meta, PyObj::borrow(*args));
-        new_sym.hash = self_.hash;
-        new_obj.into_ptr()
+        Ok(_symbol(
+            self_.namespace.clone(),
+            self_.name.clone(),
+            PyObj::borrow(*args),
+            self_.hash))
     })
 }
 

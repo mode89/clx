@@ -1,5 +1,4 @@
 use pyo3_ffi::*;
-use std::hash::{Hash, Hasher};
 
 // The pointer must be at the beginning of the structure, otherwise
 // the offset calculation will be incorrect and member definitions will
@@ -51,12 +50,24 @@ impl PyObj {
     }
 
     #[inline]
-    pub fn as_int(&self) -> Option<isize> {
+    pub fn as_int(&self) -> Result<isize, ()> {
         let val = unsafe { PyLong_AsLong(self.0) };
         if val == -1 && unsafe { !PyErr_Occurred().is_null() } {
-            None
+            Err(())
         } else {
-            Some(val as isize)
+            Ok(val as isize)
+        }
+    }
+
+    #[inline]
+    pub fn as_cstr(&self) -> Result<&std::ffi::CStr, ()> {
+        let ptr = unsafe {
+            PyUnicode_AsUTF8AndSize(self.0, std::ptr::null_mut())
+        };
+        if !ptr.is_null() {
+            Ok(unsafe { std::ffi::CStr::from_ptr(ptr) })
+        } else {
+            Err(())
         }
     }
 
@@ -103,64 +114,79 @@ impl PyObj {
     }
 
     #[inline]
-    pub fn py_hash(&self) -> isize {
-        unsafe { PyObject_Hash(self.0) }
-    }
-
-    #[inline]
-    pub fn get_item(&self, key: &PyObj) -> Option<PyObj> {
-        let ptr = unsafe { PyObject_GetItem(self.0, key.0) };
-        if ptr.is_null() {
-            None
+    pub fn py_hash(&self) -> Result<isize, ()> {
+        let hash = unsafe { PyObject_Hash(self.0) };
+        if hash == -1 && unsafe { !PyErr_Occurred().is_null() } {
+            Err(())
         } else {
-            Some(PyObj::from_owned_ptr(ptr))
+            Ok(hash)
         }
     }
 
     #[inline]
-    pub fn get_attr(&self, name: &PyObj) -> Option<PyObj> {
-        let ptr = unsafe { PyObject_GetAttr(self.0, name.0) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(PyObj::from_owned_ptr(ptr))
-        }
+    pub fn get_item(&self, key: &PyObj) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyObject_GetItem(self.0, key.0) })
     }
 
     #[inline]
-    pub fn get_iter(&self) -> Option<PyObj> {
-        let ptr = unsafe { PyObject_GetIter(self.0) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(PyObj::from_owned_ptr(ptr))
-        }
+    pub fn get_attr(&self, name: &PyObj) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyObject_GetAttr(self.0, name.0) })
+    }
+
+    #[inline]
+    pub fn get_iter(&self) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyObject_GetIter(self.0) })
     }
 
     #[inline]
     pub fn next(&self) -> Option<PyObj> {
         let ptr = unsafe { PyIter_Next(self.0) };
-        if ptr.is_null() {
-            None
-        } else {
+        if !ptr.is_null() {
             Some(PyObj::from_owned_ptr(ptr))
+        } else {
+            None
         }
     }
 
     #[inline]
-    pub fn call_method0(&self, name: &PyObj) -> PyObj {
-        PyObj::from_owned_ptr(unsafe {
-            PyObject_CallMethodObjArgs(self.0, name.0,
-                std::ptr::null::<PyObject>())
+    pub fn call0(&self) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyObject_CallNoArgs(self.0) })
+    }
+
+    #[inline]
+    pub fn call_method0(&self, name: &PyObj) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe {
+            PyObject_CallMethodObjArgs(
+                self.0, name.0, std::ptr::null::<PyObject>())
         })
     }
 
     #[inline]
-    pub fn import(name: &str) -> PyObj {
-        PyObj::from_owned_ptr(unsafe {
-            let name = std::ffi::CString::new(name).unwrap();
-            PyImport_ImportModule(name.as_ptr())
+    pub fn call_method2(
+        &self,
+        name: &PyObj,
+        arg1: PyObj,
+        arg2: PyObj
+    ) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe {
+            PyObject_CallMethodObjArgs(self.0, name.0,
+                arg1.0, arg2.0, std::ptr::null::<PyObject>())
         })
+    }
+
+    #[inline]
+    pub fn import(name: &str) -> Result<PyObj, ()> {
+        let name = std::ffi::CString::new(name).unwrap();
+        result_from_owned_ptr(unsafe { PyImport_ImportModule(name.as_ptr()) })
+    }
+
+    #[inline]
+    pub fn intern_string_in_place(self) -> PyObj {
+        unsafe {
+            PyUnicode_InternInPlace(
+                &self.0 as *const _ as *mut *mut PyObject);
+        }
+        self
     }
 }
 
@@ -179,14 +205,14 @@ impl Clone for PyObj {
     }
 }
 
-impl std::ops::Deref for PyObj {
-    type Target = *mut PyObject;
-
+impl PartialEq for PyObj {
     #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { PyObject_RichCompareBool(self.0, other.0, Py_EQ) == 1 }
     }
 }
+
+impl Eq for PyObj {}
 
 impl From<bool> for PyObj {
     #[inline]
@@ -203,18 +229,11 @@ impl From<i64> for PyObj {
     }
 }
 
-impl Hash for PyObj {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_isize(self.py_hash());
+#[inline]
+fn result_from_owned_ptr(ptr: *mut PyObject) -> Result<PyObj, ()> {
+    if !ptr.is_null() {
+        Ok(PyObj::from_owned_ptr(ptr))
+    } else {
+        Err(())
     }
 }
-
-impl PartialEq for PyObj {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { PyObject_RichCompareBool(self.0, other.0, Py_EQ) == 1 }
-    }
-}
-
-impl Eq for PyObj {}

@@ -10,14 +10,6 @@ pub fn intern_string(s: &std::ffi::CStr) -> PyObj {
 }
 
 #[inline]
-pub fn intern_string_in_place(obj: PyObj) -> PyObj {
-    unsafe {
-        PyUnicode_InternInPlace(&*obj as *const _ as *mut *mut PyObject);
-    }
-    obj
-}
-
-#[inline]
 pub fn incref(obj: *mut PyObject) -> *mut PyObject {
     unsafe { Py_XINCREF(obj) };
     obj
@@ -116,20 +108,23 @@ macro_rules! module_add_type {
 
 pub(crate) use module_add_type;
 
-macro_rules! handle_gil_and_panic {
+macro_rules! wrap_body {
     ($code:block) => {{
         let gil = unsafe { PyGILState_Ensure() };
-        let result = std::panic::catch_unwind(|| {
+        let result: Result<PyObj, ()> = std::panic::catch_unwind(|| {
             $code
         }).unwrap_or_else(|_| {
             crate::utils::raise_exception("panic occurred in Rust code")
         });
         unsafe { PyGILState_Release(gil) };
-        result
+        match result {
+            Ok(obj) => obj.into_ptr(),
+            Err(_) => std::ptr::null_mut(),
+        }
     }}
 }
 
-pub(crate) use handle_gil_and_panic;
+pub(crate) use wrap_body;
 
 macro_rules! handle_gil {
     ($code:block) => {
@@ -153,59 +148,64 @@ pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
     }
 }
 
-pub fn raise_exception(msg: &str) -> *mut PyObject {
+pub fn raise_exception(msg: &str) -> Result<PyObj, ()> {
+    set_exception(msg);
+    Err(())
+}
+
+#[inline]
+pub fn set_exception(msg: &str) {
     let msg = std::ffi::CString::new(msg).unwrap();
     unsafe {
         PyErr_SetString(PyExc_Exception, msg.as_ptr().cast());
     }
-    std::ptr::null_mut()
 }
 
-pub fn seq(obj: &PyObj) -> PyObj {
-    if obj.is_none() {
-        return obj.clone();
+pub fn seq(obj: &PyObj) -> Result<PyObj, ()> {
+    Ok(if obj.is_none() {
+        obj.clone()
     } else if obj.type_is(crate::list::list_type()) {
         crate::list::list_seq(obj)
     } else {
-        obj.call_method0(&static_pystring!("seq"))
-    }
+        obj.call_method0(&static_pystring!("seq"))?
+    })
 }
 
-pub fn first(obj: &PyObj) -> PyObj {
-    if obj.is_none() {
-        return obj.clone();
+pub fn first(obj: &PyObj) -> Result<PyObj, ()> {
+    Ok(if obj.is_none() {
+        obj.clone()
     } else if obj.type_is(crate::list::list_type()) {
         crate::list::list_first(obj)
     } else {
-        obj.call_method0(&static_pystring!("first"))
-    }
+        obj.call_method0(&static_pystring!("first"))?
+    })
 }
 
-pub fn next(obj: &PyObj) -> PyObj {
-    if obj.is_none() {
-        return obj.clone();
+pub fn next(obj: &PyObj) -> Result<PyObj, ()> {
+    Ok(if obj.is_none() {
+        obj.clone()
     } else if obj.type_is(crate::list::list_type()) {
         crate::list::list_next(obj)
     } else {
-        obj.call_method0(&static_pystring!("next"))
-    }
+        obj.call_method0(&static_pystring!("next"))?
+    })
 }
 
-pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> bool {
-    let mut x = seq(self_);
-    let mut y = seq(other);
+pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
+    let mut x = seq(self_)?;
+    let mut y = seq(other)?;
     loop {
         if x.is_none() {
-            return y.is_none();
+            return Ok(y.is_none());
         } else if y.is_none() {
-            return false;
+            return Ok(false);
         } else if x.is(&y) {
-            return true;
-        } else if first(&x) != first(&y) {
-            return false;
+            return Ok(true);
+        } else if first(&x)? != first(&y)? {
+            return Ok(false);
         } else {
-            x = next(&x);
-            y = next(&y);
+            x = next(&x)?;
+            y = next(&y)?;
         }
     }
 }
@@ -228,16 +228,17 @@ pub fn seq_iterator_type() -> &'static PyObj {
     })
 }
 
-pub fn seq_iterator(coll: PyObj) -> PyObj {
+pub fn seq_iterator(coll: PyObj) -> Result<PyObj, ()> {
+    let coll = seq(&coll)?;
     let obj = PyObj::alloc(seq_iterator_type());
     unsafe {
         let iter = obj.as_ref::<SeqIterator>();
-        std::ptr::write(&mut iter.seq, seq(&coll));
+        std::ptr::write(&mut iter.seq, coll);
     }
-    obj
+    Ok(obj)
 }
 
-unsafe extern "C" fn seq_iterator_iter(
+extern "C" fn seq_iterator_iter(
     self_: *mut PyObject,
 ) -> *mut PyObject {
     PyObj::borrow(self_).into_ptr()
@@ -246,15 +247,17 @@ unsafe extern "C" fn seq_iterator_iter(
 unsafe extern "C" fn seq_iterator_next(
     self_: *mut PyObject,
 ) -> *mut PyObject {
-    let self_ = PyObj::borrow(self_);
-    let iter = self_.as_ref::<SeqIterator>();
-    let s = &iter.seq;
-    if s.is_none() {
-        PyErr_SetNone(PyExc_StopIteration);
-        std::ptr::null_mut()
-    } else {
-        let item = first(s);
-        (*iter).seq = next(s);
-        item.into_ptr()
-    }
+    wrap_body!({
+        let self_ = PyObj::borrow(self_);
+        let iter = self_.as_ref::<SeqIterator>();
+        let s = &iter.seq;
+        if s.is_none() {
+            PyErr_SetNone(PyExc_StopIteration);
+            Err(())
+        } else {
+            let item = first(s)?;
+            (*iter).seq = next(s)?;
+            Ok(item)
+        }
+    })
 }

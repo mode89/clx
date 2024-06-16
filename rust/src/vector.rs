@@ -79,15 +79,15 @@ extern "C" fn vector(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs == 0 {
-            empty_vector().into_ptr()
+            Ok(empty_vector())
         } else {
             let mut impl_ = Vec::with_capacity(nargs as usize);
             for i in 0..nargs {
                 impl_.push(PyObj::borrow(unsafe { *args.offset(i) }));
             }
-            _vector(impl_, PyObj::none(), None).into_ptr()
+            Ok(_vector(impl_, PyObj::none(), None))
         }
     })
 }
@@ -107,23 +107,20 @@ extern "C" fn py_vector_compare(
     other: *mut PyObject,
     op: i32,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
-        PyObj::from(match op {
-            pyo3_ffi::Py_EQ => vector_eq(&self_, &other),
-            pyo3_ffi::Py_NE => !vector_eq(&self_, &other),
-            _ => {
-                return utils::raise_exception(
-                    "vector comparison not supported");
-            }
-        }).into_ptr()
+        match op {
+            pyo3_ffi::Py_EQ => Ok(PyObj::from(vector_eq(&self_, &other)?)),
+            pyo3_ffi::Py_NE => Ok(PyObj::from(!vector_eq(&self_, &other)?)),
+            _ => utils::raise_exception("vector comparison not supported")
+        }
     })
 }
 
-fn vector_eq(self_: &PyObj, other: &PyObj) -> bool {
+fn vector_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
     if self_.is(other) {
-        true
+        Ok(true)
     } else {
         let vself = unsafe { self_.as_ref::<Vector>() };
         if other.type_is(vector_type()) {
@@ -131,17 +128,17 @@ fn vector_eq(self_: &PyObj, other: &PyObj) -> bool {
             if vself.impl_.len() == vother.impl_.len() {
                 for i in 0..vself.impl_.len() {
                     if vself.impl_[i] != vother.impl_[i] {
-                        return false;
+                        return Ok(false);
                     }
                 }
-                true
+                Ok(true)
             } else {
-                false
+                Ok(false)
             }
         } else if other.is_instance(isequential_type()) {
             utils::sequential_eq(&vector_seq(self_), other)
         } else {
-            false
+            Ok(false)
         }
     }
 }
@@ -151,14 +148,14 @@ extern "C" fn py_vector_count(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception(
                 "PersistentVector.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
             let self_ = unsafe { self_.as_ref::<Vector>() };
-            PyObj::from(self_.impl_.len() as i64).into_ptr()
+            Ok(PyObj::from(self_.impl_.len() as i64))
         }
     })
 }
@@ -168,12 +165,12 @@ extern "C" fn py_vector_first(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception(
                 "PersistentVector.first() takes no arguments")
         } else {
-            vector_first(&PyObj::borrow(self_)).into_ptr()
+            Ok(vector_first(&PyObj::borrow(self_)))
         }
     })
 }
@@ -200,12 +197,12 @@ extern "C" fn py_vector_seq(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception(
                 "PersistentVector.seq() takes no arguments")
         } else {
-            vector_seq(&PyObj::borrow(self_)).into_ptr()
+            Ok(vector_seq(&PyObj::borrow(self_)))
         }
     })
 }
@@ -228,12 +225,9 @@ extern "C" fn py_vector_item(
     self_: *mut PyObject,
     index: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
-        match vector_nth(&self_, index, None) {
-            Some(item) => item.into_ptr(),
-            None => std::ptr::null_mut(),
-        }
+        vector_nth(&self_, index, None)
     })
 }
 
@@ -242,7 +236,7 @@ extern "C" fn py_vector_nth(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let not_found = match nargs {
             1 => None,
             2 => Some(PyObj::borrow(unsafe { *args.offset(1) })),
@@ -252,17 +246,9 @@ extern "C" fn py_vector_nth(
             }
         };
 
-        let index = unsafe { PyObj::borrow(*args) };
-        match index.as_int() {
-            Some(index) => {
-                let v = PyObj::borrow(self_);
-                match vector_nth(&v, index, not_found) {
-                    Some(item) => item.into_ptr(),
-                    None => std::ptr::null_mut(),
-                }
-            },
-            None => std::ptr::null_mut(),
-        }
+        let index = unsafe { PyObj::borrow(*args) }.as_int()?;
+        let self_ = PyObj::borrow(self_);
+        vector_nth(&self_, index, not_found)
     })
 }
 
@@ -271,24 +257,16 @@ unsafe extern "C" fn py_vector_call(
     args: *mut PyObject,
     _kw: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let index: *mut PyObject = std::ptr::null_mut();
         if PyArg_UnpackTuple(args,
                 "PersistentVector.__call__()\0".as_ptr().cast(),
                 1, 1, &index) != 0 {
-            let index = PyObj::borrow(index);
+            let index = PyObj::borrow(index).as_int()?;
             let self_ = PyObj::borrow(self_);
-            match index.as_int() {
-                Some(index) => {
-                    match vector_nth(&self_, index, None) {
-                        Some(item) => item.into_ptr(),
-                        None => std::ptr::null_mut(),
-                    }
-                },
-                None => std::ptr::null_mut(),
-            }
+            vector_nth(&self_, index, None)
         } else {
-            std::ptr::null_mut()
+            Err(())
         }
     })
 }
@@ -297,26 +275,24 @@ fn vector_nth(
     self_: &PyObj,
     index: isize,
     not_found: Option<PyObj>
-) -> Option<PyObj> {
+) -> Result<PyObj, ()> {
     let v = unsafe { self_.as_ref::<Vector>() };
     if index < 0 || index >= v.impl_.len() as isize {
         match not_found {
-            Some(not_found) => Some(not_found),
-            None => {
-                raise_index_error();
-                return None;
-            }
+            Some(not_found) => Ok(not_found),
+            None => raise_index_error()
         }
     } else {
-        Some(v.impl_[index as usize].clone())
+        Ok(v.impl_[index as usize].clone())
     }
 }
 
-fn raise_index_error() {
+fn raise_index_error() -> Result<PyObj, ()> {
     unsafe {
         PyErr_SetString(
             PyExc_IndexError,
             "PersistentVector index out of range\0".as_ptr().cast(),
         );
     }
+    Err(())
 }

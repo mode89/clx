@@ -16,6 +16,10 @@ L = list_
 V = vector
 M = hash_map
 
+class NoHash:
+    def __hash__(self):
+        raise TypeError("unhashable type: 'NoHash'")
+
 def _lazy_range(*args):
     assert len(args) <= 2
     if len(args) == 0:
@@ -137,6 +141,8 @@ def test_list():
     assert hash(L(1, 2, 3)) == hash(L(1, 2, 3))
     assert hash(L(1, 2, 3)) != hash(L(1, 2))
     assert hash(L(1, 2, 3).rest()) == hash(L(2, 3))
+    with pytest.raises(TypeError):
+        hash(L(NoHash(), 42))
 
 def test_vector():
     v = V()
@@ -230,6 +236,8 @@ def test_hash_map():
     assert hash_map_from([[9001, "foo"]]) == M(9001, "foo")
     assert len(M()) == 0
     assert len(M("a", 1)) == 1
+    with pytest.raises(TypeError):
+        hash(M(NoHash(), 42))
 
 def test_cons():
     assert cons(1, None).first() == 1

@@ -2,7 +2,7 @@ use crate::object::PyObj;
 use crate::type_object::*;
 use crate::symbol::*;
 use crate::utils;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::sync::Mutex;
 use std::collections::{
     HashMap,
@@ -49,59 +49,44 @@ unsafe extern "C" fn keyword(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         match nargs {
             1 => {
                 let argo = PyObj::borrow(*args);
                 if argo.is_string() {
-                    let arg_ptr = PyUnicode_AsUTF8AndSize(
-                        *argo, std::ptr::null_mut());
-                    if arg_ptr.is_null() {
-                        return utils::raise_exception(
-                            "keyword() argument must be a string");
-                    }
-
-                    let arg = CStr::from_ptr(arg_ptr).to_str().unwrap();
-                    match arg.chars().position(|c| c == '/') {
+                    let arg = argo.as_cstr().unwrap().to_str().unwrap();
+                    Ok(match arg.chars().position(|c| c == '/') {
                         Some(index) => {
                             if arg == "/" {
                                 intern_keyword(
                                     None, CString::new("/").unwrap())
-                                    .into_ptr()
                             } else {
                                 let (ns, name) = arg.split_at(index);
                                 intern_keyword(
                                     Some(CString::new(ns).unwrap()),
                                     CString::new(&name[1..]).unwrap())
-                                    .into_ptr()
                             }
                         }
                         None => intern_keyword(
-                            None, CString::new(arg).unwrap()).into_ptr()
-                    }
+                            None, CString::new(arg).unwrap())
+                    })
                 } else if argo.type_is(keyword_type()) {
-                    argo.into_ptr()
+                    Ok(argo)
                 } else if argo.type_is(symbol_type()) {
                     let sym = argo.as_ref::<Symbol>();
                     let ns = &sym.namespace;
                     let name = &sym.name;
-                    intern_keyword(
+                    Ok(intern_keyword(
                         if ns.is_none() {
                             None
                         } else {
-                            Some(CStr::from_ptr(
-                                PyUnicode_AsUTF8AndSize(
-                                    **ns, std::ptr::null_mut()))
-                                .to_owned())
+                            Some(ns.as_cstr().unwrap().to_owned())
                         },
-                        CStr::from_ptr(
-                            PyUnicode_AsUTF8AndSize(
-                                **name, std::ptr::null_mut()))
-                            .to_owned()
-                    ).into_ptr()
+                        name.as_cstr().unwrap().to_owned()
+                    ))
                 } else {
-                    return utils::raise_exception(
-                        "keyword() argument must be string, keyword or symbol");
+                    utils::raise_exception(
+                        "keyword() argument must be string, keyword or symbol")
                 }
             },
             2 => {
@@ -117,18 +102,14 @@ unsafe extern "C" fn keyword(
                         "keyword name must be a string");
                 }
 
-                intern_keyword(
+                Ok(intern_keyword(
                     if ns.is_none() {
                         None
                     } else {
-                        Some(CStr::from_ptr(
-                            PyUnicode_AsUTF8AndSize(
-                                *ns, std::ptr::null_mut())).to_owned())
+                        Some(ns.as_cstr().unwrap().to_owned())
                     },
-                    CStr::from_ptr(
-                        PyUnicode_AsUTF8AndSize(*name, std::ptr::null_mut()))
-                        .to_owned()
-                ).into_ptr()
+                    name.as_cstr().unwrap().to_owned()
+                ))
             },
             _ => {
                 return utils::raise_exception(
@@ -166,15 +147,12 @@ unsafe extern "C" fn keyword_repr(
     let self_ = PyObj::borrow(self_);
     let keyword = self_.as_ref::<Keyword>();
     if keyword.namespace.is_none() {
-        let name = PyUnicode_AsUTF8AndSize(*keyword.name,
-            std::ptr::null_mut());
-        PyUnicode_FromFormat(":%s\0".as_ptr().cast(), name)
+        PyUnicode_FromFormat(":%s\0".as_ptr().cast(),
+            keyword.name.as_cstr().unwrap().as_ptr())
     } else {
-        let namespace = PyUnicode_AsUTF8AndSize(*keyword.namespace,
-            std::ptr::null_mut());
-        let name = PyUnicode_AsUTF8AndSize(*keyword.name,
-            std::ptr::null_mut());
-        PyUnicode_FromFormat(":%s/%s\0".as_ptr().cast(), namespace, name)
+        PyUnicode_FromFormat(":%s/%s\0".as_ptr().cast(),
+            keyword.namespace.as_cstr().unwrap().as_ptr(),
+            keyword.name.as_cstr().unwrap().as_ptr())
     }
 }
 
@@ -189,13 +167,9 @@ unsafe extern "C" fn keyword_hash(
             let mut hasher = DefaultHasher::new();
 
             if !keyword.namespace.is_none() {
-                let namespace = PyUnicode_AsUTF8AndSize(
-                    *keyword.namespace, std::ptr::null_mut());
-                namespace.hash(&mut hasher);
+                keyword.namespace.as_cstr().unwrap().hash(&mut hasher);
             }
-            let name = PyUnicode_AsUTF8AndSize(
-                *keyword.name, std::ptr::null_mut());
-            name.hash(&mut hasher);
+            keyword.name.as_cstr().unwrap().hash(&mut hasher);
 
             let hash = hasher.finish() as isize;
             (*keyword).hash = Some(hash);
@@ -209,28 +183,24 @@ unsafe extern "C" fn keyword_compare(
     other: *mut PyObject,
     op: i32,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let other = PyObj::borrow(other);
         if other.type_is(keyword_type()) {
             let self_ = PyObj::borrow(self_);
             let self_ = self_.as_ref::<Keyword>();
             let other = other.as_ref::<Keyword>();
-            PyObj::from(match op {
-                pyo3_ffi::Py_EQ => {
-                    *self_.namespace == *other.namespace
-                        && *self_.name == *other.name
-                }
-                pyo3_ffi::Py_NE => {
-                    *self_.namespace != *other.namespace
-                        || *self_.name != *other.name
-                }
-                _ => {
-                    return utils::raise_exception(
-                        "keyword comparison not supported");
-                }
-            }).into_ptr()
+            match op {
+                pyo3_ffi::Py_EQ => Ok(PyObj::from(
+                    self_.namespace.is(&other.namespace) &&
+                    self_.name.is(&other.name))),
+                pyo3_ffi::Py_NE => Ok(PyObj::from(
+                    !self_.namespace.is(&other.namespace) ||
+                    !self_.name.is(&other.name))),
+                _ => utils::raise_exception(
+                    "keyword comparison not supported")
+            }
         } else {
-            utils::ref_false()
+            Ok(PyObj::from(false))
         }
     })
 }
@@ -240,23 +210,23 @@ unsafe extern "C" fn keyword_call(
     args: *mut PyObject,
     _kw: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
-        let mut result = std::ptr::null_mut();
+    utils::wrap_body!({
         let coll: *mut PyObject = std::ptr::null_mut();
         let default: *mut PyObject = std::ptr::null_mut();
         if PyArg_UnpackTuple(args, "Keyword.__call__()\0".as_ptr().cast(),
                 1, 2, &coll, &default) != 0 {
-            result = PyObject_CallMethodObjArgs(coll,
-                utils::static_pystring!("lookup").into_ptr(),
-                self_,
+            let coll = PyObj::borrow(coll);
+            coll.call_method2(
+                &utils::static_pystring!("lookup"),
+                PyObj::borrow(self_),
                 if !default.is_null() {
-                    default
+                    PyObj::borrow(default)
                 } else {
-                    Py_None()
-                },
-                std::ptr::null_mut() as *mut PyObject)
+                    PyObj::none()
+                })
+        } else {
+            Err(())
         }
-        result
     })
 }
 

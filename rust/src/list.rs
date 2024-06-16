@@ -74,7 +74,7 @@ extern "C" fn list_(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let mut obj = empty_list();
         let mut i = nargs - 1;
         while i >= 0 {
@@ -90,7 +90,7 @@ extern "C" fn list_(
                 i -= 1;
             }
         }
-        obj.into_ptr()
+        Ok(obj)
     })
 }
 
@@ -143,8 +143,8 @@ unsafe extern "C" fn is_list(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
-        PyObj::from(Py_TYPE(*args) == list_type().as_ptr()).into_ptr()
+    utils::wrap_body!({
+        Ok(PyObj::from(Py_TYPE(*args) == list_type().as_ptr()))
     })
 }
 
@@ -153,23 +153,23 @@ extern "C" fn py_list_compare(
     other: *mut PyObject,
     op: i32,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
-        PyObj::from(match op {
-            pyo3_ffi::Py_EQ => list_eq(&self_, &other),
-            pyo3_ffi::Py_NE => !list_eq(&self_, &other),
+        Ok(PyObj::from(match op {
+            pyo3_ffi::Py_EQ => list_eq(&self_, &other)?,
+            pyo3_ffi::Py_NE => !list_eq(&self_, &other)?,
             _ => {
                 return utils::raise_exception(
                     "list comparison not supported");
             }
-        }).into_ptr()
+        }))
     })
 }
 
-fn list_eq(self_: &PyObj, other: &PyObj) -> bool {
+fn list_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
     if self_.is(other) {
-        true
+        Ok(true)
     } else {
         let lself = unsafe { self_.as_ref::<List>() };
         if other.type_is(list_type()) {
@@ -179,19 +179,19 @@ fn list_eq(self_: &PyObj, other: &PyObj) -> bool {
                 let mut l2 = lother;
                 while l1.length > 0 {
                     if l1.first != l2.first {
-                        return false
+                        return Ok(false);
                     }
                     l1 = unsafe { l1.rest.as_ref::<List>() };
                     l2 = unsafe { l2.rest.as_ref::<List>() };
                 }
-                true
+                Ok(true)
             } else {
-                false
+                Ok(false)
             }
         } else if other.is_instance(isequential_type()) {
             utils::sequential_eq(self_, other)
         } else {
-            false
+            Ok(false)
         }
     }
 }
@@ -201,13 +201,13 @@ extern "C" fn py_list_count(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception("PersistentList.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
             let self_ = unsafe { self_.as_ref::<List>() };
-            PyObj::from(self_.length).into_ptr()
+            Ok(PyObj::from(self_.length))
         }
     })
 }
@@ -217,11 +217,11 @@ extern "C" fn py_list_first(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception("PersistentList.first() takes no arguments")
         } else {
-            list_first(&PyObj::borrow(self_)).into_ptr()
+            Ok(list_first(&PyObj::borrow(self_)))
         }
     })
 }
@@ -236,11 +236,11 @@ extern "C" fn py_list_next(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception("PersistentList.next() takes no arguments")
         } else {
-            list_next(&PyObj::borrow(self_)).into_ptr()
+            Ok(list_next(&PyObj::borrow(self_)))
         }
     })
 }
@@ -260,11 +260,11 @@ extern "C" fn py_list_rest(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception("PersistentList.rest() takes no arguments")
         } else {
-            list_rest(&PyObj::borrow(self_)).into_ptr()
+            Ok(list_rest(&PyObj::borrow(self_)))
         }
     })
 }
@@ -291,15 +291,15 @@ unsafe extern "C" fn py_list_with_meta(
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let self_ = self_.as_ref::<List>();
         let meta = PyObj::borrow(*args);
-        _list(self_.first.clone(),
+        Ok(_list(self_.first.clone(),
             self_.rest.clone(),
             meta,
             self_.length,
-            self_.hash).into_ptr()
+            self_.hash))
     })
 }
 
@@ -309,7 +309,8 @@ extern "C" fn py_list_seq(
     nargs: isize,
 ) -> *mut PyObject {
     if nargs != 0 {
-        utils::raise_exception("PersistentList.seq() takes no arguments")
+        utils::set_exception("PersistentList.seq() takes no arguments");
+        std::ptr::null_mut()
     } else {
         list_seq(&PyObj::borrow(self_)).into_ptr()
     }
@@ -329,13 +330,13 @@ unsafe extern "C" fn py_list_conj(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 1 {
             utils::raise_exception("PersistentList.conj() takes one argument")
         } else {
             let oself = PyObj::borrow(self_);
             let item = PyObj::borrow(*args);
-            list_conj(oself, item).into_ptr()
+            Ok(list_conj(oself, item))
         }
     })
 }
@@ -349,9 +350,9 @@ pub fn list_conj(oself: PyObj, item: PyObj) -> PyObj {
 extern "C" fn py_list_iter(
     self_: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
-        utils::seq_iterator(self_).into_ptr()
+        utils::seq_iterator(self_)
     })
 }
 
@@ -375,8 +376,16 @@ extern "C" fn py_list_hash(
             while let Some(l) = nodes.pop_back() {
                 let mut hasher = DefaultHasher::new();
                 let l = unsafe { &mut *l };
-                l.rest.hash(&mut hasher);
-                l.first.hash(&mut hasher);
+                if let Ok(rhash) = l.rest.py_hash() {
+                    rhash.hash(&mut hasher);
+                    if let Ok(fhash) = l.first.py_hash() {
+                        fhash.hash(&mut hasher);
+                    } else {
+                        return -1;
+                    }
+                } else {
+                    return -1;
+                }
                 l.hash = Some(hasher.finish() as isize);
             }
             self_.hash.unwrap()

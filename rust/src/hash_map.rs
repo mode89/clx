@@ -16,8 +16,22 @@ pub fn init_module(module: *mut PyObject) {
 pub struct HashMap {
     ob_base: PyObject,
     meta: PyObj,
-    impl_: std::collections::HashMap<PyObj, PyObj>,
+    impl_: HashMapImpl,
     hash: Option<isize>,
+}
+
+type HashMapImpl = std::collections::HashMap<HashMapKey, PyObj>;
+
+#[derive(Clone, Eq, PartialEq)]
+struct HashMapKey {
+    obj: PyObj,
+    hash: isize,
+}
+
+impl std::hash::Hash for HashMapKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.hash.hash(state);
+    }
 }
 
 pub fn hash_map_type() -> &'static PyObj {
@@ -58,7 +72,7 @@ pub fn hash_map_type() -> &'static PyObj {
 }
 
 fn _hash_map(
-    impl_: std::collections::HashMap<PyObj, PyObj>,
+    impl_: HashMapImpl,
     meta: PyObj,
     hash: Option<isize>
 ) -> PyObj {
@@ -74,7 +88,7 @@ fn _hash_map(
 
 fn empty_hash_map() -> PyObj {
     utils::lazy_static!(PyObj, {
-        _hash_map(std::collections::HashMap::new(), PyObj::none(), None)
+        _hash_map(HashMapImpl::new(), PyObj::none(), None)
     }).clone()
 }
 
@@ -83,21 +97,21 @@ extern "C" fn hash_map(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs == 0 {
-            empty_hash_map().into_ptr()
+            Ok(empty_hash_map())
         } else if nargs % 2 != 0 {
             utils::raise_exception(
                 "PersistentHashMap() requires an even number of arguments")
         } else {
-            let mut impl_ = std::collections::HashMap::new();
+            let mut impl_ = HashMapImpl::new();
             let kv_num = nargs / 2;
             for i in 0..kv_num {
                 let key = PyObj::borrow(unsafe { *args.offset(i * 2) });
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
-                impl_.insert(key, value);
+                impl_.insert(hmap_key(key)?, value);
             }
-            _hash_map(impl_, PyObj::none(), None).into_ptr()
+            Ok(_hash_map(impl_, PyObj::none(), None))
         }
     })
 }
@@ -119,35 +133,26 @@ extern "C" fn hash_map_from(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 1 {
             utils::raise_exception(
                 "PersistentHashMap.from_iter() requires one argument")
         } else {
             let coll = PyObj::borrow(unsafe { *args });
-            if let Some(iter) = coll.get_iter() {
-                let mut impl_ = std::collections::HashMap::new();
-                while let Some(item) = iter.next() {
-                    let _0 = utils::lazy_static!(PyObj, { PyObj::from(0) });
-                    let _1 = utils::lazy_static!(PyObj, { PyObj::from(1) });
-                    if let Some(key) = item.get_item(_0) {
-                        if let Some(value) = item.get_item(_1) {
-                            impl_.insert(key, value);
-                        } else {
-                            return std::ptr::null_mut()
-                        }
-                    } else {
-                        return std::ptr::null_mut()
-                    }
-                }
-                if impl_.is_empty() {
-                    empty_hash_map().into_ptr()
-                } else {
-                    _hash_map(impl_, PyObj::none(), None).into_ptr()
-                }
-            } else {
-                std::ptr::null_mut()
+            let iter = coll.get_iter()?;
+            let mut impl_ = HashMapImpl::new();
+            let _0 = utils::lazy_static!(PyObj, { PyObj::from(0) });
+            let _1 = utils::lazy_static!(PyObj, { PyObj::from(1) });
+            while let Some(item) = iter.next() {
+                let key = item.get_item(_0)?;
+                let value = item.get_item(_1)?;
+                impl_.insert(hmap_key(key)?, value);
             }
+            Ok(if impl_.is_empty() {
+                empty_hash_map()
+            } else {
+                _hash_map(impl_, PyObj::none(), None)
+            })
         }
     })
 }
@@ -157,7 +162,7 @@ extern "C" fn py_hash_map_assoc(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil!({
+    utils::wrap_body!({
         if nargs == 0 {
             utils::raise_exception(
                 "PersistentHashMap.assoc() requires at least one argument")
@@ -172,9 +177,9 @@ extern "C" fn py_hash_map_assoc(
             for i in 0..kv_num {
                 let key = PyObj::borrow(unsafe { *args.offset(i * 2) });
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
-                impl_.insert(key, value);
+                impl_.insert(hmap_key(key)?, value);
             }
-            _hash_map(impl_, PyObj::none(), None).into_ptr()
+            Ok(_hash_map(impl_, PyObj::none(), None))
         }
     })
 }
@@ -184,7 +189,7 @@ extern "C" fn py_hash_map_lookup(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil!({
+    utils::wrap_body!({
         if nargs != 2 {
             utils::raise_exception(
                 "PersistentHashMap.lookup() requires two arguments")
@@ -193,10 +198,10 @@ extern "C" fn py_hash_map_lookup(
             let self_ = unsafe { self_.as_ref::<HashMap>() };
             let key = PyObj::borrow(unsafe { *args });
             let not_found = PyObj::borrow(unsafe { *args.offset(1) });
-            match self_.impl_.get(&key) {
-                Some(value) => value.clone().into_ptr(),
-                None => not_found.into_ptr(),
-            }
+            Ok(match self_.impl_.get(&hmap_key(key)?) {
+                Some(value) => value.clone(),
+                None => not_found,
+            })
         }
     })
 }
@@ -206,14 +211,14 @@ extern "C" fn py_hash_map_count(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception(
                 "PersistentHashMap.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
             let self_ = unsafe { self_.as_ref::<HashMap>() };
-            PyObj::from(self_.impl_.len() as i64).into_ptr()
+            Ok(PyObj::from(self_.impl_.len() as i64))
         }
     })
 }
@@ -223,7 +228,7 @@ extern "C" fn py_hash_map_merge(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil!({
+    utils::wrap_body!({
         if nargs != 1 {
             utils::raise_exception(
                 "PersistentHashMap.merge() requires one argument")
@@ -240,7 +245,7 @@ extern "C" fn py_hash_map_merge(
                 for (key, value) in other.impl_.iter() {
                     impl_.insert(key.clone(), value.clone());
                 }
-                _hash_map(impl_, PyObj::none(), None).into_ptr()
+                Ok(_hash_map(impl_, PyObj::none(), None))
             }
         }
     })
@@ -251,17 +256,17 @@ extern "C" fn py_hash_map_compare(
     other: *mut PyObject,
     op: i32,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
-        PyObj::from(match op {
+        Ok(PyObj::from(match op {
             pyo3_ffi::Py_EQ => hash_map_eq(&self_, &other),
             pyo3_ffi::Py_NE => !hash_map_eq(&self_, &other),
             _ => {
                 return utils::raise_exception(
                     "hash-map comparison not supported");
             }
-        }).into_ptr()
+        }))
     })
 }
 
@@ -290,15 +295,12 @@ extern "C" fn py_hash_map_subscript(
     self_: *mut PyObject,
     key: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let key = PyObj::borrow(key);
-        match hash_map_getitem(&self_, key) {
-            Some(value) => value.into_ptr(),
-            None => {
-                raise_key_error();
-                std::ptr::null_mut()
-            }
+        match hash_map_getitem(&self_, hmap_key(key)?) {
+            Some(value) => Ok(value),
+            None => raise_key_error()
         }
     })
 }
@@ -308,25 +310,22 @@ extern "C" fn py_hash_map_getitem(
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 1 {
             utils::raise_exception(
                 "PersistentHashMap.__getitem__() takes one argument")
         } else {
             let self_ = PyObj::borrow(self_);
             let key = PyObj::borrow(unsafe { *args });
-            match hash_map_getitem(&self_, key) {
-                Some(value) => value.into_ptr(),
-                None => {
-                    raise_key_error();
-                    std::ptr::null_mut()
-                }
+            match hash_map_getitem(&self_, hmap_key(key)?) {
+                Some(value) => Ok(value),
+                None => raise_key_error(),
             }
         }
     })
 }
 
-fn hash_map_getitem(self_: &PyObj, key: PyObj) -> Option<PyObj> {
+fn hash_map_getitem(self_: &PyObj, key: HashMapKey) -> Option<PyObj> {
     let self_ = unsafe { self_.as_ref::<HashMap>() };
     self_.impl_.get(&key).cloned()
 }
@@ -336,12 +335,12 @@ extern "C" fn py_hash_map_seq(
     _args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         if nargs != 0 {
             utils::raise_exception(
                 "PersistentVector.seq() takes no arguments")
         } else {
-            hash_map_seq(&PyObj::borrow(self_)).into_ptr()
+            Ok(hash_map_seq(&PyObj::borrow(self_)))
         }
     })
 }
@@ -353,7 +352,7 @@ pub fn hash_map_seq(self_: &PyObj) -> PyObj {
     } else {
         let mut lst = list::empty_list();
         for (key, value) in self_.impl_.iter() {
-            let kv = PyObj::tuple2(key.clone(), value.clone());
+            let kv = PyObj::tuple2(key.obj.clone(), value.clone());
             lst = list::list_conj(lst, kv);
         }
         lst
@@ -365,7 +364,7 @@ extern "C" fn py_hash_map_call(
     args: *mut PyObject,
     _kwargs: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let key: *mut PyObject = std::ptr::null_mut();
         let not_found: *mut PyObject = std::ptr::null_mut();
         if unsafe { PyArg_UnpackTuple(args,
@@ -374,18 +373,18 @@ extern "C" fn py_hash_map_call(
             let key = PyObj::borrow(key);
             let self_ = PyObj::borrow(self_);
             let self_ = unsafe { self_.as_ref::<HashMap>() };
-            match self_.impl_.get(&key) {
-                Some(value) => value.clone().into_ptr(),
+            Ok(match self_.impl_.get(&hmap_key(key)?) {
+                Some(value) => value.clone(),
                 None => {
                     if !not_found.is_null() {
-                        PyObj::borrow(not_found).into_ptr()
+                        PyObj::borrow(not_found)
                     } else {
-                        PyObj::none().into_ptr()
+                        PyObj::none()
                     }
                 }
-            }
+            })
         } else {
-            std::ptr::null_mut()
+            Err(())
         }
     })
 }
@@ -393,7 +392,7 @@ extern "C" fn py_hash_map_call(
 extern "C" fn py_hash_map_iter(
     self_: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let oself = PyObj::borrow(self_);
         let self_ = unsafe { oself.as_ref::<HashMap>() };
         let oiter = PyObj::alloc(hash_map_iterator_type());
@@ -402,7 +401,7 @@ extern "C" fn py_hash_map_iter(
             std::ptr::write(&mut iter.map, oself.clone());
             std::ptr::write(&mut iter.iterator, self_.impl_.iter());
         }
-        oiter.into_ptr()
+        Ok(oiter)
     })
 }
 
@@ -410,7 +409,7 @@ extern "C" fn py_hash_map_iter(
 pub struct HashMapIterator<'a> {
     ob_base: PyObject,
     map: PyObj,
-    iterator: std::collections::hash_map::Iter<'a, PyObj, PyObj>,
+    iterator: std::collections::hash_map::Iter<'a, HashMapKey, PyObj>,
 }
 
 pub fn hash_map_iterator_type() -> &'static PyObj {
@@ -428,29 +427,34 @@ pub fn hash_map_iterator_type() -> &'static PyObj {
 unsafe extern "C" fn hash_map_iterator_iter(
     self_: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
-        self_
-    })
+    self_
 }
 
 unsafe extern "C" fn hash_map_iterator_next(
     self_: *mut PyObject,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let iter = self_.as_ref::<HashMapIterator>();
         match iter.iterator.next() {
-            Some((key, _value)) => key.clone().into_ptr(),
+            Some((key, _value)) => Ok(key.obj.clone()),
             None => {
                 PyErr_SetNone(PyExc_StopIteration);
-                std::ptr::null_mut()
+                Err(())
             }
         }
     })
 }
 
-fn raise_key_error() {
+fn raise_key_error() -> Result<PyObj, ()> {
     unsafe {
         PyErr_SetString(PyExc_KeyError, "Key not found\0".as_ptr().cast());
     }
+    Err(())
+}
+
+#[inline]
+fn hmap_key(obj: PyObj) -> Result<HashMapKey, ()> {
+    let hash = obj.py_hash()?;
+    Ok(HashMapKey { obj, hash })
 }

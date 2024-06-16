@@ -19,7 +19,7 @@ extern "C" fn dummy_method(
     _args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
-    utils::handle_gil_and_panic!({
+    utils::wrap_body!({
         utils::raise_exception("Not implemented")
     })
 }
@@ -116,7 +116,7 @@ pub fn iassociative_type() -> &'static PyObj {
 
 pub fn mapping_type() -> &'static PyObj {
     utils::lazy_static!(PyObj, {
-        let module = PyObj::import("collections.abc");
+        let module = PyObj::import("collections.abc").unwrap();
         module.get_attr(&utils::static_pystring!("Mapping")).unwrap()
     })
 }
