@@ -29,7 +29,7 @@ pub struct Keyword {
 pub fn keyword_type() -> &'static PyObj {
     static_type!(
         TypeSpec {
-            name: "clx_rust.Keyword",
+            name: "clx_rust.Keyword".to_string(),
             flags: Py_TPFLAGS_DEFAULT |
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
             size: std::mem::size_of::<Keyword>(),
@@ -38,7 +38,10 @@ pub fn keyword_type() -> &'static PyObj {
             hash: Some(keyword_hash),
             compare: Some(keyword_compare),
             call: Some(keyword_call),
-            members: vec![ "name", "namespace" ],
+            members: vec![
+                "name".to_string(),
+                "namespace".to_string()
+            ],
             ..Default::default()
         }
     )

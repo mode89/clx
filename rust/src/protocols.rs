@@ -26,7 +26,7 @@ extern "C" fn dummy_method(
 
 pub fn imeta_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.IMeta",
+        name: "clx_rust.IMeta".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("with_meta", dummy_method),
@@ -37,7 +37,7 @@ pub fn imeta_type() -> &'static PyObj {
 
 pub fn icounted_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.ICounted",
+        name: "clx_rust.ICounted".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("count_", dummy_method),
@@ -48,7 +48,7 @@ pub fn icounted_type() -> &'static PyObj {
 
 pub fn iseqable_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.ISeqable",
+        name: "clx_rust.ISeqable".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("seq", dummy_method),
@@ -59,7 +59,7 @@ pub fn iseqable_type() -> &'static PyObj {
 
 pub fn iseq_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.ISeq",
+        name: "clx_rust.ISeq".to_string(),
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -73,7 +73,7 @@ pub fn iseq_type() -> &'static PyObj {
 
 pub fn isequential_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.ISequential",
+        name: "clx_rust.ISequential".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         ..Default::default()
     })
@@ -81,7 +81,7 @@ pub fn isequential_type() -> &'static PyObj {
 
 pub fn icollection_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.ICollection",
+        name: "clx_rust.ICollection".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("conj", dummy_method),
@@ -92,7 +92,7 @@ pub fn icollection_type() -> &'static PyObj {
 
 pub fn iindexed_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.IIndexed",
+        name: "clx_rust.IIndexed".to_string(),
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
@@ -104,7 +104,7 @@ pub fn iindexed_type() -> &'static PyObj {
 
 pub fn iassociative_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.IAssociative",
+        name: "clx_rust.IAssociative".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
             ("lookup", dummy_method),

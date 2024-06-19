@@ -37,7 +37,7 @@ impl std::hash::Hash for HashMapKey {
 pub fn hash_map_type() -> &'static PyObj {
     static_type!(
         TypeSpec {
-            name: "clx_rust.PersistentHashMap",
+            name: "clx_rust.PersistentHashMap".to_string(),
             bases: vec![
                 imeta_type(),
                 icounted_type(),
@@ -55,7 +55,7 @@ pub fn hash_map_type() -> &'static PyObj {
             iter: Some(py_hash_map_iter),
             mapping_length: Some(py_hash_map_len),
             mapping_subscript: Some(py_hash_map_subscript),
-            members: vec![ "__meta__" ],
+            members: vec![ "__meta__".to_string() ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
                 ("__getitem__", py_hash_map_getitem),
@@ -409,12 +409,12 @@ extern "C" fn py_hash_map_iter(
 pub struct HashMapIterator<'a> {
     ob_base: PyObject,
     map: PyObj,
-    iterator: std::collections::hash_map::Iter<'a, HashMapKey, PyObj>,
+    iterator: std::collections::hash_map::Iter<'a, PyObjHashable, PyObj>,
 }
 
 pub fn hash_map_iterator_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.PersistentHashMapIterator",
+        name: "clx_rust.PersistentHashMapIterator".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
         size: std::mem::size_of::<HashMapIterator>(),
         dealloc: Some(utils::generic_dealloc::<HashMapIterator>),

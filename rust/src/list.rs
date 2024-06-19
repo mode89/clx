@@ -26,7 +26,7 @@ pub struct List {
 pub fn list_type() -> &'static PyObj {
     static_type!(
         TypeSpec {
-            name: "clx_rust.PersistentList",
+            name: "clx_rust.PersistentList".to_string(),
             bases: vec![
                 imeta_type(),
                 icounted_type(),
@@ -42,7 +42,7 @@ pub fn list_type() -> &'static PyObj {
             compare: Some(py_list_compare),
             hash: Some(py_list_hash),
             iter: Some(py_list_iter),
-            members: vec![ "__meta__" ],
+            members: vec![ "__meta__".to_string() ],
             methods: vec![
                 ("with_meta", py_list_with_meta),
                 ("count_", py_list_count),

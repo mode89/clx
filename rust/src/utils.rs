@@ -218,7 +218,7 @@ pub struct SeqIterator {
 
 pub fn seq_iterator_type() -> &'static PyObj {
     static_type!(TypeSpec {
-        name: "clx_rust.SeqIterator",
+        name: "clx_rust.SeqIterator".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
         size: std::mem::size_of::<SeqIterator>(),
         dealloc: Some(generic_dealloc::<SeqIterator>),

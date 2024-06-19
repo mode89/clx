@@ -26,7 +26,7 @@ pub struct Symbol {
 pub fn symbol_type() -> &'static PyObj {
     static_type!(
         TypeSpec {
-            name: "clx_rust.Symbol",
+            name: "clx_rust.Symbol".to_string(),
             bases: vec![
                 imeta_type(),
             ],
@@ -38,9 +38,9 @@ pub fn symbol_type() -> &'static PyObj {
             hash: Some(symbol_hash),
             compare: Some(symbol_compare),
             members: vec![
-                "name",
-                "namespace",
-                "__meta__"
+                "name".to_string(),
+                "namespace".to_string(),
+                "__meta__".to_string()
             ],
             methods: vec![
                 ("with_meta", symbol_with_meta),

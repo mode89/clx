@@ -22,7 +22,7 @@ pub(crate) use static_type;
 
 #[derive(Default)]
 pub struct TypeSpec {
-    pub name: &'static str,
+    pub name: String,
     pub bases: Vec<&'static PyObj>,
     pub flags: u64,
     pub size: usize,
@@ -37,7 +37,7 @@ pub struct TypeSpec {
     pub sequence_item: Option<ssizeargfunc>,
     pub mapping_length: Option<lenfunc>,
     pub mapping_subscript: Option<binaryfunc>,
-    pub members: Vec<&'static str>,
+    pub members: Vec<String>,
     pub methods: Vec<(&'static str, _PyCFunctionFast)>,
 }
 
@@ -128,7 +128,7 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
     }
 
     let _member_names = spec.members.iter()
-        .map(|x| CString::new(*x).unwrap())
+        .map(|x| CString::new(x.clone()).unwrap())
         .collect::<Vec<_>>();
 
     let mut _members = _member_names.iter()
@@ -195,7 +195,7 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
     };
 
     _TypeBuffer {
-        name: CString::new(spec.name).unwrap(),
+        name: CString::new(spec.name.clone()).unwrap(),
         spec,
         _member_names,
         _members,

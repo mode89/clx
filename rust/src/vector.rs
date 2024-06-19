@@ -24,7 +24,7 @@ pub struct Vector {
 pub fn vector_type() -> &'static PyObj {
     static_type!(
         TypeSpec {
-            name: "clx_rust.PersistentVector",
+            name: "clx_rust.PersistentVector".to_string(),
             bases: vec![
                 imeta_type(),
                 iindexed_type(),
@@ -41,7 +41,7 @@ pub fn vector_type() -> &'static PyObj {
             // TODO hash: Some(py_vector_hash),
             sequence_item: Some(py_vector_item),
             call: Some(py_vector_call),
-            members: vec![ "__meta__" ],
+            members: vec![ "__meta__".to_string() ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
                 ("count_", py_vector_count),
