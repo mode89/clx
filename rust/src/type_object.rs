@@ -38,7 +38,7 @@ pub struct TypeSpec {
     pub mapping_length: Option<lenfunc>,
     pub mapping_subscript: Option<binaryfunc>,
     pub members: Vec<String>,
-    pub methods: Vec<(&'static str, _PyCFunctionFast)>,
+    pub methods: Vec<PyMethodDef>,
 }
 
 pub fn _make_type(tbuf: &'static _TypeBuffer) -> PyObj {
@@ -71,7 +71,6 @@ pub struct _TypeBuffer {
     mapping_methods: PyMappingMethods,
     _member_names: Vec<CString>,
     _members: Vec<PyMemberDef>,
-    _method_names: Vec<CString>,
     _methods: Vec<PyMethodDef>,
 }
 
@@ -151,19 +150,7 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         });
     }
 
-    let _method_names = spec.methods.iter()
-        .map(|x| CString::new(x.0).unwrap())
-        .collect::<Vec<_>>();
-
-    let mut _methods = spec.methods.iter()
-        .zip(_method_names.iter())
-        .map(|(mdef, cname)| PyMethodDef {
-            ml_name: cname.as_ptr().cast(),
-            ml_meth: PyMethodDefPointer { _PyCFunctionFast: mdef.1 },
-            ml_flags: METH_FASTCALL,
-            ml_doc: std::ptr::null(),
-        })
-        .collect::<Vec<_>>();
+    let mut _methods = spec.methods.clone();
     _methods.push(PY_METHOD_DEF_DUMMY);
 
     if spec.methods.len() > 0 {
@@ -199,7 +186,6 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         spec,
         _member_names,
         _members,
-        _method_names,
         _methods,
         slots,
         sequence_methods,

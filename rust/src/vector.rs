@@ -44,10 +44,10 @@ pub fn vector_type() -> &'static PyObj {
             members: vec![ "__meta__".to_string() ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
-                ("count_", py_vector_count),
-                ("nth", py_vector_nth),
-                ("first", py_vector_first),
-                ("seq", py_vector_seq),
+                utils::method!("count_", py_vector_count),
+                utils::method!("nth", py_vector_nth),
+                utils::method!("first", py_vector_first),
+                utils::method!("seq", py_vector_seq),
                 // TODO ("conj", py_vector_conj),
             ],
             ..TypeSpec::default()

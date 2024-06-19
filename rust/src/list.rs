@@ -44,13 +44,13 @@ pub fn list_type() -> &'static PyObj {
             iter: Some(py_list_iter),
             members: vec![ "__meta__".to_string() ],
             methods: vec![
-                ("with_meta", py_list_with_meta),
-                ("count_", py_list_count),
-                ("first", py_list_first),
-                ("next", py_list_next),
-                ("rest", py_list_rest),
-                ("seq", py_list_seq),
-                ("conj", py_list_conj),
+                utils::method!("with_meta", py_list_with_meta),
+                utils::method!("count_", py_list_count),
+                utils::method!("first", py_list_first),
+                utils::method!("next", py_list_next),
+                utils::method!("rest", py_list_rest),
+                utils::method!("seq", py_list_seq),
+                utils::method!("conj", py_list_conj),
             ],
             ..TypeSpec::default()
         }

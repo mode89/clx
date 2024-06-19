@@ -58,12 +58,12 @@ pub fn hash_map_type() -> &'static PyObj {
             members: vec![ "__meta__".to_string() ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
-                ("__getitem__", py_hash_map_getitem),
-                ("assoc", py_hash_map_assoc),
-                ("lookup", py_hash_map_lookup),
-                ("merge", py_hash_map_merge),
-                ("count_", py_hash_map_count),
-                ("seq", py_hash_map_seq),
+                utils::method!("__getitem__", py_hash_map_getitem),
+                utils::method!("assoc", py_hash_map_assoc),
+                utils::method!("lookup", py_hash_map_lookup),
+                utils::method!("merge", py_hash_map_merge),
+                utils::method!("count_", py_hash_map_count),
+                utils::method!("seq", py_hash_map_seq),
                 // TODO ("conj", py_vector_conj),
             ],
             ..TypeSpec::default()

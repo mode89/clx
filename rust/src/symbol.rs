@@ -43,7 +43,7 @@ pub fn symbol_type() -> &'static PyObj {
                 "__meta__".to_string()
             ],
             methods: vec![
-                ("with_meta", symbol_with_meta),
+                utils::method!("with_meta", symbol_with_meta),
             ],
             ..Default::default()
         }

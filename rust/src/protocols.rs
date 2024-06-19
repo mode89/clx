@@ -29,7 +29,7 @@ pub fn imeta_type() -> &'static PyObj {
         name: "clx_rust.IMeta".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("with_meta", dummy_method),
+            utils::method!("with_meta", dummy_method),
         ],
         ..Default::default()
     })
@@ -40,7 +40,7 @@ pub fn icounted_type() -> &'static PyObj {
         name: "clx_rust.ICounted".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("count_", dummy_method),
+            utils::method!("count_", dummy_method),
         ],
         ..Default::default()
     })
@@ -51,7 +51,7 @@ pub fn iseqable_type() -> &'static PyObj {
         name: "clx_rust.ISeqable".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("seq", dummy_method),
+            utils::method!("seq", dummy_method),
         ],
         ..Default::default()
     })
@@ -63,9 +63,9 @@ pub fn iseq_type() -> &'static PyObj {
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("first", dummy_method),
-            ("next", dummy_method),
-            ("rest", dummy_method),
+            utils::method!("first", dummy_method),
+            utils::method!("next", dummy_method),
+            utils::method!("rest", dummy_method),
         ],
         ..Default::default()
     })
@@ -84,7 +84,7 @@ pub fn icollection_type() -> &'static PyObj {
         name: "clx_rust.ICollection".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("conj", dummy_method),
+            utils::method!("conj", dummy_method),
         ],
         ..Default::default()
     })
@@ -96,7 +96,7 @@ pub fn iindexed_type() -> &'static PyObj {
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("nth", dummy_method),
+            utils::method!("nth", dummy_method),
         ],
         ..Default::default()
     })
@@ -107,8 +107,8 @@ pub fn iassociative_type() -> &'static PyObj {
         name: "clx_rust.IAssociative".to_string(),
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            ("lookup", dummy_method),
-            ("assoc", dummy_method),
+            utils::method!("lookup", dummy_method),
+            utils::method!("assoc", dummy_method),
         ],
         ..Default::default()
     })

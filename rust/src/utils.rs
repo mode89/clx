@@ -139,6 +139,19 @@ macro_rules! handle_gil {
 
 pub(crate) use handle_gil;
 
+macro_rules! method {
+    ($name:expr, $func:ident) => {
+        pyo3_ffi::PyMethodDef {
+            ml_name: crate::utils::static_cstring!($name).as_ptr().cast(),
+            ml_meth: PyMethodDefPointer { _PyCFunctionFast: $func },
+            ml_flags: METH_FASTCALL,
+            ml_doc: std::ptr::null(),
+        }
+    }
+}
+
+pub(crate) use method;
+
 pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
     unsafe {
         std::ptr::drop_in_place::<T>(obj.cast());
