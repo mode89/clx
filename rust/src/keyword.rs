@@ -122,14 +122,14 @@ unsafe extern "C" fn keyword(
     })
 }
 
-unsafe fn intern_keyword(ns: Option<CString>, name: CString) -> PyObj {
+fn intern_keyword(ns: Option<CString>, name: CString) -> PyObj {
     type Key = (Option<CString>, CString);
     let mut table = utils::lazy_static!(
         Mutex<HashMap<Key, PyObj>>, {
             Mutex::new(HashMap::new())
         }).lock().unwrap();
     table.entry((ns, name))
-        .or_insert_with_key(|key| {
+        .or_insert_with_key(|key| unsafe {
             let obj = PyObj::alloc(keyword_type());
             let keyword = obj.as_ref::<Keyword>();
             let ns = &key.0;
