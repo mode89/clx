@@ -73,6 +73,16 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn to_pystr(&self) -> Option<PyObj> {
+        let ptr = unsafe { PyObject_Str(self.0) };
+        if !ptr.is_null() {
+            Some(PyObj::from_owned_ptr(ptr))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn tuple2(obj1: PyObj, obj2: PyObj) -> PyObj {
         PyObj::from_owned_ptr(unsafe {
             PyTuple_Pack(2, obj1.into_ptr(), obj2.into_ptr())
