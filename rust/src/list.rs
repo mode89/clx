@@ -8,8 +8,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, list_);
-    utils::module_add_method!(module, is_list);
+    utils::module_add_method!(module, list_, py_list);
+    utils::module_add_method!(module, is_list, py_is_list);
     utils::module_add_type!(module, PersistentList, list_type());
 }
 
@@ -57,19 +57,7 @@ pub fn list_type() -> &'static PyObj {
     )
 }
 
-pub fn empty_list() -> PyObj {
-    utils::lazy_static!(PyObj, {
-        let mut hasher = DefaultHasher::new();
-        "empty_list".hash(&mut hasher);
-        _list(PyObj::none(),
-            PyObj::none(),
-            PyObj::none(),
-            0,
-            Some(hasher.finish() as isize))
-    }).clone()
-}
-
-extern "C" fn list_(
+extern "C" fn py_list(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
@@ -80,7 +68,7 @@ extern "C" fn list_(
         while i >= 0 {
             unsafe {
                 let item = *args.offset(i);
-                obj = _list(
+                obj = list(
                     PyObj::borrow(item),
                     obj.clone(),
                     PyObj::none(),
@@ -94,7 +82,7 @@ extern "C" fn list_(
     })
 }
 
-fn _list(first: PyObj,
+fn list(first: PyObj,
          rest: PyObj,
          meta: PyObj,
          length: i64,
@@ -109,6 +97,18 @@ fn _list(first: PyObj,
         l.hash = hash;
         obj
     }
+}
+
+pub fn empty_list() -> PyObj {
+    utils::lazy_static!(PyObj, {
+        let mut hasher = DefaultHasher::new();
+        "empty_list".hash(&mut hasher);
+        list(PyObj::none(),
+            PyObj::none(),
+            PyObj::none(),
+            0,
+            Some(hasher.finish() as isize))
+    }).clone()
 }
 
 extern "C" fn list_dealloc(obj: *mut PyObject) {
@@ -138,7 +138,7 @@ extern "C" fn list_dealloc(obj: *mut PyObject) {
     }
 }
 
-unsafe extern "C" fn is_list(
+unsafe extern "C" fn py_is_list(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
@@ -295,7 +295,7 @@ unsafe extern "C" fn py_list_with_meta(
         let self_ = PyObj::borrow(self_);
         let self_ = self_.as_ref::<List>();
         let meta = PyObj::borrow(*args);
-        Ok(_list(self_.first.clone(),
+        Ok(list(self_.first.clone(),
             self_.rest.clone(),
             meta,
             self_.length,
@@ -344,7 +344,7 @@ unsafe extern "C" fn py_list_conj(
 pub fn list_conj(oself: PyObj, item: PyObj) -> PyObj {
     let self_ = unsafe { oself.as_ref::<List>() };
     let length = self_.length + 1;
-    _list(item.clone(), oself.clone(), PyObj::none(), length, None)
+    list(item.clone(), oself.clone(), PyObj::none(), length, None)
 }
 
 extern "C" fn py_list_iter(

@@ -8,8 +8,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, vector);
-    utils::module_add_method!(module, is_vector);
+    utils::module_add_method!(module, vector, py_vector);
+    utils::module_add_method!(module, is_vector, py_is_vector);
     utils::module_add_type!(module, PersistentVector, vector_type());
 }
 
@@ -55,7 +55,25 @@ pub fn vector_type() -> &'static PyObj {
     )
 }
 
-fn _vector(impl_: Vec<PyObj>, meta: PyObj, hash: Option<isize>) -> PyObj {
+extern "C" fn py_vector(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 0 {
+            Ok(empty_vector())
+        } else {
+            let mut impl_ = Vec::with_capacity(nargs as usize);
+            for i in 0..nargs {
+                impl_.push(PyObj::borrow(unsafe { *args.offset(i) }));
+            }
+            Ok(vector(impl_, PyObj::none(), None))
+        }
+    })
+}
+
+fn vector(impl_: Vec<PyObj>, meta: PyObj, hash: Option<isize>) -> PyObj {
     unsafe {
         let obj = PyObj::alloc(vector_type());
         let v = obj.as_ref::<Vector>();
@@ -70,29 +88,11 @@ fn empty_vector() -> PyObj {
     utils::lazy_static!(PyObj, {
         let mut hasher = DefaultHasher::new();
         "empty_vector".hash(&mut hasher);
-        _vector(vec![], PyObj::none(), Some(hasher.finish() as isize))
+        vector(vec![], PyObj::none(), Some(hasher.finish() as isize))
     }).clone()
 }
 
-extern "C" fn vector(
-    _self: *mut PyObject,
-    args: *mut *mut PyObject,
-    nargs: isize,
-) -> *mut PyObject {
-    utils::wrap_body!({
-        if nargs == 0 {
-            Ok(empty_vector())
-        } else {
-            let mut impl_ = Vec::with_capacity(nargs as usize);
-            for i in 0..nargs {
-                impl_.push(PyObj::borrow(unsafe { *args.offset(i) }));
-            }
-            Ok(_vector(impl_, PyObj::none(), None))
-        }
-    })
-}
-
-unsafe extern "C" fn is_vector(
+unsafe extern "C" fn py_is_vector(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,

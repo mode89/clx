@@ -12,9 +12,9 @@ use std::hash::{Hash, Hasher};
 use pyo3_ffi::*;
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, keyword);
-    utils::module_add_method!(module, is_keyword);
-    utils::module_add_method!(module, is_simple_keyword);
+    utils::module_add_method!(module, keyword, py_keyword);
+    utils::module_add_method!(module, is_keyword, py_is_keyword);
+    utils::module_add_method!(module, is_simple_keyword, py_is_simple_keyword);
     utils::module_add_type!(module, Keyword, keyword_type());
 }
 
@@ -34,10 +34,10 @@ pub fn keyword_type() -> &'static PyObj {
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
             size: std::mem::size_of::<Keyword>(),
             dealloc: Some(utils::generic_dealloc::<Keyword>),
-            repr: Some(keyword_repr),
-            hash: Some(keyword_hash),
-            compare: Some(keyword_compare),
-            call: Some(keyword_call),
+            repr: Some(py_keyword_repr),
+            hash: Some(py_keyword_hash),
+            compare: Some(py_keyword_compare),
+            call: Some(py_keyword_call),
             members: vec![
                 tpo::member!("name"),
                 tpo::member!("namespace"),
@@ -47,7 +47,7 @@ pub fn keyword_type() -> &'static PyObj {
     )
 }
 
-unsafe extern "C" fn keyword(
+extern "C" fn py_keyword(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
@@ -55,7 +55,7 @@ unsafe extern "C" fn keyword(
     utils::wrap_body!({
         match nargs {
             1 => {
-                let argo = PyObj::borrow(*args);
+                let argo = PyObj::borrow(unsafe { *args });
                 if argo.is_string() {
                     let arg = argo.as_cstr().unwrap().to_str().unwrap();
                     Ok(match arg.chars().position(|c| c == '/') {
@@ -76,7 +76,7 @@ unsafe extern "C" fn keyword(
                 } else if argo.type_is(keyword_type()) {
                     Ok(argo)
                 } else if argo.type_is(symbol_type()) {
-                    let sym = argo.as_ref::<Symbol>();
+                    let sym = unsafe { argo.as_ref::<Symbol>() };
                     let ns = &sym.namespace;
                     let name = &sym.name;
                     Ok(intern_keyword(
@@ -93,13 +93,13 @@ unsafe extern "C" fn keyword(
                 }
             },
             2 => {
-                let ns = PyObj::borrow(*args);
+                let ns = PyObj::borrow(unsafe { *args });
                 if !ns.is_none() && !ns.is_string() {
                     return utils::raise_exception(
                         "keyword namespace must be a string");
                 }
 
-                let name = PyObj::borrow(*args.add(1));
+                let name = PyObj::borrow(unsafe { *args.add(1) });
                 if !name.is_string() {
                     return utils::raise_exception(
                         "keyword name must be a string");
@@ -144,7 +144,7 @@ fn intern_keyword(ns: Option<CString>, name: CString) -> PyObj {
         }).clone()
 }
 
-unsafe extern "C" fn keyword_repr(
+unsafe extern "C" fn py_keyword_repr(
     self_: *mut PyObject,
 ) -> *mut PyObject {
     let self_ = PyObj::borrow(self_);
@@ -159,11 +159,11 @@ unsafe extern "C" fn keyword_repr(
     }
 }
 
-unsafe extern "C" fn keyword_hash(
+extern "C" fn py_keyword_hash(
     self_: *mut PyObject,
 ) -> isize {
     let self_ = PyObj::borrow(self_);
-    let keyword = self_.as_ref::<Keyword>();
+    let keyword = unsafe { self_.as_ref::<Keyword>() };
     match keyword.hash {
         Some(hash) => hash,
         None => {
@@ -181,7 +181,7 @@ unsafe extern "C" fn keyword_hash(
     }
 }
 
-unsafe extern "C" fn keyword_compare(
+extern "C" fn py_keyword_compare(
     self_: *mut PyObject,
     other: *mut PyObject,
     op: i32,
@@ -190,8 +190,8 @@ unsafe extern "C" fn keyword_compare(
         let other = PyObj::borrow(other);
         if other.type_is(keyword_type()) {
             let self_ = PyObj::borrow(self_);
-            let self_ = self_.as_ref::<Keyword>();
-            let other = other.as_ref::<Keyword>();
+            let self_ = unsafe { self_.as_ref::<Keyword>() };
+            let other = unsafe { other.as_ref::<Keyword>() };
             match op {
                 pyo3_ffi::Py_EQ => Ok(PyObj::from(
                     self_.namespace.is(&other.namespace) &&
@@ -208,7 +208,7 @@ unsafe extern "C" fn keyword_compare(
     })
 }
 
-unsafe extern "C" fn keyword_call(
+extern "C" fn py_keyword_call(
     self_: *mut PyObject,
     args: *mut PyObject,
     _kw: *mut PyObject,
@@ -216,8 +216,9 @@ unsafe extern "C" fn keyword_call(
     utils::wrap_body!({
         let coll: *mut PyObject = std::ptr::null_mut();
         let default: *mut PyObject = std::ptr::null_mut();
-        if PyArg_UnpackTuple(args, "Keyword.__call__()\0".as_ptr().cast(),
-                1, 2, &coll, &default) != 0 {
+        if unsafe { PyArg_UnpackTuple(args,
+                "Keyword.__call__()\0".as_ptr().cast(),
+                1, 2, &coll, &default) } != 0 {
             let coll = PyObj::borrow(coll);
             coll.call_method2(
                 &utils::static_pystring!("lookup"),
@@ -233,25 +234,27 @@ unsafe extern "C" fn keyword_call(
     })
 }
 
-unsafe extern "C" fn is_keyword(
+extern "C" fn py_is_keyword(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
     utils::handle_gil!({
-        PyObj::from(Py_TYPE(*args) == keyword_type().as_ptr()).into_ptr()
+        PyObj::from(unsafe {
+            Py_TYPE(*args) == keyword_type().as_ptr()
+        }).into_ptr()
     })
 }
 
-unsafe extern "C" fn is_simple_keyword(
+extern "C" fn py_is_simple_keyword(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
     utils::handle_gil!({
-        let argo = PyObj::borrow(*args);
+        let argo = PyObj::borrow(unsafe { *args });
         if argo.type_is(keyword_type()) {
-            let arg = argo.as_ref::<Keyword>();
+            let arg = unsafe { argo.as_ref::<Keyword>() };
             PyObj::from(arg.namespace.is_none()).into_ptr()
         } else {
             utils::ref_false()

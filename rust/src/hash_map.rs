@@ -6,9 +6,9 @@ use crate::protocols::*;
 use pyo3_ffi::*;
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, hash_map);
-    utils::module_add_method!(module, is_hash_map);
-    utils::module_add_method!(module, hash_map_from);
+    utils::module_add_method!(module, hash_map, py_hash_map);
+    utils::module_add_method!(module, is_hash_map, py_is_hash_map);
+    utils::module_add_method!(module, hash_map_from, py_hash_map_from);
     utils::module_add_type!(module, PersistentHashMap, hash_map_type());
 }
 
@@ -59,28 +59,7 @@ pub fn hash_map_type() -> &'static PyObj {
     )
 }
 
-fn _hash_map(
-    impl_: HashMapImpl,
-    meta: PyObj,
-    hash: Option<isize>
-) -> PyObj {
-    unsafe {
-        let obj = PyObj::alloc(hash_map_type());
-        let v = obj.as_ref::<HashMap>();
-        std::ptr::write(&mut v.impl_, impl_);
-        std::ptr::write(&mut v.meta, meta);
-        v.hash = hash;
-        obj
-    }
-}
-
-fn empty_hash_map() -> PyObj {
-    utils::lazy_static!(PyObj, {
-        _hash_map(HashMapImpl::new(), PyObj::none(), None)
-    }).clone()
-}
-
-extern "C" fn hash_map(
+extern "C" fn py_hash_map(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
@@ -99,12 +78,33 @@ extern "C" fn hash_map(
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
                 impl_.insert(key.into_hashable()?, value);
             }
-            Ok(_hash_map(impl_, PyObj::none(), None))
+            Ok(hash_map(impl_, PyObj::none(), None))
         }
     })
 }
 
-extern "C" fn is_hash_map(
+fn hash_map(
+    impl_: HashMapImpl,
+    meta: PyObj,
+    hash: Option<isize>
+) -> PyObj {
+    unsafe {
+        let obj = PyObj::alloc(hash_map_type());
+        let v = obj.as_ref::<HashMap>();
+        std::ptr::write(&mut v.impl_, impl_);
+        std::ptr::write(&mut v.meta, meta);
+        v.hash = hash;
+        obj
+    }
+}
+
+fn empty_hash_map() -> PyObj {
+    utils::lazy_static!(PyObj, {
+        hash_map(HashMapImpl::new(), PyObj::none(), None)
+    }).clone()
+}
+
+extern "C" fn py_is_hash_map(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
@@ -116,7 +116,7 @@ extern "C" fn is_hash_map(
     })
 }
 
-extern "C" fn hash_map_from(
+extern "C" fn py_hash_map_from(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
@@ -139,7 +139,7 @@ extern "C" fn hash_map_from(
             Ok(if impl_.is_empty() {
                 empty_hash_map()
             } else {
-                _hash_map(impl_, PyObj::none(), None)
+                hash_map(impl_, PyObj::none(), None)
             })
         }
     })
@@ -167,7 +167,7 @@ extern "C" fn py_hash_map_assoc(
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
                 impl_.insert(key.into_hashable()?, value);
             }
-            Ok(_hash_map(impl_, PyObj::none(), None))
+            Ok(hash_map(impl_, PyObj::none(), None))
         }
     })
 }
@@ -233,7 +233,7 @@ extern "C" fn py_hash_map_merge(
                 for (key, value) in other.impl_.iter() {
                     impl_.insert(key.clone(), value.clone());
                 }
-                Ok(_hash_map(impl_, PyObj::none(), None))
+                Ok(hash_map(impl_, PyObj::none(), None))
             }
         }
     })

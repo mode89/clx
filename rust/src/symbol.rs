@@ -8,9 +8,9 @@ use std::hash::{Hash, Hasher};
 use pyo3_ffi::*;
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, symbol);
-    utils::module_add_method!(module, is_symbol);
-    utils::module_add_method!(module, is_simple_symbol);
+    utils::module_add_method!(module, symbol, py_symbol);
+    utils::module_add_method!(module, is_symbol, py_is_symbol);
+    utils::module_add_method!(module, is_simple_symbol, py_is_simple_symbol);
     utils::module_add_type!(module, Symbol, symbol_type());
 }
 
@@ -34,30 +34,30 @@ pub fn symbol_type() -> &'static PyObj {
                    Py_TPFLAGS_DISALLOW_INSTANTIATION,
             size: std::mem::size_of::<Symbol>(),
             dealloc: Some(utils::generic_dealloc::<Symbol>),
-            repr: Some(symbol_repr),
-            hash: Some(symbol_hash),
-            compare: Some(symbol_compare),
+            repr: Some(py_symbol_repr),
+            hash: Some(py_symbol_hash),
+            compare: Some(py_symbol_compare),
             members: vec![
                 tpo::member!("name"),
                 tpo::member!("namespace"),
                 tpo::member!("__meta__"),
             ],
             methods: vec![
-                tpo::method!("with_meta", symbol_with_meta),
+                tpo::method!("with_meta", py_symbol_with_meta),
             ],
             ..Default::default()
         }
     )
 }
 
-unsafe extern "C" fn symbol(
+extern "C" fn py_symbol(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
 ) -> *mut PyObject {
     utils::wrap_body!({
         if nargs == 1 {
-            let argo = PyObj::borrow(*args);
+            let argo = PyObj::borrow(unsafe { *args });
             if argo.type_is(symbol_type()) {
                 Ok(argo)
             } else if let Ok(arg) = argo.as_cstr() {
@@ -76,8 +76,9 @@ unsafe extern "C" fn symbol(
                             let ns = CString::new(ns).unwrap();
                             Ok(_symbol(
                                 utils::intern_string(ns.as_c_str()),
-                                utils::intern_string(
-                                    CStr::from_ptr(name[1..].as_ptr().cast())),
+                                utils::intern_string(unsafe {
+                                    CStr::from_ptr(name[1..].as_ptr().cast())
+                                }),
                                 PyObj::none(),
                                 None))
                         }
@@ -94,13 +95,13 @@ unsafe extern "C" fn symbol(
                 utils::raise_exception("symbol() argument must be a string")
             }
         } else if nargs == 2 {
-            let ns = PyObj::borrow(*args);
+            let ns = PyObj::borrow(unsafe { *args });
             if !ns.is_none() && !ns.is_string() {
                 return utils::raise_exception(
                     "symbol namespace must be a string");
             }
 
-            let name = PyObj::borrow(*args.add(1));
+            let name = PyObj::borrow(unsafe { *args.add(1) });
             if !name.is_string() {
                 return utils::raise_exception(
                     "symbol name must be a string");
@@ -135,7 +136,7 @@ fn _symbol(
     obj
 }
 
-unsafe extern "C" fn symbol_repr(
+unsafe extern "C" fn py_symbol_repr(
     self_: *mut PyObject,
 ) -> *mut PyObject {
     let self_ = PyObj::borrow(self_);
@@ -150,11 +151,11 @@ unsafe extern "C" fn symbol_repr(
     }
 }
 
-unsafe extern "C" fn symbol_hash(
+extern "C" fn py_symbol_hash(
     self_: *mut PyObject,
 ) -> isize {
     let self_ = PyObj::borrow(self_);
-    let self_ = self_.as_ref::<Symbol>();
+    let self_ = unsafe { self_.as_ref::<Symbol>() };
     match self_.hash {
         Some(hash) => hash,
         None => {
@@ -172,7 +173,7 @@ unsafe extern "C" fn symbol_hash(
     }
 }
 
-unsafe extern "C" fn symbol_compare(
+extern "C" fn py_symbol_compare(
     self_: *mut PyObject,
     other: *mut PyObject,
     op: i32,
@@ -181,8 +182,8 @@ unsafe extern "C" fn symbol_compare(
         let other = PyObj::borrow(other);
         if other.type_is(symbol_type()) {
             let self_ = PyObj::borrow(self_);
-            let self_ = self_.as_ref::<Symbol>();
-            let other = other.as_ref::<Symbol>();
+            let self_ = unsafe { self_.as_ref::<Symbol>() };
+            let other = unsafe { other.as_ref::<Symbol>() };
             match op {
                 pyo3_ffi::Py_EQ => Ok(PyObj::from(
                     self_.namespace.is(&other.namespace) &&
@@ -199,41 +200,43 @@ unsafe extern "C" fn symbol_compare(
     })
 }
 
-unsafe extern "C" fn symbol_with_meta(
+extern "C" fn py_symbol_with_meta(
     self_: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
     utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
-        let self_ = self_.as_ref::<Symbol>();
+        let self_ = unsafe { self_.as_ref::<Symbol>() };
         Ok(_symbol(
             self_.namespace.clone(),
             self_.name.clone(),
-            PyObj::borrow(*args),
+            PyObj::borrow(unsafe { *args }),
             self_.hash))
     })
 }
 
-unsafe extern "C" fn is_symbol(
+extern "C" fn py_is_symbol(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
     utils::handle_gil!({
-        PyObj::from(Py_TYPE(*args) == symbol_type().as_ptr()).into_ptr()
+        PyObj::from(unsafe {
+            Py_TYPE(*args) == symbol_type().as_ptr()
+        }).into_ptr()
     })
 }
 
-unsafe extern "C" fn is_simple_symbol(
+extern "C" fn py_is_simple_symbol(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     _nargs: isize,
 ) -> *mut PyObject {
     utils::handle_gil!({
-        let obj = PyObj::borrow(*args);
-        if obj.type_ptr() == symbol_type().as_ptr() {
-            let sym = obj.as_ref::<Symbol>();
+        let obj = PyObj::borrow(unsafe { *args });
+        if obj.type_ptr() == unsafe { symbol_type().as_ptr() } {
+            let sym = unsafe { obj.as_ref::<Symbol>() };
             PyObj::from(sym.namespace.is_none()).into_ptr()
         } else {
             utils::ref_false()

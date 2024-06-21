@@ -71,11 +71,11 @@ macro_rules! static_pynumber {
 pub(crate) use static_pynumber;
 
 macro_rules! module_add_method {
-    ($module:expr, $func:expr) => {
+    ($module:expr, $name:ident, $func:ident) => {
         {
             let method = utils::lazy_static!(PyMethodDef, {
                 PyMethodDef {
-                    ml_name: utils::static_cstring!(stringify!($func))
+                    ml_name: utils::static_cstring!(stringify!($name))
                         .as_ptr().cast(),
                     ml_meth: PyMethodDefPointer { _PyCFunctionFast: $func },
                     ml_flags: METH_FASTCALL,
@@ -83,7 +83,7 @@ macro_rules! module_add_method {
                 }
             });
 
-            let name = utils::static_cstring!(stringify!($func));
+            let name = utils::static_cstring!(stringify!($name));
             unsafe {
                 PyModule_AddObject(
                     $module,

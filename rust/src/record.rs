@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 pub fn init_module(module: *mut PyObject) {
-    utils::module_add_method!(module, define_record);
+    utils::module_add_method!(module, define_record, py_define_record);
 }
 
-extern "C" fn define_record(
+extern "C" fn py_define_record(
     _self: *mut PyObject,
     args: *mut *mut PyObject,
     nargs: isize,
