@@ -49,6 +49,7 @@ pub struct TypeSpec<'a> {
     pub flags: u64,
     pub size: usize,
     pub dealloc: Option<destructor>,
+    pub init: Option<initproc>,
     pub repr: Option<reprfunc>,
     pub hash: Option<hashfunc>,
     pub call: Option<ternaryfunc>,
@@ -132,6 +133,13 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         slots.push(PyType_Slot {
             slot: Py_tp_dealloc,
             pfunc: dealloc as *mut _,
+        });
+    }
+
+    if let Some(init) = spec.init {
+        slots.push(PyType_Slot {
+            slot: Py_tp_init,
+            pfunc: init as *mut _,
         });
     }
 

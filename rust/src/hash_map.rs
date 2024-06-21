@@ -129,8 +129,8 @@ extern "C" fn hash_map_from(
             let coll = PyObj::borrow(unsafe { *args });
             let iter = coll.get_iter()?;
             let mut impl_ = HashMapImpl::new();
-            let _0 = utils::lazy_static!(PyObj, { PyObj::from(0) });
-            let _1 = utils::lazy_static!(PyObj, { PyObj::from(1) });
+            let _0 = utils::static_pynumber!(0);
+            let _1 = utils::static_pynumber!(1);
             while let Some(item) = iter.next() {
                 let key = item.get_item(_0)?;
                 let value = item.get_item(_1)?;

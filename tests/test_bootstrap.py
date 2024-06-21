@@ -72,7 +72,7 @@ def test_is_seqable():
     assert clx.is_seqable(42) is False
 
 def test_record():
-    record = clx.define_record("TestRecord", K("a"), K("b"))
+    record = clx.define_record("dummy.TestRecord", K("a"), K("b"))
     _r1 = record(1, 2)
     assert isinstance(_r1, record)
     assert get(_r1, K("a")) == 1
@@ -821,13 +821,7 @@ def test_resolve_symbol():
             munge("clx.core/*ns*"): clx.DynamicVar("user"),
         },
     )
-    lctx = clx.LocalContext(
-        env=M("a", 5, "bar", 6),
-        loop_bindings=None,
-        tail_QMARK_=False,
-        top_level_QMARK_=True,
-        line=1,
-        column=1)
+    lctx = clx.LocalContext(M("a", 5, "bar", 6), None, False, True, 1, 1)
     resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
     assert resolve(S("a")) == 5
     assert resolve(S("bar")) == 6

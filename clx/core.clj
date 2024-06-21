@@ -309,50 +309,8 @@
 (defmacro defrecord [tname fields]
   (assert (symbol? tname) "record name must be a symbol")
   (assert (vector? fields) "record fields must be a vector")
-  (let [qtname (symbol @*ns* (name tname))
-        self (gensym "self_")
-        other (gensym "other_")
-        make-assoc (fn make-assoc [field]
-                     (let [value (gensym "value_")
-                           fname (symbol (str qtname "-assoc-" field))]
-                       `(fn ~fname [~self ~value]
-                          (~tname
-                            ~@(map
-                                #(if (= % field)
-                                    value
-                                    `(. ~self ~(symbol (str "-" %))))
-                                fields)))))]
-    `(do (declare ~tname)
-         (let [getters# (python/dict
-                          (hash-map
-                            ~@(mapcat
-                               #(vector (keyword %)
-                                  `(fn [~self]
-                                     (. ~self ~(symbol (str "-" %)))))
-                               fields)))
-               assocs# (python/dict
-                         (hash-map
-                           ~@(mapcat
-                               #(vector (keyword %) (make-assoc %))
-                               fields)))]
-          (def ~tname
-            (clx.core/type* ~qtname [clx.core/IAssociative]
-              (__init__ [~self ~@fields]
-                ~@(map (fn [f]
-                         `(python* ~self "." ~f " = " ~f))
-                       fields))
-              (__eq__ [~self ~other]
-                (and (instance? ~tname ~other)
-                     ~@(map #(let [f* (symbol (str "-" %))]
-                              `(= (. ~self ~f*) (. ~other ~f*)))
-                            fields)))
-              (lookup [~self k not-found]
-                (let [getter (.get getters# k (fn [~self] not-found))]
-                  (getter ~self)))
-              (assoc [~self & kvs#]
-                (python*
-                  "obj = " ~self "\n"
-                  "for k, v in zip(" kvs# "[::2], " kvs# "[1::2]):\n"
-                  "  obj = " assocs# "[k](obj, v)\n"
-                  "obj"))))
-          ~tname))))
+  (let [qtname (str @*ns* "." (name tname))]
+    `(def tname
+       (clx.bootstrap/define-record
+         ~qtname
+         ~@(map keyword fields)))))

@@ -12,6 +12,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_type!(module, ICollection, icollection_type());
     utils::module_add_type!(module, IIndexed, iindexed_type());
     utils::module_add_type!(module, IAssociative, iassociative_type());
+    utils::module_add_type!(module, IRecord, irecord_type());
 }
 
 extern "C" fn dummy_method(
@@ -110,6 +111,15 @@ pub fn iassociative_type() -> &'static PyObj {
             tpo::method!("lookup", dummy_method),
             tpo::method!("assoc", dummy_method),
         ],
+        ..Default::default()
+    })
+}
+
+pub fn irecord_type() -> &'static PyObj {
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.IRecord",
+        bases: vec![iassociative_type()],
+        flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         ..Default::default()
     })
 }

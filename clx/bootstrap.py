@@ -12,7 +12,7 @@ import types
 import weakref
 
 from clx.types import \
-    IMeta, ICounted, IAssociative, IIndexed, ISeqable, ISeq, IRecord, \
+    IMeta, ICounted, IAssociative, IIndexed, ISeqable, ISeq, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
     PersistentList, list_, _list_from_iterable, \
@@ -20,6 +20,8 @@ from clx.types import \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     Atom, atom
+
+from clx.types import define_record as define_record0
 
 _DUMMY = type("Dummy", (), {})()
 
@@ -112,36 +114,7 @@ def is_hash_map(obj):
     return type(obj) is PersistentMap
 
 def define_record(name, *fields):
-    for field in fields:
-        assert is_simple_keyword(field), \
-            "field names must be simple keywords"
-
-    ns = {}
-    init_args = ", ".join(map(munge, fields))
-    init_set_fields = "\n  ".join(
-        f"self.{munge(f)} = {munge(f)}" for f in fields)
-    exec( # pylint: disable=exec-used
-        f"def init(self, {init_args}):\n"
-        f"  {init_set_fields}",
-        ns)
-
-    def make_getter(field):
-        fmunged = munge(field)
-        return lambda self: getattr(self, fmunged)
-    getters = {f: make_getter(f) for f in fields}
-
-    return make_dataclass(
-        name,
-        bases=(IRecord,),
-        fields=[munge(f) for f in fields],
-        namespace={
-            "__init__": ns["init"],
-            "lookup": lambda self, field, not_found:
-                getters.get(field, lambda _: not_found)(self),
-            "assoc": lambda self, *kvs:
-                dataclasses.replace(self,
-                    **dict(zip(map(munge, kvs[::2]), kvs[1::2]))),
-        })
+    return define_record0(name, *[(f, munge(f)) for f in fields])
 
 class DynamicVar:
     def __init__(self, value):
@@ -512,7 +485,7 @@ class Context:
     py_globals: dict
 
 # Local context defines state that is local to a single form
-LocalContext = define_record("LocalContext",
+LocalContext = define_record("clx.bootstrap.LocalContext",
     _K_ENV,
     _K_LOOP_BINDINGS,
     _K_TAIL_Q,
@@ -529,6 +502,9 @@ class Binding:
 def init_context(namespaces):
     namespaces = {
         "user": {},
+        "clx.bootstrap": {
+            "define-record": define_record,
+        },
         "clx.core": {
             "IAssociative": IAssociative,
             "+": lambda *args: sum(args),
@@ -607,13 +583,7 @@ def _local_context( # pylint: disable=too-many-arguments
         top_level=True,
         line=1,
         column=1):
-    return LocalContext(
-        env=env,
-        loop_bindings=loop_bindings,
-        tail_QMARK_=tail,
-        top_level_QMARK_=top_level,
-        line=line,
-        column=column)
+    return LocalContext(env, loop_bindings, tail, top_level, line, column)
 
 def _eval_string(ctx, text):
     lctx = _local_context()

@@ -28,6 +28,12 @@ impl PyObj {
         PyObj::from_owned_ptr(ptr)
     }
 
+    #[allow(dead_code)]
+    #[inline]
+    pub fn ref_count(&self) -> isize {
+        unsafe { (*self.0).ob_refcnt }
+    }
+
     #[inline]
     pub fn alloc(tp: &PyObj) -> PyObj {
         PyObj::own(unsafe { PyType_GenericAlloc(tp.as_ptr(), 0) })
@@ -72,6 +78,7 @@ impl PyObj {
         }
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn to_pystr(&self) -> Option<PyObj> {
         let ptr = unsafe { PyObject_Str(self.0) };
@@ -87,6 +94,11 @@ impl PyObj {
         PyObj::from_owned_ptr(unsafe {
             PyTuple_Pack(2, obj1.into_ptr(), obj2.into_ptr())
         })
+    }
+
+    #[inline]
+    pub fn is_tuple(&self) -> bool {
+        unsafe { PyTuple_Check(self.0) != 0 }
     }
 
     #[inline]
@@ -144,6 +156,16 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn len(&self) -> Result<isize, ()> {
+        let len = unsafe { PyObject_Size(self.0) };
+        if len == -1 && unsafe { !PyErr_Occurred().is_null() } {
+            Err(())
+        } else {
+            Ok(len)
+        }
+    }
+
+    #[inline]
     pub fn get_item(&self, key: &PyObj) -> Result<PyObj, ()> {
         result_from_owned_ptr(unsafe { PyObject_GetItem(self.0, key.0) })
     }
@@ -156,6 +178,16 @@ impl PyObj {
     #[inline]
     pub fn get_iter(&self) -> Result<PyObj, ()> {
         result_from_owned_ptr(unsafe { PyObject_GetIter(self.0) })
+    }
+
+    #[inline]
+    pub fn get_tuple_item(&self, index: isize) -> Result<PyObj, ()> {
+        let ptr = unsafe { PyTuple_GetItem(self.0, index) };
+        if !ptr.is_null() {
+            Ok(PyObj::from_borrowed_ptr(ptr))
+        } else {
+            Err(())
+        }
     }
 
     #[inline]

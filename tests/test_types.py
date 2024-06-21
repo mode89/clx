@@ -8,7 +8,8 @@ from clx.types import \
     PersistentVector, vector, vec, \
     PersistentMap, hash_map, hash_map_from, \
     IndexedSeq, cons, lazy_seq, seq, \
-    Atom, atom
+    Atom, atom, \
+    define_record
 
 K = keyword
 S = symbol
@@ -387,3 +388,68 @@ def test_atom():
     assert a.deref() == 44
     assert a.swap(lambda x, y: x + y, 2) == 46
     assert a.deref() == 46
+
+def test_record():
+    with pytest.raises(Exception, match="expects.*two arguments"):
+        define_record()
+    with pytest.raises(Exception, match="expects.*two arguments"):
+        define_record("TestRecord")
+    with pytest.raises(Exception, match="must be.*tuple"):
+        define_record("TestRecord", "a")
+    with pytest.raises(Exception, match="expects keyword"):
+        define_record("TestRecord", ("a", "b"))
+    with pytest.raises(Exception, match="expects string"):
+        define_record("TestRecord", (K("a"), K("b")))
+    with pytest.raises(Exception, match="have two elements"):
+        define_record("TestRecord", ("a", "b", "c"))
+    def _defrec(n, *fs):
+        return define_record(n, *[(K(f), f) for f in fs])
+    with pytest.raises(Exception, match="name must be a string"):
+        _defrec(["TestRecord"], "a", "b")
+    with pytest.raises(Exception, match="name must not be empty"):
+        _defrec("", "a", "b")
+    TestRecord = _defrec("dummy.TestRecord", "a", "b", "c")
+    assert isinstance(TestRecord, type)
+    r1 = TestRecord("foo", K("bar"), 42)
+    assert r1.a == "foo"
+    assert r1.b is K("bar")
+    assert r1.c == 42
+    with pytest.raises(AttributeError):
+        r1.d # pylint: disable=pointless-statement
+    assert r1.lookup(K("a"), None) == "foo"
+    assert r1.lookup(K("b"), None) is K("bar")
+    assert r1.lookup(K("c"), None) == 42
+    assert r1.lookup(K("d"), 9001) == 9001
+    r2 = r1.assoc(K("a"), "bar")
+    assert r2.a == "bar"
+    assert r2.b is K("bar")
+    assert r2.c == 42
+    assert r2.lookup(K("a"), None) == "bar"
+    assert r2.lookup(K("b"), None) is K("bar")
+    assert r2.lookup(K("c"), None) == 42
+    assert r1.a == "foo"
+    assert r1.b is K("bar")
+    assert r1.c == 42
+    assert r1.lookup(K("a"), None) == "foo"
+    assert r1.lookup(K("b"), None) is K("bar")
+    assert r1.lookup(K("c"), None) == 42
+    r3 = r2.assoc(K("b"), S("bar"), K("c"), 9001)
+    assert r3.a == "bar"
+    assert r3.b == S("bar")
+    assert r3.c == 9001
+    assert r3.lookup(K("a"), None) == "bar"
+    assert r3.lookup(K("b"), None) == S("bar")
+    assert r3.lookup(K("c"), None) == 9001
+    assert r2.a == "bar"
+    assert r2.b is K("bar")
+    assert r2.c == 42
+    assert r2.lookup(K("a"), None) == "bar"
+    assert r2.lookup(K("b"), None) is K("bar")
+    assert r2.lookup(K("c"), None) == 42
+    assert r1.a == "foo"
+    assert r1.b is K("bar")
+    assert r1.c == 42
+    assert r1.lookup(K("a"), None) == "foo"
+    assert r1.lookup(K("b"), None) is K("bar")
+    assert r1.lookup(K("c"), None) == 42
+    assert TestRecord(1, 2, 3) == TestRecord(1, 2, 3)

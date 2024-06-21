@@ -10,14 +10,12 @@ from clx_rust import \
     Keyword, keyword, is_keyword, is_simple_keyword, \
     PersistentList, list_, is_list, \
     PersistentVector, vector, is_vector, \
-    PersistentHashMap, hash_map, hash_map_from, is_hash_map
+    PersistentHashMap, hash_map, hash_map_from, is_hash_map, \
+    define_record
 
 PersistentMap = PersistentHashMap
 
 Iterable.register(PersistentVector)
-
-class IRecord(IAssociative, ABC):
-    pass
 
 def _list_from_iterable(iterable):
     _list = iterable if isinstance(iterable, list) else list(iterable)

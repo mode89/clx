@@ -62,6 +62,14 @@ macro_rules! static_pystring {
 
 pub(crate) use static_pystring;
 
+macro_rules! static_pynumber {
+    ($val:expr) => {
+        crate::utils::lazy_static!(PyObj, { PyObj::from($val) })
+    };
+}
+
+pub(crate) use static_pynumber;
+
 macro_rules! module_add_method {
     ($module:expr, $func:expr) => {
         {
@@ -151,6 +159,14 @@ pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
 pub fn raise_exception(msg: &str) -> Result<PyObj, ()> {
     set_exception(msg);
     Err(())
+}
+
+pub fn py_assert(cond: bool, msg: &str) -> Result<PyObj, ()> {
+    if cond {
+        Ok(PyObj::none())
+    } else {
+        raise_exception(msg)
+    }
 }
 
 #[inline]
