@@ -1,4 +1,4 @@
-use crate::object::PyObj;
+use crate::object::{PyObj, PyObjHashable};
 use crate::type_object as tpo;
 use crate::list;
 use crate::utils;
@@ -20,19 +20,7 @@ pub struct HashMap {
     hash: Option<isize>,
 }
 
-type HashMapImpl = std::collections::HashMap<HashMapKey, PyObj>;
-
-#[derive(Clone, Eq, PartialEq)]
-struct HashMapKey {
-    obj: PyObj,
-    hash: isize,
-}
-
-impl std::hash::Hash for HashMapKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.hash.hash(state);
-    }
-}
+type HashMapImpl = std::collections::HashMap<PyObjHashable, PyObj>;
 
 pub fn hash_map_type() -> &'static PyObj {
     tpo::static_type!(
@@ -109,7 +97,7 @@ extern "C" fn hash_map(
             for i in 0..kv_num {
                 let key = PyObj::borrow(unsafe { *args.offset(i * 2) });
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
-                impl_.insert(hmap_key(key)?, value);
+                impl_.insert(key.into_hashable()?, value);
             }
             Ok(_hash_map(impl_, PyObj::none(), None))
         }
@@ -146,7 +134,7 @@ extern "C" fn hash_map_from(
             while let Some(item) = iter.next() {
                 let key = item.get_item(_0)?;
                 let value = item.get_item(_1)?;
-                impl_.insert(hmap_key(key)?, value);
+                impl_.insert(key.into_hashable()?, value);
             }
             Ok(if impl_.is_empty() {
                 empty_hash_map()
@@ -177,7 +165,7 @@ extern "C" fn py_hash_map_assoc(
             for i in 0..kv_num {
                 let key = PyObj::borrow(unsafe { *args.offset(i * 2) });
                 let value = PyObj::borrow(unsafe { *args.offset(i * 2 + 1) });
-                impl_.insert(hmap_key(key)?, value);
+                impl_.insert(key.into_hashable()?, value);
             }
             Ok(_hash_map(impl_, PyObj::none(), None))
         }
@@ -198,7 +186,7 @@ extern "C" fn py_hash_map_lookup(
             let self_ = unsafe { self_.as_ref::<HashMap>() };
             let key = PyObj::borrow(unsafe { *args });
             let not_found = PyObj::borrow(unsafe { *args.offset(1) });
-            Ok(match self_.impl_.get(&hmap_key(key)?) {
+            Ok(match self_.impl_.get(&key.into_hashable()?) {
                 Some(value) => value.clone(),
                 None => not_found,
             })
@@ -298,7 +286,7 @@ extern "C" fn py_hash_map_subscript(
     utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
         let key = PyObj::borrow(key);
-        match hash_map_getitem(&self_, hmap_key(key)?) {
+        match hash_map_getitem(&self_, key.into_hashable()?) {
             Some(value) => Ok(value),
             None => raise_key_error()
         }
@@ -317,7 +305,7 @@ extern "C" fn py_hash_map_getitem(
         } else {
             let self_ = PyObj::borrow(self_);
             let key = PyObj::borrow(unsafe { *args });
-            match hash_map_getitem(&self_, hmap_key(key)?) {
+            match hash_map_getitem(&self_, key.into_hashable()?) {
                 Some(value) => Ok(value),
                 None => raise_key_error(),
             }
@@ -325,7 +313,7 @@ extern "C" fn py_hash_map_getitem(
     })
 }
 
-fn hash_map_getitem(self_: &PyObj, key: HashMapKey) -> Option<PyObj> {
+fn hash_map_getitem(self_: &PyObj, key: PyObjHashable) -> Option<PyObj> {
     let self_ = unsafe { self_.as_ref::<HashMap>() };
     self_.impl_.get(&key).cloned()
 }
@@ -352,7 +340,7 @@ pub fn hash_map_seq(self_: &PyObj) -> PyObj {
     } else {
         let mut lst = list::empty_list();
         for (key, value) in self_.impl_.iter() {
-            let kv = PyObj::tuple2(key.obj.clone(), value.clone());
+            let kv = PyObj::tuple2(key.as_pyobj().clone(), value.clone());
             lst = list::list_conj(lst, kv);
         }
         lst
@@ -373,7 +361,7 @@ extern "C" fn py_hash_map_call(
             let key = PyObj::borrow(key);
             let self_ = PyObj::borrow(self_);
             let self_ = unsafe { self_.as_ref::<HashMap>() };
-            Ok(match self_.impl_.get(&hmap_key(key)?) {
+            Ok(match self_.impl_.get(&key.into_hashable()?) {
                 Some(value) => value.clone(),
                 None => {
                     if !not_found.is_null() {
@@ -437,7 +425,7 @@ unsafe extern "C" fn hash_map_iterator_next(
         let self_ = PyObj::borrow(self_);
         let iter = self_.as_ref::<HashMapIterator>();
         match iter.iterator.next() {
-            Some((key, _value)) => Ok(key.obj.clone()),
+            Some((key, _value)) => Ok(key.as_pyobj().clone()),
             None => {
                 PyErr_SetNone(PyExc_StopIteration);
                 Err(())
@@ -451,10 +439,4 @@ fn raise_key_error() -> Result<PyObj, ()> {
         PyErr_SetString(PyExc_KeyError, "Key not found\0".as_ptr().cast());
     }
     Err(())
-}
-
-#[inline]
-fn hmap_key(obj: PyObj) -> Result<HashMapKey, ()> {
-    let hash = obj.py_hash()?;
-    Ok(HashMapKey { obj, hash })
 }

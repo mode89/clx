@@ -1,4 +1,5 @@
 use pyo3_ffi::*;
+use std::hash::{Hash, Hasher};
 
 // The pointer must be at the beginning of the structure, otherwise
 // the offset calculation will be incorrect and member definitions will
@@ -124,6 +125,15 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn into_hashable(self) -> Result<PyObjHashable, ()> {
+        let hash = self.py_hash()?;
+        Ok(PyObjHashable {
+            obj: self.clone(),
+            hash,
+        })
+    }
+
+    #[inline]
     pub fn get_item(&self, key: &PyObj) -> Result<PyObj, ()> {
         result_from_owned_ptr(unsafe { PyObject_GetItem(self.0, key.0) })
     }
@@ -235,5 +245,25 @@ fn result_from_owned_ptr(ptr: *mut PyObject) -> Result<PyObj, ()> {
         Ok(PyObj::from_owned_ptr(ptr))
     } else {
         Err(())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct PyObjHashable {
+    obj: PyObj,
+    hash: isize,
+}
+
+impl PyObjHashable {
+    #[inline]
+    pub fn as_pyobj(&self) -> &PyObj {
+        &self.obj
+    }
+}
+
+impl Hash for PyObjHashable {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash.hash(state);
     }
 }
