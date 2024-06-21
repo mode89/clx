@@ -1,6 +1,7 @@
 use crate::object::PyObj;
 use pyo3_ffi::*;
 use std::ffi::CString;
+use std::collections::LinkedList;
 
 // Define a type with the given specification and return a reference to
 // a static instance of the type
@@ -20,9 +21,34 @@ macro_rules! static_type {
 
 pub(crate) use static_type;
 
+macro_rules! member {
+    ($name:expr) => {
+        crate::type_object::MemberDef {
+            name: $name.to_string(),
+            type_code: pyo3_ffi::Py_T_OBJECT_EX,
+            offset: None,
+            flags: pyo3_ffi::Py_READONLY,
+        }
+    };
+}
+
+pub(crate) use member;
+
+macro_rules! method {
+    ($name:expr, $func:ident) => {
+        crate::type_object::MethodDef {
+            name: $name.to_string(),
+            method: pyo3_ffi::PyMethodDefPointer { _PyCFunctionFast: $func },
+            flags: pyo3_ffi::METH_FASTCALL,
+        }
+    };
+}
+
+pub(crate) use method;
+
 #[derive(Default)]
-pub struct TypeSpec {
-    pub name: String,
+pub struct TypeSpec<'a> {
+    pub name: &'a str,
     pub bases: Vec<&'static PyObj>,
     pub flags: u64,
     pub size: usize,
@@ -37,20 +63,33 @@ pub struct TypeSpec {
     pub sequence_item: Option<ssizeargfunc>,
     pub mapping_length: Option<lenfunc>,
     pub mapping_subscript: Option<binaryfunc>,
-    pub members: Vec<String>,
-    pub methods: Vec<PyMethodDef>,
+    pub members: Vec<MemberDef>,
+    pub methods: Vec<MethodDef>,
 }
 
-pub fn _make_type(tbuf: &'static _TypeBuffer) -> PyObj {
+pub struct MemberDef {
+    pub name: String,
+    pub type_code: i32,
+    pub offset: Option<usize>,
+    pub flags: i32,
+}
+
+pub struct MethodDef {
+    pub name: String,
+    pub method: PyMethodDefPointer,
+    pub flags: i32,
+}
+
+pub fn _make_type(tbuf: &_TypeBuffer) -> PyObj {
     let spec = PyType_Spec {
-        name: tbuf.name.as_ptr().cast(),
-        basicsize: tbuf.spec.size as i32,
+        name: tbuf.name,
+        basicsize: tbuf.size as i32,
         itemsize: 0,
-        flags: tbuf.spec.flags as u32,
+        flags: tbuf.flags as u32,
         slots: tbuf.slots.as_ptr() as *mut PyType_Slot,
     };
 
-    let bases: Vec<PyObj> = tbuf.spec.bases.iter()
+    let bases: Vec<PyObj> = tbuf.bases.iter()
         .map(|x| (*x).clone())
         .collect();
 
@@ -64,17 +103,26 @@ pub fn _make_type(tbuf: &'static _TypeBuffer) -> PyObj {
 // Some of the data that is used to create a type is required to be
 // staticaly allocated, so we use this structure to hold that data
 pub struct _TypeBuffer {
-    spec: TypeSpec,
-    name: CString,
+    name: *const i8,
+    size: usize,
+    flags: u64,
+    bases: Vec<&'static PyObj>,
     slots: Vec<PyType_Slot>,
     sequence_methods: PySequenceMethods,
     mapping_methods: PyMappingMethods,
-    _member_names: Vec<CString>,
     _members: Vec<PyMemberDef>,
     _methods: Vec<PyMethodDef>,
+    _strings: LinkedList<CString>,
 }
 
 pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
+    let mut strings = LinkedList::new();
+    let mut alloc_string = |s: &str| {
+        let s = CString::new(s).unwrap();
+        strings.push_back(s);
+        strings.back().unwrap().as_ptr()
+    };
+
     let mut slots: Vec<PyType_Slot> = vec![];
 
     if let Some(dealloc) = spec.dealloc {
@@ -126,37 +174,43 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         });
     }
 
-    let _member_names = spec.members.iter()
-        .map(|x| CString::new(x.clone()).unwrap())
-        .collect::<Vec<_>>();
-
-    let mut _members = _member_names.iter()
+    let mut members = spec.members.iter()
         .enumerate()
-        .map(|(i, x)| PyMemberDef {
-            name: x.as_ptr().cast(),
-            type_code: Py_T_OBJECT_EX,
-            offset: (std::mem::size_of::<PyObject>() +
-                     std::mem::size_of::<PyObj>() * i) as isize,
-            flags: Py_READONLY,
+        .map(|(i, m)| PyMemberDef {
+            name: alloc_string(&m.name),
+            type_code: m.type_code,
+            offset: match m.offset {
+                Some(offset) => offset as isize,
+                None => (std::mem::size_of::<PyObject>() +
+                         i * std::mem::size_of::<PyObj>()) as isize,
+            },
+            flags: m.flags,
             doc: std::ptr::null(),
         })
         .collect::<Vec<_>>();
-    _members.push(PY_MEMBER_DEF_DUMMY);
+    members.push(PY_MEMBER_DEF_DUMMY);
 
     if spec.members.len() > 0 {
         slots.push(PyType_Slot {
             slot: Py_tp_members,
-            pfunc: _members.as_ptr() as *mut _,
+            pfunc: members.as_ptr() as *mut _,
         });
     }
 
-    let mut _methods = spec.methods.clone();
-    _methods.push(PY_METHOD_DEF_DUMMY);
+    let mut methods = spec.methods.iter()
+        .map(|m| PyMethodDef {
+            ml_name: alloc_string(&m.name),
+            ml_meth: m.method,
+            ml_flags: m.flags,
+            ml_doc: std::ptr::null(),
+        })
+        .collect::<Vec<_>>();
+    methods.push(PY_METHOD_DEF_DUMMY);
 
     if spec.methods.len() > 0 {
         slots.push(PyType_Slot {
             slot: Py_tp_methods,
-            pfunc: _methods.as_ptr() as *mut _,
+            pfunc: methods.as_ptr() as *mut _,
         });
     }
 
@@ -182,14 +236,16 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
     };
 
     _TypeBuffer {
-        name: CString::new(spec.name.clone()).unwrap(),
-        spec,
-        _member_names,
-        _members,
-        _methods,
+        name: alloc_string(&spec.name),
+        size: spec.size,
+        flags: spec.flags,
+        bases: spec.bases,
         slots,
         sequence_methods,
         mapping_methods,
+        _members: members,
+        _methods: methods,
+        _strings: strings,
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::object::PyObj;
-use crate::type_object::*;
+use crate::type_object as tpo;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
@@ -35,9 +35,9 @@ impl std::hash::Hash for HashMapKey {
 }
 
 pub fn hash_map_type() -> &'static PyObj {
-    static_type!(
-        TypeSpec {
-            name: "clx_rust.PersistentHashMap".to_string(),
+    tpo::static_type!(
+        tpo::TypeSpec {
+            name: "clx_rust.PersistentHashMap",
             bases: vec![
                 imeta_type(),
                 icounted_type(),
@@ -55,18 +55,18 @@ pub fn hash_map_type() -> &'static PyObj {
             iter: Some(py_hash_map_iter),
             mapping_length: Some(py_hash_map_len),
             mapping_subscript: Some(py_hash_map_subscript),
-            members: vec![ "__meta__".to_string() ],
+            members: vec![ tpo::member!("__meta__") ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
-                utils::method!("__getitem__", py_hash_map_getitem),
-                utils::method!("assoc", py_hash_map_assoc),
-                utils::method!("lookup", py_hash_map_lookup),
-                utils::method!("merge", py_hash_map_merge),
-                utils::method!("count_", py_hash_map_count),
-                utils::method!("seq", py_hash_map_seq),
+                tpo::method!("__getitem__", py_hash_map_getitem),
+                tpo::method!("assoc", py_hash_map_assoc),
+                tpo::method!("lookup", py_hash_map_lookup),
+                tpo::method!("merge", py_hash_map_merge),
+                tpo::method!("count_", py_hash_map_count),
+                tpo::method!("seq", py_hash_map_seq),
                 // TODO ("conj", py_vector_conj),
             ],
-            ..TypeSpec::default()
+            ..Default::default()
         }
     )
 }
@@ -413,8 +413,8 @@ pub struct HashMapIterator<'a> {
 }
 
 pub fn hash_map_iterator_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.PersistentHashMapIterator".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.PersistentHashMapIterator",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
         size: std::mem::size_of::<HashMapIterator>(),
         dealloc: Some(utils::generic_dealloc::<HashMapIterator>),

@@ -1,5 +1,5 @@
 use crate::object::PyObj;
-use crate::type_object::*;
+use crate::type_object as tpo;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
@@ -22,9 +22,9 @@ pub struct Vector {
 }
 
 pub fn vector_type() -> &'static PyObj {
-    static_type!(
-        TypeSpec {
-            name: "clx_rust.PersistentVector".to_string(),
+    tpo::static_type!(
+        tpo::TypeSpec {
+            name: "clx_rust.PersistentVector",
             bases: vec![
                 imeta_type(),
                 iindexed_type(),
@@ -41,16 +41,16 @@ pub fn vector_type() -> &'static PyObj {
             // TODO hash: Some(py_vector_hash),
             sequence_item: Some(py_vector_item),
             call: Some(py_vector_call),
-            members: vec![ "__meta__".to_string() ],
+            members: vec![ tpo::member!("__meta__") ],
             methods: vec![
                 // TODO ("with_meta", py_vector_with_meta),
-                utils::method!("count_", py_vector_count),
-                utils::method!("nth", py_vector_nth),
-                utils::method!("first", py_vector_first),
-                utils::method!("seq", py_vector_seq),
+                tpo::method!("count_", py_vector_count),
+                tpo::method!("nth", py_vector_nth),
+                tpo::method!("first", py_vector_first),
+                tpo::method!("seq", py_vector_seq),
                 // TODO ("conj", py_vector_conj),
             ],
-            ..TypeSpec::default()
+            ..Default::default()
         }
     )
 }

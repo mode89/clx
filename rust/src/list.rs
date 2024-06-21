@@ -1,5 +1,5 @@
 use crate::object::PyObj;
-use crate::type_object::*;
+use crate::type_object as tpo;
 use crate::utils;
 use crate::protocols::*;
 use pyo3_ffi::*;
@@ -24,9 +24,9 @@ pub struct List {
 }
 
 pub fn list_type() -> &'static PyObj {
-    static_type!(
-        TypeSpec {
-            name: "clx_rust.PersistentList".to_string(),
+    tpo::static_type!(
+        tpo::TypeSpec {
+            name: "clx_rust.PersistentList",
             bases: vec![
                 imeta_type(),
                 icounted_type(),
@@ -42,17 +42,17 @@ pub fn list_type() -> &'static PyObj {
             compare: Some(py_list_compare),
             hash: Some(py_list_hash),
             iter: Some(py_list_iter),
-            members: vec![ "__meta__".to_string() ],
+            members: vec![ tpo::member!("__meta__") ],
             methods: vec![
-                utils::method!("with_meta", py_list_with_meta),
-                utils::method!("count_", py_list_count),
-                utils::method!("first", py_list_first),
-                utils::method!("next", py_list_next),
-                utils::method!("rest", py_list_rest),
-                utils::method!("seq", py_list_seq),
-                utils::method!("conj", py_list_conj),
+                tpo::method!("with_meta", py_list_with_meta),
+                tpo::method!("count_", py_list_count),
+                tpo::method!("first", py_list_first),
+                tpo::method!("next", py_list_next),
+                tpo::method!("rest", py_list_rest),
+                tpo::method!("seq", py_list_seq),
+                tpo::method!("conj", py_list_conj),
             ],
-            ..TypeSpec::default()
+            ..Default::default()
         }
     )
 }

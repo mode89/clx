@@ -1,5 +1,5 @@
 use crate::object::PyObj;
-use crate::type_object::*;
+use crate::type_object as tpo;
 use crate::utils;
 use pyo3_ffi::*;
 
@@ -25,90 +25,90 @@ extern "C" fn dummy_method(
 }
 
 pub fn imeta_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.IMeta".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.IMeta",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("with_meta", dummy_method),
+            tpo::method!("with_meta", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn icounted_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.ICounted".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.ICounted",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("count_", dummy_method),
+            tpo::method!("count_", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn iseqable_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.ISeqable".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.ISeqable",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("seq", dummy_method),
+            tpo::method!("seq", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn iseq_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.ISeq".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.ISeq",
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("first", dummy_method),
-            utils::method!("next", dummy_method),
-            utils::method!("rest", dummy_method),
+            tpo::method!("first", dummy_method),
+            tpo::method!("next", dummy_method),
+            tpo::method!("rest", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn isequential_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.ISequential".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.ISequential",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         ..Default::default()
     })
 }
 
 pub fn icollection_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.ICollection".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.ICollection",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("conj", dummy_method),
+            tpo::method!("conj", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn iindexed_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.IIndexed".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.IIndexed",
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("nth", dummy_method),
+            tpo::method!("nth", dummy_method),
         ],
         ..Default::default()
     })
 }
 
 pub fn iassociative_type() -> &'static PyObj {
-    static_type!(TypeSpec {
-        name: "clx_rust.IAssociative".to_string(),
+    tpo::static_type!(tpo::TypeSpec {
+        name: "clx_rust.IAssociative",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         methods: vec![
-            utils::method!("lookup", dummy_method),
-            utils::method!("assoc", dummy_method),
+            tpo::method!("lookup", dummy_method),
+            tpo::method!("assoc", dummy_method),
         ],
         ..Default::default()
     })
