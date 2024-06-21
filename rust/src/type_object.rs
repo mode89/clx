@@ -1,21 +1,17 @@
 use crate::object::PyObj;
+use crate::utils;
 use pyo3_ffi::*;
 use std::ffi::CString;
 use std::collections::LinkedList;
+use std::sync::Mutex;
 
 // Define a type with the given specification and return a reference to
 // a static instance of the type
 macro_rules! static_type {
     ($spec:expr) => {
-        {
-            use crate::utils;
-            utils::lazy_static!(crate::object::PyObj, {
-                crate::type_object::_make_type(
-                    utils::lazy_static!(crate::type_object::_TypeBuffer, {
-                        crate::type_object::_make_type_buffer($spec)
-                    }))
-            })
-        }
+        crate::utils::lazy_static!(crate::object::PyObj, {
+            crate::type_object::new_type($spec)
+        })
     };
 }
 
@@ -80,18 +76,28 @@ pub struct MethodDef {
     pub flags: i32,
 }
 
-pub fn _make_type(tbuf: &_TypeBuffer) -> PyObj {
-    let spec = PyType_Spec {
-        name: tbuf.name,
-        basicsize: tbuf.size as i32,
-        itemsize: 0,
-        flags: tbuf.flags as u32,
-        slots: tbuf.slots.as_ptr() as *mut PyType_Slot,
-    };
+pub fn new_type(spec: TypeSpec) -> PyObj {
+    let mut type_buffers = utils::lazy_static!(
+        Mutex<LinkedList<_TypeBuffer>>, {
+            Mutex::new(LinkedList::new())
+        }).lock().unwrap();
 
-    let bases: Vec<PyObj> = tbuf.bases.iter()
+    let size = spec.size;
+    let flags = spec.flags;
+    let bases: Vec<PyObj> = spec.bases.iter()
         .map(|x| (*x).clone())
         .collect();
+
+    type_buffers.push_back(_make_type_buffer(spec));
+    let tbuf = &type_buffers.back().unwrap();
+
+    let spec = PyType_Spec {
+        name: tbuf.name,
+        basicsize: size as i32,
+        itemsize: 0,
+        flags: flags as u32,
+        slots: tbuf.slots.as_ptr() as *mut PyType_Slot,
+    };
 
     let otype = type_from_spec(&spec, bases);
     let _type = unsafe { otype.as_ref::<PyTypeObject>() };
@@ -104,9 +110,6 @@ pub fn _make_type(tbuf: &_TypeBuffer) -> PyObj {
 // staticaly allocated, so we use this structure to hold that data
 pub struct _TypeBuffer {
     name: *const i8,
-    size: usize,
-    flags: u64,
-    bases: Vec<&'static PyObj>,
     slots: Vec<PyType_Slot>,
     sequence_methods: PySequenceMethods,
     mapping_methods: PyMappingMethods,
@@ -237,9 +240,6 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
 
     _TypeBuffer {
         name: alloc_string(&spec.name),
-        size: spec.size,
-        flags: spec.flags,
-        bases: spec.bases,
         slots,
         sequence_methods,
         mapping_methods,
