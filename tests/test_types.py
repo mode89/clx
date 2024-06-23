@@ -313,7 +313,6 @@ def test_lazy_seq():
                     lambda: lazy_seq(
                         lambda: lazy_seq(
                             lambda: coll)))))
-    assert not bool(recur_lazy(L()))
     assert recur_lazy(L()).first() is None
     assert recur_lazy(L()).next() is None
     assert recur_lazy(L()).rest() is L()
@@ -334,6 +333,23 @@ def test_lazy_seq():
     assert _lazy_range(3) == V(0, 1, 2)
     assert lazy_seq(L) == L()
     assert list(_lazy_range(3)) == [0, 1, 2]
+
+    def raise_exception():
+        raise Exception()
+
+    s = lazy_seq(
+        lambda: cons(42, lazy_seq(
+            lambda: cons(9001, lazy_seq(raise_exception)))))
+    assert s.first() == 42
+    assert s.rest().first() == 9001
+    with pytest.raises(Exception):
+        s.rest().rest().first()
+    with pytest.raises(Exception):
+        # Check that the failed computation didn't affect the state
+        s.rest().rest().first()
+    assert s.next().first() == 9001
+    with pytest.raises(Exception):
+        s.next().next().first()
 
 def test_seq():
     assert seq(None) is None

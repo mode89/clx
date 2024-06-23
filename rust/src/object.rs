@@ -201,6 +201,11 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn is_callable(&self) -> bool {
+        unsafe { PyCallable_Check(self.0) == 1 }
+    }
+
+    #[inline]
     pub fn call0(&self) -> Result<PyObj, ()> {
         result_from_owned_ptr(unsafe { PyObject_CallNoArgs(self.0) })
     }

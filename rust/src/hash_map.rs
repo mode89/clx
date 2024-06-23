@@ -328,12 +328,12 @@ extern "C" fn py_hash_map_seq(
             utils::raise_exception(
                 "PersistentVector.seq() takes no arguments")
         } else {
-            Ok(hash_map_seq(&PyObj::borrow(self_)))
+            Ok(seq(&PyObj::borrow(self_)))
         }
     })
 }
 
-pub fn hash_map_seq(self_: &PyObj) -> PyObj {
+pub fn seq(self_: &PyObj) -> PyObj {
     let self_ = unsafe { self_.as_ref::<HashMap>() };
     if self_.impl_.is_empty() {
         PyObj::none()

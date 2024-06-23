@@ -11,6 +11,8 @@ from clx_rust import \
     PersistentList, list_, is_list, \
     PersistentVector, vector, is_vector, \
     PersistentHashMap, hash_map, hash_map_from, is_hash_map, \
+    Cons, cons, \
+    LazySeq, lazy_seq, seq, \
     define_record
 
 PersistentMap = PersistentHashMap
@@ -29,83 +31,6 @@ def vec(coll):
         return vector()
     else:
         return vector(*coll)
-
-class Cons(Hashable, Sequence, IMeta, ISeq, ISequential):
-    def __init__(self, _first, _rest, _meta):
-        assert isinstance(_rest, ISeq), "rest of Cons must be a seq"
-        self._first = _first
-        self._rest = _rest
-        self.__meta__ = _meta
-    def __bool__(self):
-        return True
-    def __len__(self):
-        raise NotImplementedError()
-    def __hash__(self):
-        raise NotImplementedError()
-    def __eq__(self, other):
-        return self is other \
-            or (isinstance(other, Cons) \
-                and self._first == other._first \
-                and self._rest == other._rest) \
-            or _equiv_sequential(self, other)
-    def __iter__(self):
-        raise NotImplementedError()
-    def __getitem__(self, index):
-        raise NotImplementedError()
-    def with_meta(self, _meta):
-        return Cons(self._first, self._rest, _meta)
-    def first(self):
-        return self._first
-    def next(self):
-        return self._rest.seq()
-    def rest(self):
-        return self._rest
-    def seq(self):
-        return self
-
-class LazySeq(Hashable, IMeta, ISeq, ISequential):
-    def __init__(self, _func, _seq, _meta):
-        self._lock = threading.Lock()
-        self._func = _func
-        self._seq = _seq
-        self.__meta__ = _meta
-    def __eq__(self, other):
-        return self is other \
-            or _equiv_sequential(self, other)
-    def __bool__(self):
-        return bool(self.seq())
-    def __hash__(self):
-        raise NotImplementedError()
-    def __iter__(self):
-        s = self.seq()
-        while s is not None:
-            yield s.first()
-            s = s.next()
-    def with_meta(self, _meta):
-        return LazySeq(self._func, self._seq, _meta)
-    def first(self):
-        s = self.seq()
-        return s.first() if s is not None else None
-    def next(self):
-        s = self.seq()
-        return s.next() if s is not None else None
-    def rest(self):
-        s = self.seq()
-        return s.rest() if s is not None else list_()
-    def seq(self):
-        s = self._force1()
-        while type(s) is LazySeq:
-            s = s._force1() # pylint: disable=protected-access
-        return seq(s)
-    def _force1(self):
-        with self._lock:
-            if self._func is not None:
-                self._seq = self._func()
-                self._func = None
-            return self._seq
-
-def lazy_seq(func):
-    return LazySeq(func, None, _meta=None)
 
 class IndexedSeq(IMeta, IIndexed, ISeq, ISequential):
     def __init__(self, coll, index, _meta):
@@ -153,39 +78,6 @@ def _equiv_sequential(x, y):
                 x, y = x.next(), y.next()
     else:
         return False
-
-def cons(obj, coll):
-    if coll is None:
-        return list_().conj(obj)
-    elif isinstance(coll, ISeq):
-        return Cons(obj, coll, _meta=None)
-    else:
-        return Cons(obj, seq(coll), _meta=None)
-
-def seq(coll):
-    if coll is None:
-        return None
-    elif isinstance(coll, ISeqable):
-        return coll.seq()
-    elif type(coll) is tuple \
-            or (type(coll) is list and len(coll) < 32) \
-            or type(coll) is str:
-        if len(coll) == 0:
-            return None
-        return IndexedSeq(coll, 0, None)
-    elif isinstance(coll, Iterable):
-        return iterator_seq(iter(coll)).seq()
-    else:
-        raise Exception("expected a seqable object")
-
-def iterator_seq(it):
-    assert isinstance(it, Iterator), "iterator-seq expects an iterator"
-    dummy = object()
-    def _seq():
-        value = next(it, dummy)
-        return cons(value, lazy_seq(_seq)) \
-            if value is not dummy else None
-    return lazy_seq(_seq)
 
 class Atom:
     def __init__(self, value):

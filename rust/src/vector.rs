@@ -3,6 +3,7 @@ use crate::type_object as tpo;
 use crate::list;
 use crate::utils;
 use crate::protocols::*;
+use crate::common;
 use pyo3_ffi::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -136,7 +137,7 @@ fn vector_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
                 Ok(false)
             }
         } else if other.is_instance(isequential_type()) {
-            utils::sequential_eq(&vector_seq(self_), other)
+            common::sequential_eq(self_, other)
         } else {
             Ok(false)
         }
@@ -202,12 +203,12 @@ extern "C" fn py_vector_seq(
             utils::raise_exception(
                 "PersistentVector.seq() takes no arguments")
         } else {
-            Ok(vector_seq(&PyObj::borrow(self_)))
+            Ok(seq(&PyObj::borrow(self_)))
         }
     })
 }
 
-pub fn vector_seq(self_: &PyObj) -> PyObj {
+pub fn seq(self_: &PyObj) -> PyObj {
     let v = unsafe { self_.as_ref::<Vector>() };
     if v.impl_.is_empty() {
         PyObj::none()

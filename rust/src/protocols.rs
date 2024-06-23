@@ -130,3 +130,10 @@ pub fn mapping_type() -> &'static PyObj {
         module.get_attr(&utils::static_pystring!("Mapping")).unwrap()
     })
 }
+
+pub fn iterable_type() -> &'static PyObj {
+    utils::lazy_static!(PyObj, {
+        let module = PyObj::import("collections.abc").unwrap();
+        module.get_attr(&utils::static_pystring!("Iterable")).unwrap()
+    })
+}

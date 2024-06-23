@@ -8,6 +8,10 @@ mod list;
 mod vector;
 mod hash_map;
 mod record;
+mod cons;
+mod lazy_seq;
+mod common;
+mod seq_iterator;
 
 use pyo3_ffi::*;
 
@@ -33,6 +37,9 @@ pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
     vector::init_module(module);
     hash_map::init_module(module);
     record::init_module(module);
+    cons::init_module(module);
+    lazy_seq::init_module(module);
+    common::init_module(module);
 
     module
 }

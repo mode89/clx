@@ -2,6 +2,8 @@ use crate::object::PyObj;
 use crate::type_object as tpo;
 use crate::utils;
 use crate::protocols::*;
+use crate::common;
+use crate::seq_iterator;
 use pyo3_ffi::*;
 use std::collections::LinkedList;
 use std::collections::hash_map::DefaultHasher;
@@ -189,7 +191,7 @@ fn list_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
                 Ok(false)
             }
         } else if other.is_instance(isequential_type()) {
-            utils::sequential_eq(self_, other)
+            common::sequential_eq(self_, other)
         } else {
             Ok(false)
         }
@@ -221,13 +223,13 @@ extern "C" fn py_list_first(
         if nargs != 0 {
             utils::raise_exception("PersistentList.first() takes no arguments")
         } else {
-            Ok(list_first(&PyObj::borrow(self_)))
+            Ok(first(&PyObj::borrow(self_)))
         }
     })
 }
 
 #[inline]
-pub fn list_first(self_: &PyObj) -> PyObj {
+pub fn first(self_: &PyObj) -> PyObj {
     unsafe { self_.as_ref::<List>() }.first.clone()
 }
 
@@ -240,13 +242,13 @@ extern "C" fn py_list_next(
         if nargs != 0 {
             utils::raise_exception("PersistentList.next() takes no arguments")
         } else {
-            Ok(list_next(&PyObj::borrow(self_)))
+            Ok(next(&PyObj::borrow(self_)))
         }
     })
 }
 
 #[inline]
-pub fn list_next(self_: &PyObj) -> PyObj {
+pub fn next(self_: &PyObj) -> PyObj {
     let self_ = unsafe { self_.as_ref::<List>() };
     if self_.length <= 1 {
         PyObj::none()
@@ -264,13 +266,13 @@ extern "C" fn py_list_rest(
         if nargs != 0 {
             utils::raise_exception("PersistentList.rest() takes no arguments")
         } else {
-            Ok(list_rest(&PyObj::borrow(self_)))
+            Ok(rest(&PyObj::borrow(self_)))
         }
     })
 }
 
 #[inline]
-pub fn list_rest(self_: &PyObj) -> PyObj {
+pub fn rest(self_: &PyObj) -> PyObj {
     let self_ = unsafe { self_.as_ref::<List>() };
     if self_.length == 0 {
         empty_list()
@@ -312,11 +314,12 @@ extern "C" fn py_list_seq(
         utils::set_exception("PersistentList.seq() takes no arguments");
         std::ptr::null_mut()
     } else {
-        list_seq(&PyObj::borrow(self_)).into_ptr()
+        seq(&PyObj::borrow(self_)).into_ptr()
     }
 }
 
-pub fn list_seq(self_: &PyObj) -> PyObj {
+#[inline]
+pub fn seq(self_: &PyObj) -> PyObj {
     let l = unsafe { self_.as_ref::<List>() };
     if l.length == 0 {
         PyObj::none()
@@ -352,7 +355,7 @@ extern "C" fn py_list_iter(
 ) -> *mut PyObject {
     utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
-        utils::seq_iterator(self_)
+        seq_iterator::from(self_)
     })
 }
 

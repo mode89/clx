@@ -217,7 +217,7 @@
    (loop* [acc init
            coll (seq coll)]
      (if coll
-       (recur (f acc (first coll)) (rest coll))
+       (recur (f acc (first coll)) (next coll))
        acc))))
 
 (defn take [n coll]

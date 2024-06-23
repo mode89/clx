@@ -587,9 +587,9 @@ def _local_context( # pylint: disable=too-many-arguments
 
 def _eval_string(ctx, text):
     lctx = _local_context()
-    tokens = list(tokenize(text))
+    tokens = seq(tokenize(text))
     result = None
-    while tokens:
+    while seq(tokens):
         try:
             form, tokens = read_form(tokens)
         except ReaderError as ex:
