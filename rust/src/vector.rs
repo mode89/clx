@@ -47,7 +47,6 @@ pub fn vector_type() -> &'static PyObj {
                 // TODO ("with_meta", py_vector_with_meta),
                 tpo::method!("count_", py_vector_count),
                 tpo::method!("nth", py_vector_nth),
-                tpo::method!("first", py_vector_first),
                 tpo::method!("seq", py_vector_seq),
                 // TODO ("conj", py_vector_conj),
             ],
@@ -161,31 +160,6 @@ extern "C" fn py_vector_count(
     })
 }
 
-extern "C" fn py_vector_first(
-    self_: *mut PyObject,
-    _args: *mut *mut PyObject,
-    nargs: isize,
-) -> *mut PyObject {
-    utils::wrap_body!({
-        if nargs != 0 {
-            utils::raise_exception(
-                "PersistentVector.first() takes no arguments")
-        } else {
-            Ok(vector_first(&PyObj::borrow(self_)))
-        }
-    })
-}
-
-#[inline]
-pub fn vector_first(self_: &PyObj) -> PyObj {
-    let v = unsafe { self_.as_ref::<Vector>() };
-    if v.impl_.is_empty() {
-        PyObj::none()
-    } else {
-        v.impl_[0].clone()
-    }
-}
-
 unsafe extern "C" fn py_vector_len(
     self_: *mut PyObject,
 ) -> isize {
@@ -228,7 +202,7 @@ extern "C" fn py_vector_item(
 ) -> *mut PyObject {
     utils::wrap_body!({
         let self_ = PyObj::borrow(self_);
-        vector_nth(&self_, index, None)
+        nth(&self_, index, None)
     })
 }
 
@@ -249,7 +223,7 @@ extern "C" fn py_vector_nth(
 
         let index = unsafe { PyObj::borrow(*args) }.as_int()?;
         let self_ = PyObj::borrow(self_);
-        vector_nth(&self_, index, not_found)
+        nth(&self_, index, not_found)
     })
 }
 
@@ -265,14 +239,14 @@ unsafe extern "C" fn py_vector_call(
                 1, 1, &index) != 0 {
             let index = PyObj::borrow(index).as_int()?;
             let self_ = PyObj::borrow(self_);
-            vector_nth(&self_, index, None)
+            nth(&self_, index, None)
         } else {
             Err(())
         }
     })
 }
 
-fn vector_nth(
+pub fn nth(
     self_: &PyObj,
     index: isize,
     not_found: Option<PyObj>

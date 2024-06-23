@@ -109,6 +109,7 @@ fn equal(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
     }
 }
 
+#[inline]
 fn force1(self_: &PyObj) -> Result<PyObj, ()> {
     unsafe {
         let self_ = self_.as_ref::<LazySeq>();
@@ -130,11 +131,15 @@ extern "C" fn py_lazyseq_first(
         if nargs != 0 {
             utils::raise_exception("LazySeq.first() takes no arguments")
         } else {
-            let self_ = PyObj::borrow(self_);
-            let seq = force1(&self_)?;
-            common::first(&seq)
+            first(&PyObj::borrow(self_))
         }
     })
+}
+
+#[inline]
+pub fn first(self_: &PyObj) -> Result<PyObj, ()> {
+    let s = force1(self_)?;
+    common::first(&s)
 }
 
 extern "C" fn py_lazyseq_rest(

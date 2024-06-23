@@ -925,6 +925,13 @@ def test_update():
 
 def test_first():
     assert clx.first(None) is None
+    assert clx.first(L()) is None
+    assert clx.first(L(1)) == 1
+    assert clx.first(L(2, 3)) == 2
+    assert clx.first(V()) is None
+    assert clx.first(V(1)) == 1
+    assert clx.first(V(2, 3)) == 2
+    assert clx.first(tuple()) is None
 
 def test_concat():
     concat = clx.concat

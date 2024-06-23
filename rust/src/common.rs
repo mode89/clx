@@ -10,6 +10,7 @@ use pyo3_ffi::*;
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, cons, py_cons);
     utils::module_add_method!(module, seq, py_seq);
+    utils::module_add_method!(module, first, py_first);
 }
 
 extern "C" fn py_cons(
@@ -36,15 +37,42 @@ extern "C" fn py_cons(
     })
 }
 
+extern "C" fn py_first(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs != 1 {
+            utils::raise_exception("first() takes exactly 1 argument")
+        } else {
+            first(&PyObj::borrow(unsafe { *args }))
+        }
+    })
+}
+
 pub fn first(coll: &PyObj) -> Result<PyObj, ()> {
     if coll.is_none() {
         Ok(coll.clone())
     } else if coll.type_is(cons::cons_type()) {
         Ok(cons::first(coll))
+    } else if coll.type_is(lazy_seq::lazyseq_type()) {
+        lazy_seq::first(coll)
     } else if coll.type_is(list::list_type()) {
         Ok(list::first(coll))
-    } else {
+    } else if coll.type_is(vector::vector_type()) {
+        Ok(vector::nth(coll, 0, Some(PyObj::none()))?)
+    } else if coll.is_tuple() {
+        coll.get_tuple_item(0).or_else(|_| {
+            utils::clear_exception();
+            Ok(PyObj::none())
+        })
+    } else if coll.is_instance(iseq_type()) {
         coll.call_method0(&utils::static_pystring!("first"))
+    } else if coll.is_instance(iindexed_type()) {
+        nth(coll, 0, Some(PyObj::none()))
+    } else {
+        first(&seq(coll)?)
     }
 }
 

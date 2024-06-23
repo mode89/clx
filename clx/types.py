@@ -13,7 +13,8 @@ from clx_rust import \
     PersistentHashMap, hash_map, hash_map_from, is_hash_map, \
     Cons, cons, \
     LazySeq, lazy_seq, seq, \
-    define_record
+    define_record, \
+    first
 
 PersistentMap = PersistentHashMap
 
