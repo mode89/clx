@@ -146,6 +146,40 @@ macro_rules! handle_gil {
 
 pub(crate) use handle_gil;
 
+macro_rules! disallowed_new {
+    ($type:expr) => {
+        {
+            extern "C" fn new(
+                cls: *mut PyTypeObject,
+                args: *mut PyObject,
+                kws: *mut PyObject,
+            ) -> *mut PyObject {
+                if cls == unsafe { $type().as_ptr() } {
+                    utils::wrap_body!({
+                        use crate::object::PyObj;
+                        use crate::utils;
+                        let cls = PyObj::borrow(cls as *mut PyObject);
+                        let name = cls.get_attr(
+                            &utils::static_pystring!("__name__"))?;
+                        let name = name.as_cstr()?.to_str().unwrap();
+                        let module = cls.get_attr(
+                            &utils::static_pystring!("__module__"))?;
+                        let module = module.as_cstr()?.to_str().unwrap();
+                        utils::raise_exception(
+                            &format!("{}.{} cannot be instantiated directly",
+                                module, name))
+                    })
+                } else {
+                    unsafe { PyType_GenericNew(cls, args, kws) }
+                }
+            }
+            new
+        }
+    }
+}
+
+pub(crate) use disallowed_new;
+
 pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
     unsafe {
         std::ptr::drop_in_place::<T>(obj.cast());

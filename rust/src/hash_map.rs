@@ -33,10 +33,10 @@ pub fn hash_map_type() -> &'static PyObj {
                 iassociative_type(),
                 mapping_type(),
             ],
-            flags: Py_TPFLAGS_DEFAULT |
-                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<HashMap>(),
             dealloc: Some(utils::generic_dealloc::<HashMap>),
+            new: Some(utils::disallowed_new!(hash_map_type)),
             compare: Some(py_hash_map_compare),
             // TODO hash: Some(py_vector_hash),
             call: Some(py_hash_map_call),
@@ -403,8 +403,9 @@ pub struct HashMapIterator<'a> {
 pub fn hash_map_iterator_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.PersistentHashMapIterator",
-        flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
+        flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<HashMapIterator>(),
+        new: Some(utils::disallowed_new!(hash_map_iterator_type)),
         dealloc: Some(utils::generic_dealloc::<HashMapIterator>),
         iter: Some(hash_map_iterator_iter),
         next: Some(hash_map_iterator_next),

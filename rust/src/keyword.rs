@@ -30,9 +30,9 @@ pub fn keyword_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
             name: "clx_rust.Keyword",
-            flags: Py_TPFLAGS_DEFAULT |
-                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Keyword>(),
+            new: Some(utils::disallowed_new!(keyword_type)),
             dealloc: Some(utils::generic_dealloc::<Keyword>),
             repr: Some(py_keyword_repr),
             hash: Some(py_keyword_hash),

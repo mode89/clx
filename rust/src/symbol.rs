@@ -30,9 +30,9 @@ pub fn symbol_type() -> &'static PyObj {
             bases: vec![
                 imeta_type(),
             ],
-            flags: Py_TPFLAGS_DEFAULT |
-                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Symbol>(),
+            new: Some(utils::disallowed_new!(symbol_type)),
             dealloc: Some(utils::generic_dealloc::<Symbol>),
             repr: Some(py_symbol_repr),
             hash: Some(py_symbol_hash),

@@ -29,6 +29,7 @@ pub fn imeta_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.IMeta",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(imeta_type)),
         methods: vec![
             tpo::method!("with_meta", dummy_method),
         ],
@@ -40,6 +41,7 @@ pub fn icounted_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.ICounted",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(icounted_type)),
         methods: vec![
             tpo::method!("count_", dummy_method),
         ],
@@ -51,6 +53,7 @@ pub fn iseqable_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.ISeqable",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(iseqable_type)),
         methods: vec![
             tpo::method!("seq", dummy_method),
         ],
@@ -63,6 +66,7 @@ pub fn iseq_type() -> &'static PyObj {
         name: "clx_rust.ISeq",
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(iseq_type)),
         methods: vec![
             tpo::method!("first", dummy_method),
             tpo::method!("next", dummy_method),
@@ -76,6 +80,7 @@ pub fn isequential_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.ISequential",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(isequential_type)),
         ..Default::default()
     })
 }
@@ -84,6 +89,7 @@ pub fn icollection_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.ICollection",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(icollection_type)),
         methods: vec![
             tpo::method!("conj", dummy_method),
         ],
@@ -96,6 +102,7 @@ pub fn iindexed_type() -> &'static PyObj {
         name: "clx_rust.IIndexed",
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(iindexed_type)),
         methods: vec![
             tpo::method!("nth", dummy_method),
         ],
@@ -107,6 +114,7 @@ pub fn iassociative_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.IAssociative",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(iassociative_type)),
         methods: vec![
             tpo::method!("lookup", dummy_method),
             tpo::method!("assoc", dummy_method),
@@ -120,6 +128,7 @@ pub fn irecord_type() -> &'static PyObj {
         name: "clx_rust.IRecord",
         bases: vec![iassociative_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        new: Some(utils::disallowed_new!(irecord_type)),
         ..Default::default()
     })
 }

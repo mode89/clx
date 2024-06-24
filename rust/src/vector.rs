@@ -33,9 +33,9 @@ pub fn vector_type() -> &'static PyObj {
                 isequential_type(),
                 icollection_type(),
             ],
-            flags: Py_TPFLAGS_DEFAULT |
-                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Vector>(),
+            new: Some(utils::disallowed_new!(vector_type)),
             dealloc: Some(utils::generic_dealloc::<Vector>),
             sequence_length: Some(py_vector_len),
             compare: Some(py_vector_compare),

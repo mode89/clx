@@ -36,9 +36,9 @@ pub fn list_type() -> &'static PyObj {
                 isequential_type(),
                 icollection_type(),
             ],
-            flags: Py_TPFLAGS_DEFAULT |
-                   Py_TPFLAGS_DISALLOW_INSTANTIATION,
+            flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<List>(),
+            new: Some(utils::disallowed_new!(list_type)),
             dealloc: Some(list_dealloc),
             sequence_length: Some(py_list_len),
             compare: Some(py_list_compare),

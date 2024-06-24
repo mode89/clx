@@ -23,8 +23,9 @@ pub fn from(coll: PyObj) -> Result<PyObj, ()> {
 pub fn seq_iterator_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
         name: "clx_rust.SeqIterator",
-        flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
+        flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<SeqIterator>(),
+        new: Some(utils::disallowed_new!(seq_iterator_type)),
         dealloc: Some(utils::generic_dealloc::<SeqIterator>),
         iter: Some(py_iter),
         next: Some(py_next),
