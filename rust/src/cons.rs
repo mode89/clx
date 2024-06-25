@@ -3,7 +3,9 @@ use crate::type_object as tpo;
 use crate::utils;
 use crate::protocols::*;
 use crate::common;
+use crate::lazy_seq;
 use pyo3_ffi::*;
+use std::collections::LinkedList;
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_type!(module, Cons, cons_type());
@@ -28,7 +30,7 @@ pub fn cons_type() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<Cons>(),
         new: Some(utils::disallowed_new!(cons_type)),
-        dealloc: Some(utils::generic_dealloc::<Cons>),
+        dealloc: Some(py_cons_dealloc),
         compare: Some(py_cons_compare),
         members: vec![ tpo::member!("__meta__") ],
         methods: vec![
@@ -49,6 +51,54 @@ pub fn cons(x: PyObj, coll: PyObj) -> PyObj {
         std::ptr::write(&mut cons.first, x.clone());
         std::ptr::write(&mut cons.rest, coll.clone());
         obj
+    }
+}
+
+extern "C" fn py_cons_dealloc(obj: *mut PyObject) {
+    unsafe {
+        let cobj = obj.cast::<Cons>();
+
+        // Dereferencing a deeply nested list can cause stack overflow.
+        // To avoid this, we first unlink the list starting from the end.
+        if !(*cobj).rest.is_none() {
+            let cons_type = cons_type().as_ptr();
+            let lseq_type = lazy_seq::lazyseq_type().as_ptr();
+            let mut nodes: LinkedList<*mut PyObject> = LinkedList::new();
+            // Collect nodes that are about to be deallocated
+            let mut node = obj;
+            loop {
+                if (*node).ob_refcnt <= 1 {
+                    let node_type = (*node).ob_type;
+                    if node_type == cons_type {
+                        nodes.push_back(node);
+                        node = (*node.cast::<Cons>()).rest.as_ptr();
+                    } else if node_type == lseq_type {
+                        nodes.push_back(node);
+                        let lseq = node.cast::<lazy_seq::LazySeq>();
+                        node = (*lseq).seq.lock().unwrap().as_ptr();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            // Unlink nodes in reverse order
+            while let Some(node) = nodes.pop_back() {
+                let node_type = (*node).ob_type;
+                if node_type == cons_type {
+                    (*node.cast::<Cons>()).rest = PyObj::none();
+                } else if node_type == lseq_type {
+                    let lseq = node.cast::<lazy_seq::LazySeq>();
+                    *(*lseq).seq.lock().unwrap() = PyObj::none();
+                }
+            }
+        }
+
+        std::ptr::drop_in_place(cobj);
+        let obj_type = &*Py_TYPE(obj);
+        let free = obj_type.tp_free.unwrap();
+        free(obj.cast());
     }
 }
 

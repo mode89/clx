@@ -18,7 +18,7 @@ pub struct LazySeq
     ob_base: PyObject,
     meta: PyObj,
     func: Option<Box<Func>>,
-    seq: Mutex<PyObj>,
+    pub seq: Mutex<PyObj>,
 }
 
 type Func = dyn Fn() -> Result<PyObj, ()>;
