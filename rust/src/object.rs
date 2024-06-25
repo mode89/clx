@@ -90,6 +90,11 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn tuple(len: isize) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyTuple_New(len) })
+    }
+
+    #[inline]
     pub fn tuple2(obj1: PyObj, obj2: PyObj) -> PyObj {
         PyObj::from_owned_ptr(unsafe {
             PyTuple_Pack(2, obj1.into_ptr(), obj2.into_ptr())
@@ -196,6 +201,19 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn set_tuple_item(
+        &self,
+        index: isize,
+        value: PyObj
+    ) -> Result<(), ()> {
+        if unsafe { PyTuple_SetItem(self.0, index, value.into_ptr()) } == 0 {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    #[inline]
     pub fn next(&self) -> Option<PyObj> {
         let ptr = unsafe { PyIter_Next(self.0) };
         if !ptr.is_null() {
@@ -208,6 +226,11 @@ impl PyObj {
     #[inline]
     pub fn is_callable(&self) -> bool {
         unsafe { PyCallable_Check(self.0) == 1 }
+    }
+
+    #[inline]
+    pub fn call(&self, args: PyObj) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PyObject_CallObject(self.0, args.0) })
     }
 
     #[inline]

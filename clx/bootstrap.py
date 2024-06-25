@@ -20,7 +20,7 @@ from clx.types import \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     first, next_, rest, get, nth, \
-    Atom, atom
+    Atom, atom, is_atom
 
 from clx.types import define_record as define_record0
 
@@ -1288,7 +1288,7 @@ def _core_binding(ctx, sym):
 
 def _gen_name(prefix="___gen_"):
     if not hasattr(_gen_name, "counter"):
-        _gen_name.counter = Atom(10000)
+        _gen_name.counter = atom(10000)
     return f"{prefix}{_gen_name.counter.swap(lambda x: x + 1)}"
 
 def _node(type_, lctx, *args):
