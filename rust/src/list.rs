@@ -85,10 +85,10 @@ extern "C" fn py_list(
 }
 
 fn list(first: PyObj,
-         rest: PyObj,
-         meta: PyObj,
-         length: i64,
-         hash: Option<isize>) -> PyObj {
+        rest: PyObj,
+        meta: PyObj,
+        length: i64,
+        hash: Option<isize>) -> PyObj {
     unsafe {
         let obj = PyObj::alloc(list_type());
         let l = obj.as_ref::<List>();
