@@ -235,15 +235,21 @@ extern "C" fn py_record_lookup(
 ) -> *mut PyObject {
     utils::wrap_body!({
         utils::py_assert(nargs == 2, "record lookup expects two arguments")?;
-        let self_ = unsafe { &*(self_ as *const RecordBase) };
-        let key = PyObj::borrow(unsafe { *args });
-        let members = &self_.info.members;
-        if let Some(index) = members.iter().position(|m| { m.is(&key) }) {
-            Ok(unsafe { self_.member(index).clone() })
-        } else {
-            Ok(PyObj::borrow(unsafe { *args.add(1) }))
-        }
+        Ok(lookup(
+            &PyObj::borrow(self_),
+            PyObj::borrow(unsafe { *args }),
+            PyObj::borrow(unsafe { *args.add(1) })))
     })
+}
+
+pub fn lookup(self_: &PyObj, key: PyObj, not_found: PyObj) -> PyObj {
+    let self_ = unsafe { self_.as_ref::<RecordBase>() };
+    let members = &self_.info.members;
+    if let Some(index) = members.iter().position(|m| { m.is(&key) }) {
+        unsafe { self_.member(index).clone() }
+    } else {
+        not_found
+    }
 }
 
 extern "C" fn py_record_assoc(

@@ -2,6 +2,7 @@ use crate::object::PyObj;
 use crate::type_object as tpo;
 use crate::symbol::*;
 use crate::utils;
+use crate::common;
 use std::ffi::CString;
 use std::sync::Mutex;
 use std::collections::{
@@ -215,18 +216,17 @@ extern "C" fn py_keyword_call(
 ) -> *mut PyObject {
     utils::wrap_body!({
         let coll: *mut PyObject = std::ptr::null_mut();
-        let default: *mut PyObject = std::ptr::null_mut();
+        let not_found: *mut PyObject = std::ptr::null_mut();
         if unsafe { PyArg_UnpackTuple(args,
                 "Keyword.__call__()\0".as_ptr().cast(),
-                1, 2, &coll, &default) } != 0 {
-            let coll = PyObj::borrow(coll);
-            coll.call_method2(
-                &utils::static_pystring!("lookup"),
+                1, 2, &coll, &not_found) } != 0 {
+            common::get(
+                &PyObj::borrow(coll),
                 PyObj::borrow(self_),
-                if !default.is_null() {
-                    PyObj::borrow(default)
-                } else {
+                if not_found.is_null() {
                     PyObj::none()
+                } else {
+                    PyObj::borrow(not_found)
                 })
         } else {
             Err(())

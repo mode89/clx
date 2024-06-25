@@ -19,7 +19,7 @@ from clx.types import \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    first, next_, rest, \
+    first, next_, rest, get, \
     Atom, atom
 
 from clx.types import define_record as define_record0
@@ -1477,12 +1477,6 @@ def third(coll):
 
 def fourth(coll):
     return first(next_(next_(next_(coll))))
-
-def get(obj, key, not_found=None):
-    if isinstance(obj, IAssociative):
-        return obj.lookup(key, not_found)
-    else:
-        return not_found
 
 def nth(coll, n, not_found=_DUMMY):
     if coll is None:

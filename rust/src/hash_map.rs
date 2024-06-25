@@ -178,20 +178,28 @@ extern "C" fn py_hash_map_lookup(
     nargs: isize,
 ) -> *mut PyObject {
     utils::wrap_body!({
-        if nargs != 2 {
+        if nargs == 2 {
+            lookup(
+                &PyObj::borrow(self_),
+                PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }))
+        } else {
             utils::raise_exception(
                 "PersistentHashMap.lookup() requires two arguments")
-        } else {
-            let self_ = PyObj::borrow(self_);
-            let self_ = unsafe { self_.as_ref::<HashMap>() };
-            let key = PyObj::borrow(unsafe { *args });
-            let not_found = PyObj::borrow(unsafe { *args.offset(1) });
-            Ok(match self_.impl_.get(&key.into_hashable()?) {
-                Some(value) => value.clone(),
-                None => not_found,
-            })
         }
     })
+}
+
+pub fn lookup(
+    self_: &PyObj,
+    key: PyObj,
+    not_found: PyObj
+) -> Result<PyObj, ()> {
+    let self_ = unsafe { self_.as_ref::<HashMap>() };
+    match self_.impl_.get(&key.into_hashable()?) {
+        Some(value) => Ok(value.clone()),
+        None => Ok(not_found),
+    }
 }
 
 extern "C" fn py_hash_map_count(

@@ -2,6 +2,8 @@ use crate::cons;
 use crate::lazy_seq;
 use crate::list;
 use crate::vector;
+use crate::hash_map;
+use crate::record;
 use crate::object::PyObj;
 use crate::utils;
 use crate::protocols::*;
@@ -13,6 +15,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, first, py_first);
     utils::module_add_method!(module, next_, py_next);
     utils::module_add_method!(module, rest, py_rest);
+    utils::module_add_method!(module, get, py_get);
 }
 
 extern "C" fn py_cons(
@@ -205,5 +208,39 @@ pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
             x = next(&x)?;
             y = next(&y)?;
         }
+    }
+}
+
+extern "C" fn py_get(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            get(&PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }),
+                PyObj::none())
+        } else if nargs == 3 {
+            get(&PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }),
+                PyObj::borrow(unsafe { *args.add(2) }))
+        } else {
+            utils::raise_exception("get() expects 2 or 3 arguments")
+        }
+    })
+}
+
+pub fn get(coll: &PyObj, key: PyObj, not_found: PyObj) -> Result<PyObj, ()> {
+    if coll.is_none() {
+        Ok(PyObj::none())
+    } else if coll.type_is(hash_map::hash_map_type()) {
+        hash_map::lookup(coll, key, not_found)
+    } else if coll.is_instance(irecord_type()) {
+        Ok(record::lookup(coll, key, not_found))
+    } else if coll.is_instance(iassociative_type()) {
+        coll.call_method2(&utils::static_pystring!("lookup"), key, not_found)
+    } else {
+        Ok(not_found)
     }
 }
