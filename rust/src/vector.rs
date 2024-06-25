@@ -255,19 +255,9 @@ pub fn nth(
     if index < 0 || index >= v.impl_.len() as isize {
         match not_found {
             Some(not_found) => Ok(not_found),
-            None => raise_index_error()
+            None => utils::raise_index_error()
         }
     } else {
         Ok(v.impl_[index as usize].clone())
     }
-}
-
-fn raise_index_error() -> Result<PyObj, ()> {
-    unsafe {
-        PyErr_SetString(
-            PyExc_IndexError,
-            "PersistentVector index out of range\0".as_ptr().cast(),
-        );
-    }
-    Err(())
 }

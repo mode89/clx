@@ -883,28 +883,57 @@ def test_nth():
     assert nth(None, 0) is None
     assert nth(None, 1) is None
     assert nth(None, 2) is None
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(), 0)
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(), 1)
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(), 2)
     assert nth(L(1), 0) == 1
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(1), 1)
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(1), 2)
     assert nth(L(1, 2), 0) == 1
     assert nth(L(1, 2), 1) == 2
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(L(1, 2), 2)
     assert nth(L(1, 2), 2, 42) == 42
+    assert nth(L(1, 2), -1, 42) == 42
+    with pytest.raises(IndexError):
+        nth(L(1, 2), -1)
     assert nth(V(1, 2, 3), 0) == 1
     assert nth(V(1, 2, 3), 1) == 2
     assert nth(V(1, 2, 3), 2) == 3
-    with pytest.raises(Exception, match=r"Index out of bounds"):
+    with pytest.raises(IndexError):
         nth(V(1, 2, 3), 3)
     assert nth(V(1, 2, 3), 3, 42) == 42
+    assert nth(V(1, 2, 3), -1, 42) == 42
+    with pytest.raises(IndexError):
+        nth(V(1, 2, 3), -1)
+    assert nth(tuple(), 0, 42) == 42
+    with pytest.raises(IndexError):
+        nth(tuple(), 0)
+    assert nth(tuple([1]), 0) == 1
+    assert nth(tuple([1]), 0, 42) == 1
+    assert nth(tuple([1, 2]), 1) == 2
+    assert nth(tuple([1, 2]), 1, 42) == 2
+    assert nth(tuple([1, 2]), 2, 42) == 42
+    with pytest.raises(IndexError):
+        nth(tuple([1, 2]), 2)
+    assert nth(_lazy_range(0), 0, 42) == 42
+    with pytest.raises(IndexError):
+        nth(_lazy_range(0), 0)
+    assert nth(_lazy_range(1), 0) == 0
+    assert nth(_lazy_range(1), 0, 42) == 0
+    assert nth(_lazy_range(2), 1) == 1
+    assert nth(_lazy_range(2), 1, 42) == 1
+    assert nth(_lazy_range(2), 2, 42) == 42
+    with pytest.raises(IndexError):
+        nth(_lazy_range(2), 2)
+    assert nth(_lazy_range(10000000), -1, 42) == 42
+    with pytest.raises(IndexError):
+        nth(_lazy_range(10000000), -1)
 
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)

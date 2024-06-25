@@ -19,7 +19,7 @@ from clx.types import \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    first, next_, rest, get, \
+    first, next_, rest, get, nth, \
     Atom, atom
 
 from clx.types import define_record as define_record0
@@ -1477,29 +1477,6 @@ def third(coll):
 
 def fourth(coll):
     return first(next_(next_(next_(coll))))
-
-def nth(coll, n, not_found=_DUMMY):
-    if coll is None:
-        return None if not_found is _DUMMY else not_found
-    elif isinstance(coll, IIndexed):
-        result = coll.nth(n, not_found)
-        if result is _DUMMY:
-            raise IndexError("Index out of bounds")
-        return result
-    elif isinstance(coll, ISeqable):
-        if n < 0:
-            raise IndexError("Index out of bounds")
-        coll = seq(coll)
-        while coll is not None and n > 0:
-            coll = next_(coll)
-            n -= 1
-        if coll is None:
-            if not_found is _DUMMY:
-                raise IndexError("Index out of bounds")
-            return not_found
-        return first(coll)
-    else:
-        raise NotImplementedError("nth not supported for this type")
 
 def assoc(obj, *kvs):
     assert len(kvs) % 2 == 0, "assoc expects even number of arguments"

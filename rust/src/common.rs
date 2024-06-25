@@ -16,6 +16,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, next_, py_next);
     utils::module_add_method!(module, rest, py_rest);
     utils::module_add_method!(module, get, py_get);
+    utils::module_add_method!(module, nth, py_nth);
 }
 
 extern "C" fn py_cons(
@@ -242,5 +243,86 @@ pub fn get(coll: &PyObj, key: PyObj, not_found: PyObj) -> Result<PyObj, ()> {
         coll.call_method2(&utils::static_pystring!("lookup"), key, not_found)
     } else {
         Ok(not_found)
+    }
+}
+
+extern "C" fn py_nth(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            nth(&PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }).as_int()?,
+                None)
+        } else if nargs == 3 {
+            nth(&PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }).as_int()?,
+                Some(PyObj::borrow(unsafe { *args.add(2) })))
+        } else {
+            utils::raise_exception("get() expects 2 or 3 arguments")
+        }
+    })
+}
+
+pub fn nth(
+    coll: &PyObj,
+    index: isize,
+    not_found: Option<PyObj>
+) -> Result<PyObj, ()> {
+    if coll.is_none() {
+        Ok(PyObj::none())
+    } else if coll.type_is(vector::vector_type()) {
+        vector::nth(coll, index, not_found)
+    } else if coll.is_tuple() {
+        coll.get_tuple_item(index).or_else(|_| {
+            match not_found {
+                Some(not_found) => {
+                    utils::clear_exception();
+                    Ok(not_found)
+                },
+                None => Err(())
+            }
+        })
+    } else if coll.is_instance(iindexed_type()) {
+        match not_found {
+            None => coll.call_method1(
+                &utils::static_pystring!("nth"),
+                PyObj::from(index as i64)),
+            Some(not_found) => coll.call_method2(
+                &utils::static_pystring!("nth"),
+                PyObj::from(index as i64),
+                not_found),
+        }
+    } else if coll.is_instance(iseqable_type()) {
+        if index >= 0 {
+            let mut coll = seq(coll)?;
+            let mut index = index;
+            loop {
+                if coll.is_none() {
+                    return match not_found {
+                        Some(not_found) => Ok(not_found),
+                        None => utils::raise_index_error(),
+                    }
+                }
+                if index == 0 {
+                    return Ok(first(&coll)?);
+                }
+                coll = next(&coll)?;
+                index -= 1;
+            }
+        } else {
+            match not_found {
+                Some(not_found) => Ok(not_found),
+                None => utils::raise_index_error(),
+            }
+        }
+    } else {
+        let type_name = coll.get_type()
+            .get_attr(&utils::static_pystring!("__name__"))?;
+        let msg = format!("nth() not supported for '{}'",
+            type_name.as_cstr()?.to_str().unwrap());
+        utils::raise_exception(&msg)
     }
 }

@@ -209,3 +209,19 @@ pub fn set_exception(msg: &str) {
         PyErr_SetString(PyExc_Exception, msg.as_ptr().cast());
     }
 }
+
+#[inline]
+pub fn clear_exception() {
+    unsafe { PyErr_Clear() }
+}
+
+#[inline]
+pub fn raise_index_error() -> Result<PyObj, ()> {
+    unsafe {
+        PyErr_SetString(
+            PyExc_IndexError,
+            "Index out of bounds\0".as_ptr().cast(),
+        );
+    }
+    Err(())
+}

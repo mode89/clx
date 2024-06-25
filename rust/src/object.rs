@@ -224,6 +224,18 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn call_method1(
+        &self,
+        name: &PyObj,
+        arg: PyObj
+    ) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe {
+            PyObject_CallMethodObjArgs(self.0, name.0, arg.0,
+                std::ptr::null::<PyObject>())
+        })
+    }
+
+    #[inline]
     pub fn call_method2(
         &self,
         name: &PyObj,
