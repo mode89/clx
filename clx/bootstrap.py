@@ -19,7 +19,7 @@ from clx.types import \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    first, next_, \
+    first, next_, rest, \
     Atom, atom
 
 from clx.types import define_record as define_record0
@@ -1468,12 +1468,6 @@ def is_seq(obj):
 
 def is_seqable(obj):
     return obj is None or isinstance(obj, (ISeqable, Iterable))
-
-def rest(coll):
-    coll = seq(coll)
-    if coll is None:
-        return list_()
-    return coll.rest()
 
 def second(coll):
     return first(next_(coll))

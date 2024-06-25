@@ -14,7 +14,7 @@ from clx_rust import \
     Cons, cons, \
     LazySeq, lazy_seq, seq, \
     define_record, \
-    first, next_ \
+    first, next_, rest
 
 PersistentMap = PersistentHashMap
 

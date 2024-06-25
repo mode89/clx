@@ -152,11 +152,15 @@ extern "C" fn py_lazyseq_rest(
         if nargs != 0 {
             utils::raise_exception("LazySeq.rest() takes no arguments")
         } else {
-            let self_ = PyObj::borrow(self_);
-            let seq = force1(&self_)?;
-            common::rest(&seq)
+            rest(&PyObj::borrow(self_))
         }
     })
+}
+
+#[inline]
+pub fn rest(self_: &PyObj) -> Result<PyObj, ()> {
+    let s = force1(self_)?;
+    common::rest(&s)
 }
 
 extern "C" fn py_lazyseq_next(

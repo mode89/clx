@@ -12,6 +12,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, seq, py_seq);
     utils::module_add_method!(module, first, py_first);
     utils::module_add_method!(module, next_, py_next);
+    utils::module_add_method!(module, rest, py_rest);
 }
 
 extern "C" fn py_cons(
@@ -83,7 +84,7 @@ extern "C" fn py_next(
     nargs: isize
 ) -> *mut PyObject {
     utils::wrap_body!({
-        if nargs == 1{
+        if nargs == 1 {
             next(&PyObj::borrow(unsafe { *args }))
         } else {
             utils::raise_exception("next() takes exactly 1 argument")
@@ -107,15 +108,33 @@ pub fn next(coll: &PyObj) -> Result<PyObj, ()> {
     }
 }
 
+extern "C" fn py_rest(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            rest(&PyObj::borrow(unsafe { *args }))
+        } else {
+            utils::raise_exception("rest() takes exactly 1 argument")
+        }
+    })
+}
+
 pub fn rest(coll: &PyObj) -> Result<PyObj, ()> {
     if coll.is_none() {
         Ok(list::empty_list())
     } else if coll.type_is(cons::cons_type()) {
         Ok(cons::rest(coll))
+    } else if coll.type_is(lazy_seq::lazyseq_type()) {
+        lazy_seq::rest(coll)
     } else if coll.type_is(list::list_type()) {
         Ok(list::rest(coll))
-    } else {
+    } else if coll.is_instance(iseq_type()) {
         coll.call_method0(&utils::static_pystring!("rest"))
+    } else {
+        rest(&seq(coll)?)
     }
 }
 
