@@ -378,6 +378,8 @@ def test_seq():
     assert seq("12").first() == "1"
     assert seq("12").rest().first() == "2"
     assert seq("12").rest().next() is None
+    with pytest.raises(Exception, match="Don't know how to create ISeq"):
+        seq(42)
 
 def test_indexed_seq():
     s = IndexedSeq("world", 2, None)

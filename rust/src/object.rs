@@ -117,6 +117,11 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn get_type(&self) -> PyObj {
+        PyObj::from_borrowed_ptr(unsafe { Py_TYPE(self.0) }.cast())
+    }
+
+    #[inline]
     pub fn type_is(&self, tp: &PyObj) -> bool {
         self.type_ptr() == unsafe { tp.as_ptr() }
     }

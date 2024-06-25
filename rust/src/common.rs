@@ -127,8 +127,14 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
         Ok(vector::seq(coll))
     } else if coll.is_instance(iterable_type()) {
         seq(&iterator_seq(&coll.get_iter()?)?)
-    } else {
+    } else if coll.is_instance(iseqable_type()) {
         Ok(coll.call_method0(&utils::static_pystring!("seq"))?)
+    } else {
+        let type_name = coll.get_type()
+            .get_attr(&utils::static_pystring!("__name__"))?;
+        let msg = format!("Don't know how to create ISeq from '{}'",
+            type_name.as_cstr()?.to_str().unwrap());
+        utils::raise_exception(&msg)
     }
 }
 
