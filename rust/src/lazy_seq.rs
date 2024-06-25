@@ -168,11 +168,15 @@ extern "C" fn py_lazyseq_next(
         if nargs != 0 {
             utils::raise_exception("LazySeq.next() takes no arguments")
         } else {
-            let self_ = PyObj::borrow(self_);
-            let seq = force1(&self_)?;
-            common::next(&seq)
+            next(&PyObj::borrow(self_))
         }
     })
+}
+
+#[inline]
+pub fn next(self_: &PyObj) -> Result<PyObj, ()> {
+    let s = force1(self_)?;
+    common::next(&s)
 }
 
 extern "C" fn py_lazyseq_seq(

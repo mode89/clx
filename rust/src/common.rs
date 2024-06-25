@@ -11,6 +11,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, cons, py_cons);
     utils::module_add_method!(module, seq, py_seq);
     utils::module_add_method!(module, first, py_first);
+    utils::module_add_method!(module, next_, py_next);
 }
 
 extern "C" fn py_cons(
@@ -76,15 +77,33 @@ pub fn first(coll: &PyObj) -> Result<PyObj, ()> {
     }
 }
 
+extern "C" fn py_next(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1{
+            next(&PyObj::borrow(unsafe { *args }))
+        } else {
+            utils::raise_exception("next() takes exactly 1 argument")
+        }
+    })
+}
+
 pub fn next(coll: &PyObj) -> Result<PyObj, ()> {
     if coll.is_none() {
         Ok(coll.clone())
     } else if coll.type_is(cons::cons_type()) {
         cons::next(coll)
+    } else if coll.type_is(lazy_seq::lazyseq_type()) {
+        lazy_seq::next(coll)
     } else if coll.type_is(list::list_type()) {
         Ok(list::next(coll))
-    } else {
+    } else if coll.is_instance(iseq_type()) {
         coll.call_method0(&utils::static_pystring!("next"))
+    } else {
+        next(&seq(coll)?)
     }
 }
 
