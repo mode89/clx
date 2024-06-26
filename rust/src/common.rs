@@ -20,6 +20,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, nth, py_nth);
     utils::module_add_method!(module, map_, py_map);
     utils::module_add_method!(module, filter_, py_filter);
+    utils::module_add_method!(module, reduce, py_reduce);
 }
 
 extern "C" fn py_cons(
@@ -416,4 +417,36 @@ extern "C" fn py_filter(
             utils::raise_exception("wrong number of arguments")
         }
     })
+}
+
+extern "C" fn py_reduce(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            let f = PyObj::borrow(unsafe { *args });
+            let coll = PyObj::borrow(unsafe { *args.add(1) });
+            reduce(f, first(&coll)?, next(&coll)?)
+        } else if nargs == 3 {
+            reduce(PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(unsafe { *args.add(1) }),
+                seq(&PyObj::borrow(unsafe { *args.add(2) }))?)
+        } else {
+            utils::raise_exception("wrong number of arguments")
+        }
+    })
+}
+
+fn reduce(f: PyObj, init: PyObj, coll: PyObj) -> Result<PyObj, ()> {
+    let mut acc = init;
+    let mut coll = coll;
+    loop {
+        if coll.is_none() {
+            return Ok(acc);
+        }
+        acc = f.call2(acc, first(&coll)?)?;
+        coll = next(&coll)?;
+    }
 }

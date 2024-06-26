@@ -6,7 +6,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, map_, filter_, \
+    assoc, get, munge, nth, map_, filter_, reduce, \
     _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
@@ -998,6 +998,15 @@ def test_filter():
     assert s.first() == 1
     assert s.next().first() == 3
     assert s.next().next().first() == 5
+
+def test_reduce():
+    add = lambda x, y: x + y
+    assert reduce(None, None, None) is None
+    assert reduce(add, L(42)) == 42
+    assert reduce(add, L(1, 2, 3)) == 6
+    assert reduce(add, V(4, 5, 6)) == 15
+    assert reduce(add, 7, L(8, 9, 10)) == 34
+    assert reduce(add, 42, _lazy_range(10)) == 42 + sum(range(10))
 
 def test_concat():
     concat = clx.concat

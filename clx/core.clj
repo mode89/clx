@@ -197,16 +197,6 @@
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
 
-(defn reduce
-  ([f coll]
-   (reduce f (first coll) (rest coll)))
-  ([f init coll]
-   (loop* [acc init
-           coll (seq coll)]
-     (if coll
-       (recur (f acc (first coll)) (next coll))
-       acc))))
-
 (defn take [n coll]
   (lazy-seq
     (when (pos? n)

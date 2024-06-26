@@ -281,18 +281,6 @@
   (is (= nil (or false false nil)))
   (is (= false (or false nil false))))
 
-(deftest reduce
-  (is (= nil (reduce nil nil nil)))
-  (is (= 42 (reduce + '(42))))
-  (is (= 6 (reduce + '(1 2 3))))
-  (is (= 15 (reduce + [4 5 6])))
-  (is (= 34 (reduce + 7 '(8 9 10))))
-  (is (= (+ 42 (python/sum (python/range 10)))
-         (reduce (fn [x y]
-                   (+ x y))
-                 42
-                 (range* 10)))))
-
 (deftest take
   (is (= '() (take 0 nil)))
   (is (= '() (take 0 '(1 2 3))))

@@ -21,7 +21,7 @@ from clx.types import \
     cons, lazy_seq, seq, \
     Atom, atom, is_atom
 from clx.types import define_record as define_record0
-from clx_rust import first, next_, rest, get, nth, map_, filter_
+from clx_rust import first, next_, rest, get, nth, map_, filter_, reduce
 
 _DUMMY = type("Dummy", (), {})()
 
@@ -539,6 +539,7 @@ def init_context(namespaces):
             "nth": nth,
             "map": map_,
             "filter": filter_,
+            "reduce": reduce,
             "pr-str": pr_str,
             "gensym": gensym,
         },
