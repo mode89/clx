@@ -1,8 +1,8 @@
 use crate::object::PyObj;
 use crate::type_object as tpo;
-use crate::list;
 use crate::utils;
 use crate::protocols::*;
+use crate::indexed_seq;
 use crate::common;
 use pyo3_ffi::*;
 use std::collections::hash_map::DefaultHasher;
@@ -184,15 +184,10 @@ extern "C" fn py_vector_seq(
 
 pub fn seq(self_: &PyObj) -> PyObj {
     let v = unsafe { self_.as_ref::<Vector>() };
-    if v.impl_.is_empty() {
-        PyObj::none()
+    if !v.impl_.is_empty() {
+        indexed_seq::new(self_.clone(), v.impl_.len(), 0)
     } else {
-        let mut lst = list::empty_list();
-        for i in (0..v.impl_.len()).rev() {
-            let item = v.impl_[i].clone();
-            lst = list::list_conj(lst, item);
-        }
-        lst
+        PyObj::none()
     }
 }
 

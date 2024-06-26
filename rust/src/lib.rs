@@ -10,6 +10,7 @@ mod hash_map;
 mod record;
 mod cons;
 mod lazy_seq;
+mod indexed_seq;
 mod atom;
 mod common;
 mod seq_iterator;
@@ -40,6 +41,7 @@ pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
     record::init_module(module);
     cons::init_module(module);
     lazy_seq::init_module(module);
+    indexed_seq::init_module(module);
     atom::init_module(module);
     common::init_module(module);
 

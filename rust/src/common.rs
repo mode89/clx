@@ -1,5 +1,6 @@
 use crate::cons;
 use crate::lazy_seq;
+use crate::indexed_seq;
 use crate::list;
 use crate::vector;
 use crate::hash_map;
@@ -68,6 +69,8 @@ pub fn first(coll: &PyObj) -> Result<PyObj, ()> {
         Ok(list::first(coll))
     } else if coll.type_is(vector::vector_type()) {
         Ok(vector::nth(coll, 0, Some(PyObj::none()))?)
+    } else if coll.type_is(indexed_seq::class()) {
+        indexed_seq::first(coll)
     } else if coll.is_tuple() {
         coll.get_tuple_item(0).or_else(|_| {
             utils::clear_exception();
@@ -105,6 +108,8 @@ pub fn next(coll: &PyObj) -> Result<PyObj, ()> {
         lazy_seq::next(coll)
     } else if coll.type_is(list::list_type()) {
         Ok(list::next(coll))
+    } else if coll.type_is(indexed_seq::class()) {
+        indexed_seq::next(coll)
     } else if coll.is_instance(iseq_type()) {
         coll.call_method0(&utils::static_pystring!("next"))
     } else {
@@ -135,6 +140,8 @@ pub fn rest(coll: &PyObj) -> Result<PyObj, ()> {
         lazy_seq::rest(coll)
     } else if coll.type_is(list::list_type()) {
         Ok(list::rest(coll))
+    } else if coll.type_is(indexed_seq::class()) {
+        indexed_seq::rest(coll)
     } else if coll.is_instance(iseq_type()) {
         coll.call_method0(&utils::static_pystring!("rest"))
     } else {
@@ -167,10 +174,19 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
         Ok(list::seq(coll))
     } else if coll.type_is(vector::vector_type()) {
         Ok(vector::seq(coll))
-    } else if coll.is_instance(iterable_type()) {
-        seq(&iterator_seq(&coll.get_iter()?)?)
+    } else if coll.type_is(indexed_seq::class()) {
+        Ok(coll.clone())
+    } else if coll.is_tuple() || coll.is_string() {
+        let len = coll.len()?;
+        Ok(if len > 0 {
+            indexed_seq::new(coll.clone(), len as usize, 0)
+        } else {
+            PyObj::none()
+        })
     } else if coll.is_instance(iseqable_type()) {
         Ok(coll.call_method0(&utils::static_pystring!("seq"))?)
+    } else if coll.is_instance(iterable_type()) {
+        seq(&iterator_seq(&coll.get_iter()?)?)
     } else {
         let type_name = coll.get_type()
             .get_attr(&utils::static_pystring!("__name__"))?;
@@ -277,6 +293,16 @@ pub fn nth(
         vector::nth(coll, index, not_found)
     } else if coll.is_tuple() {
         coll.get_tuple_item(index).or_else(|_| {
+            match not_found {
+                Some(not_found) => {
+                    utils::clear_exception();
+                    Ok(not_found)
+                },
+                None => Err(())
+            }
+        })
+    } else if coll.is_string() {
+        coll.get_sequence_item(index).or_else(|_| {
             match not_found {
                 Some(not_found) => {
                     utils::clear_exception();

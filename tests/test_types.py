@@ -382,19 +382,19 @@ def test_seq():
         seq(42)
 
 def test_indexed_seq():
-    s = IndexedSeq("world", 2, None)
-    assert s.first() == "r"
-    assert s.rest().first() == "l"
-    assert s.next().first() == "l"
-    assert s.next().next().first() == "d"
+    s = seq("bar")
+    assert s.first() == "b"
+    assert s.rest().first() == "a"
+    assert s.next().first() == "a"
+    assert s.next().next().first() == "r"
     assert s.next().next().next() is None
     assert s.seq() is s
     assert s.count_() == 3
-    assert s == L("r", "l", "d")
-    assert s.nth(0, None) == "r"
-    assert s.nth(1, None) == "l"
-    assert s.nth(2, None) == "d"
-    assert s.nth(3, 42) == 42
+    assert s == L("b", "a", "r")
+    s1 = s.rest().rest()
+    assert s1.first() == "r"
+    assert s1.count_() == 1
+    assert s1 == L("r")
 
 def test_atom():
     a = atom(42)

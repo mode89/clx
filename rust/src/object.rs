@@ -214,6 +214,11 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn get_sequence_item(&self, index: isize) -> Result<PyObj, ()> {
+        result_from_owned_ptr(unsafe { PySequence_GetItem(self.0, index) })
+    }
+
+    #[inline]
     pub fn next(&self) -> Option<PyObj> {
         let ptr = unsafe { PyIter_Next(self.0) };
         if !ptr.is_null() {
