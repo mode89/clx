@@ -112,6 +112,11 @@ impl PyObj {
     }
 
     #[inline]
+    pub fn is_truthy(&self) -> bool {
+        unsafe { self.0 != Py_False() && self.0 != Py_None() }
+    }
+
+    #[inline]
     pub fn is_string(&self) -> bool {
         unsafe { PyUnicode_Check(self.0) != 0 }
     }

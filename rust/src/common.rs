@@ -19,6 +19,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
     utils::module_add_method!(module, map_, py_map);
+    utils::module_add_method!(module, filter_, py_filter);
 }
 
 extern "C" fn py_cons(
@@ -376,6 +377,41 @@ extern "C" fn py_map(
             let coll = seq(&PyObj::borrow(unsafe { *args.add(1) }))?;
             Ok(lazy_seq::lazy_seq(
                 Box::new(move || step(f.clone(), coll.clone()))))
+        } else {
+            utils::raise_exception("wrong number of arguments")
+        }
+    })
+}
+
+extern "C" fn py_filter(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            fn step(pred: PyObj, coll: PyObj) -> Result<PyObj, ()> {
+                Ok(if coll.is_none() {
+                    PyObj::none()
+                } else {
+                    let item = first(&coll)?;
+                    if pred.call1(item.clone())?.is_truthy() {
+                        cons::cons(item,
+                            lazy_seq::lazy_seq(
+                                Box::new(move ||
+                                    step(pred.clone(), next(&coll)?))))
+                    } else {
+                        lazy_seq::lazy_seq(
+                            Box::new(move ||
+                                step(pred.clone(), next(&coll)?)))
+                    }
+                })
+            }
+
+            let pred = PyObj::borrow(unsafe { *args });
+            let coll = seq(&PyObj::borrow(unsafe { *args.add(1) }))?;
+            Ok(lazy_seq::lazy_seq(
+                Box::new(move || step(pred.clone(), coll.clone()))))
         } else {
             utils::raise_exception("wrong number of arguments")
         }

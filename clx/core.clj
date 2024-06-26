@@ -197,14 +197,6 @@
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
 
-(defn filter [pred coll]
-  (lazy-seq
-    (when-let [s (seq coll)]
-      (let [s0 (first s)]
-        (if (pred s0)
-          (cons s0 (filter pred (rest s)))
-          (filter pred (rest s)))))))
-
 (defn reduce
   ([f coll]
    (reduce f (first coll) (rest coll)))

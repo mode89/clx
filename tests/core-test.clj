@@ -281,24 +281,6 @@
   (is (= nil (or false false nil)))
   (is (= false (or false nil false))))
 
-(deftest filter
-  (is (= '() (filter nil nil)))
-  (is (= '() (filter odd? nil)))
-  (is (= '(1 3) (filter odd? '(1 2 3))))
-  (is (= '(1 3) (filter odd? [1 2 3])))
-  (let [s (filter (fn [x]
-                    (if (< x 3)
-                      (odd? x)
-                      (throw (Exception))))
-                  [1 2 3])]
-    (is (= 1 (first s)))
-    (raises Exception
-      (next s)))
-  (let [ls (filter odd? (range* 10000000))]
-    (is (= 1 (first ls)))
-    (is (= 3 (first (next ls))))
-    (is (= 5 (first (next (next ls)))))))
-
 (deftest reduce
   (is (= nil (reduce nil nil nil)))
   (is (= 42 (reduce + '(42))))

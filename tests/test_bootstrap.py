@@ -6,7 +6,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, map_, \
+    assoc, get, munge, nth, map_, filter_, \
     _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
@@ -51,6 +51,9 @@ def _lazy_range(*args):
         return cons(i, lazy_seq(lambda: helper(i + 1))) \
             if end is None or i < end else None
     return lazy_seq(lambda: helper(start))
+
+def _throw():
+    raise Exception()
 
 def test_is_seq():
     assert clx.is_seq(None) is False
@@ -965,13 +968,11 @@ def test_first():
 
 def test_map():
     inc = lambda x: x + 1
-    def throw():
-        raise Exception()
 
     assert map_(inc, None) == L()
     assert map_(inc, L(1, 2, 3)) == L(2, 3, 4)
     assert map_(inc, V(1, 2, 3)) == L(2, 3, 4)
-    s = map_(lambda x: x if x < 3 else throw(), V(1, 2, 3))
+    s = map_(lambda x: x if x < 3 else _throw(), V(1, 2, 3))
     assert s.first() == 1
     assert s.next().first() == 2
     with pytest.raises(Exception):
@@ -981,6 +982,22 @@ def test_map():
     s = map_(lambda x: x * 3, _lazy_range(10000000))
     assert s.first() == 0
     assert s.next().first() == 3
+
+def test_filter():
+    odd = lambda x: x % 2 == 1
+    assert filter_(None, None) == L()
+    assert filter_(odd, None) == L()
+    assert filter_(odd, L(1, 2, 3)) == L(1, 3)
+    assert filter_(odd, V(5, 6, 7, 8)) == L(5, 7)
+    s = filter_(lambda x: odd(x) if x < 3 else _throw(), V(1, 2, 3))
+    assert s.first() == 1
+    with pytest.raises(Exception):
+        s.next()
+    assert s.first() == 1
+    s = filter_(odd, _lazy_range(10000000))
+    assert s.first() == 1
+    assert s.next().first() == 3
+    assert s.next().next().first() == 5
 
 def test_concat():
     concat = clx.concat
