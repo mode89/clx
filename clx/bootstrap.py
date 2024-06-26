@@ -2,8 +2,7 @@ import ast
 from bisect import bisect_left
 from collections import namedtuple
 from collections.abc import Iterable
-from dataclasses import dataclass, make_dataclass
-import dataclasses
+from dataclasses import dataclass
 import functools
 import itertools
 import re
@@ -11,17 +10,20 @@ import threading
 import types
 import weakref
 
-from clx.types import \
-    IMeta, ICounted, IAssociative, IIndexed, ISeqable, ISeq, \
+from clx_rust import \
+    IMeta, ICounted, IAssociative, ISeqable, ISeq, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
-    PersistentList, list_, _list_from_iterable, \
-    PersistentVector, vec, vector, \
-    PersistentMap, hash_map, hash_map_from, \
+    PersistentList, list_, \
+    PersistentVector, vector, \
+    PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    Atom, atom, is_atom
-from clx.types import define_record as define_record0
-from clx_rust import first, next_, rest, get, nth, map_, filter_, reduce
+    Atom, atom, is_atom, \
+    first, next_, rest, get, nth, map_, filter_, reduce
+from clx_rust import define_record as define_record0
+
+Iterable.register(PersistentVector)
+PersistentMap = PersistentHashMap
 
 _DUMMY = type("Dummy", (), {})()
 
@@ -524,6 +526,7 @@ def init_context(namespaces):
             "lazy-seq*": lazy_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),
             "atom": atom,
+            "atom?": is_atom,
             "deref": lambda x: x.deref(),
             "first": first,
             "second": second,
@@ -1445,6 +1448,12 @@ def with_meta(obj, _meta):
 def vary_meta(obj, f, *args):
     return with_meta(obj, f(meta(obj), *args))
 
+def vec(coll):
+    if not coll:
+        return vector()
+    else:
+        return vector(*coll)
+
 def is_counted(x):
     return isinstance(x, ICounted)
 
@@ -1572,7 +1581,7 @@ def gensym(prefix="___gen_"):
 def walk(inner, outer, form):
     if type(form) is PersistentList:
         return outer(with_meta(
-            _list_from_iterable(map(inner, form)),
+            list_(*map(inner, form)),
             meta(form)))
     elif type(form) is PersistentVector:
         return outer(vec(map(inner, form)))

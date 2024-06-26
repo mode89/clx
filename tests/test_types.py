@@ -1,15 +1,15 @@
 import pytest
 
-import clx.bootstrap as boot
-from clx.types import \
+from clx_rust import \
     Symbol, symbol, \
     Keyword, keyword, \
     PersistentList, list_, \
-    PersistentVector, vector, vec, \
-    PersistentMap, hash_map, hash_map_from, \
-    IndexedSeq, cons, lazy_seq, seq, \
+    PersistentVector, vector, \
+    PersistentHashMap, hash_map, hash_map_from, \
+    cons, lazy_seq, seq, \
     Atom, atom, \
     define_record
+import clx.bootstrap as boot
 
 K = keyword
 S = symbol
@@ -193,7 +193,7 @@ def test_vector():
         V(42, 9001)(2)
     with pytest.raises(TypeError):
         V(42, 9001)(None)
-    vl = vec(range(3))
+    vl = boot.vec(range(3))
     assert isinstance(vl, PersistentVector)
     assert vl == V(0, 1, 2)
     assert V(1, 2, 3).nth(0) == 1
@@ -214,17 +214,17 @@ def test_hash_map():
     m2 = m1.assoc("b", 2)
     m3 = m2.merge(M("c", 3, "d", 4))
     m4 = m3.assoc("a", 5, "b", 6)
-    assert type(m0) is PersistentMap
+    assert type(m0) is PersistentHashMap
     assert m0 is M()
-    assert type(m1) is PersistentMap
+    assert type(m1) is PersistentHashMap
     assert m1.lookup("a", None) == 1
     assert m1.lookup("b", 42) == 42
     assert m1 == M("a", 1)
-    assert type(m2) is PersistentMap
+    assert type(m2) is PersistentHashMap
     assert m2 == M("a", 1, "b", 2)
-    assert type(m3) is PersistentMap
+    assert type(m3) is PersistentHashMap
     assert m3 == M("a", 1, "b", 2, "c", 3, "d", 4)
-    assert type(m4) is PersistentMap
+    assert type(m4) is PersistentHashMap
     assert m4 == M("a", 5, "b", 6, "c", 3, "d", 4)
     assert M(1, 2, 3, 4)(1) == 2
     assert M(1, 2, 3, 4)(2) is None
