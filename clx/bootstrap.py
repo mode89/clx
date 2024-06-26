@@ -19,10 +19,9 @@ from clx.types import \
     PersistentVector, vec, vector, \
     PersistentMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    first, next_, rest, get, nth, \
     Atom, atom, is_atom
-
 from clx.types import define_record as define_record0
+from clx_rust import first, next_, rest, get, nth, map_
 
 _DUMMY = type("Dummy", (), {})()
 
@@ -538,6 +537,7 @@ def init_context(namespaces):
             "assoc": assoc,
             "get": get,
             "nth": nth,
+            "map": map_,
             "pr-str": pr_str,
             "gensym": gensym,
         },

@@ -281,25 +281,6 @@
   (is (= nil (or false false nil)))
   (is (= false (or false nil false))))
 
-
-(deftest map
-  (is (= '() (map inc nil)))
-  (is (= '(2 3 4) (map inc '(1 2 3))))
-  (is (= '(2 3 4) (map inc [1 2 3])))
-  (let [s (map (fn [x]
-                 (if (< x 3)
-                   x
-                   (throw (Exception))))
-               [1 2 3])]
-    (is (= 1 (first s)))
-    (is (= 2 (first (next s))))
-    (raises Exception
-      (next (next s))))
-  (let [ls (map (fn [x] (* x 3))
-                (range* 10000000))]
-    (is (= 0 (first ls)))
-    (is (= 3 (first (next ls))))))
-
 (deftest filter
   (is (= '() (filter nil nil)))
   (is (= '() (filter odd? nil)))

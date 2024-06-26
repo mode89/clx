@@ -18,6 +18,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, rest, py_rest);
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
+    utils::module_add_method!(module, map_, py_map);
 }
 
 extern "C" fn py_cons(
@@ -351,4 +352,32 @@ pub fn nth(
             type_name.as_cstr()?.to_str().unwrap());
         utils::raise_exception(&msg)
     }
+}
+
+extern "C" fn py_map(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            fn step(f: PyObj, coll: PyObj) -> Result<PyObj, ()> {
+                Ok(if coll.is_none() {
+                    PyObj::none()
+                } else {
+                    cons::cons(f.call1(first(&coll)?)?,
+                        lazy_seq::lazy_seq(
+                            Box::new(move ||
+                                step(f.clone(), next(&coll)?))))
+                })
+            }
+
+            let f = PyObj::borrow(unsafe { *args });
+            let coll = seq(&PyObj::borrow(unsafe { *args.add(1) }))?;
+            Ok(lazy_seq::lazy_seq(
+                Box::new(move || step(f.clone(), coll.clone()))))
+        } else {
+            utils::raise_exception("wrong number of arguments")
+        }
+    })
 }

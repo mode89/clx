@@ -6,7 +6,8 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
+    assoc, get, munge, nth, map_, \
+    _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
 S = clx.symbol
@@ -961,6 +962,25 @@ def test_first():
     assert clx.first(V(1)) == 1
     assert clx.first(V(2, 3)) == 2
     assert clx.first(tuple()) is None
+
+def test_map():
+    inc = lambda x: x + 1
+    def throw():
+        raise Exception()
+
+    assert map_(inc, None) == L()
+    assert map_(inc, L(1, 2, 3)) == L(2, 3, 4)
+    assert map_(inc, V(1, 2, 3)) == L(2, 3, 4)
+    s = map_(lambda x: x if x < 3 else throw(), V(1, 2, 3))
+    assert s.first() == 1
+    assert s.next().first() == 2
+    with pytest.raises(Exception):
+        s.next().next()
+    assert s.first() == 1
+    assert s.next().first() == 2
+    s = map_(lambda x: x * 3, _lazy_range(10000000))
+    assert s.first() == 0
+    assert s.next().first() == 3
 
 def test_concat():
     concat = clx.concat
