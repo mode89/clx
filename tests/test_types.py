@@ -264,6 +264,7 @@ def test_cons():
     assert cons(42, inf) != cons(43, inf)
     assert cons(1, cons(2, cons(3, L()))) == L(1, 2, 3)
     assert cons(1, L()).next() is None
+    assert [*cons(1, cons(2, cons(3, L())))] == [1, 2, 3]
 
 def test_lazy_seq():
     def nth(coll, n):
@@ -350,6 +351,8 @@ def test_lazy_seq():
     assert s.next().first() == 9001
     with pytest.raises(Exception):
         s.next().next().first()
+    assert [*_lazy_range(0)] == []
+    assert [*_lazy_range(3)] == [0, 1, 2]
 
 def test_seq():
     assert seq(None) is None

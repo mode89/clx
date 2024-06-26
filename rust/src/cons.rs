@@ -4,6 +4,7 @@ use crate::utils;
 use crate::protocols::*;
 use crate::common;
 use crate::lazy_seq;
+use crate::seq_iterator;
 use pyo3_ffi::*;
 use std::collections::LinkedList;
 
@@ -32,6 +33,7 @@ pub fn cons_type() -> &'static PyObj {
         new: Some(utils::disallowed_new!(cons_type)),
         dealloc: Some(py_cons_dealloc),
         compare: Some(py_cons_compare),
+        iter: Some(py_iter),
         members: vec![ tpo::member!("__meta__") ],
         methods: vec![
             tpo::method!("seq", py_cons_seq),
@@ -202,4 +204,11 @@ fn cons_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
             Ok(false)
         }
     }
+}
+
+extern "C" fn py_iter(self_: *mut PyObject,) -> *mut PyObject {
+    utils::wrap_body!({
+        let self_ = PyObj::borrow(self_);
+        seq_iterator::from(self_)
+    })
 }
