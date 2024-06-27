@@ -191,7 +191,7 @@ fn record_init(self_: *mut PyObject, args: *mut PyObject) -> Result<(), ()> {
 extern "C" fn py_record_dealloc(obj: *mut PyObject) {
     utils::handle_gil!({
         let record = unsafe { &mut *(obj as *mut RecordBase) };
-        if !record.info.is_null() {
+        if !record.info.is_null() { // could be null if __init__ failed
             let member_num = unsafe { (*record.info).members.len() };
             for i in 0..member_num {
                 unsafe { std::ptr::drop_in_place(record.member_ptr(i)); }
