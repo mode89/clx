@@ -25,7 +25,7 @@ pub struct Vector {
 pub fn vector_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
-            name: "clx_rust.PersistentVector",
+            name: "lepet_ext.PersistentVector",
             bases: vec![
                 imeta_type(),
                 iindexed_type(),

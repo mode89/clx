@@ -18,10 +18,10 @@ mod seq_iterator;
 use pyo3_ffi::*;
 
 #[no_mangle]
-pub extern "C" fn PyInit_clx_rust() -> *mut PyObject {
+pub extern "C" fn PyInit_lepet_ext() -> *mut PyObject {
     static mut MODULE: PyModuleDef = PyModuleDef {
         m_base: PyModuleDef_HEAD_INIT,
-        m_name: "clx_rust\0".as_ptr().cast(),
+        m_name: "lepet_ext\0".as_ptr().cast(),
         m_doc: std::ptr::null(),
         m_size: -1,
         m_methods: std::ptr::null_mut(),

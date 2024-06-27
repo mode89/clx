@@ -22,7 +22,7 @@ pub fn from(coll: PyObj) -> Result<PyObj, ()> {
 
 pub fn seq_iterator_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.SeqIterator",
+        name: "lepet_ext.SeqIterator",
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<SeqIterator>(),
         new: Some(utils::disallowed_new!(seq_iterator_type)),

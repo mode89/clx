@@ -26,7 +26,7 @@ pub struct Symbol {
 pub fn symbol_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
-            name: "clx_rust.Symbol",
+            name: "lepet_ext.Symbol",
             bases: vec![
                 imeta_type(),
             ],

@@ -30,7 +30,7 @@ pub struct Keyword {
 pub fn keyword_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
-            name: "clx_rust.Keyword",
+            name: "lepet_ext.Keyword",
             flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Keyword>(),
             new: Some(utils::disallowed_new!(keyword_type)),

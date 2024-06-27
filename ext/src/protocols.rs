@@ -27,7 +27,7 @@ extern "C" fn dummy_method(
 
 pub fn imeta_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.IMeta",
+        name: "lepet_ext.IMeta",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(imeta_type)),
         methods: vec![
@@ -39,7 +39,7 @@ pub fn imeta_type() -> &'static PyObj {
 
 pub fn icounted_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.ICounted",
+        name: "lepet_ext.ICounted",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(icounted_type)),
         methods: vec![
@@ -51,7 +51,7 @@ pub fn icounted_type() -> &'static PyObj {
 
 pub fn iseqable_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.ISeqable",
+        name: "lepet_ext.ISeqable",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(iseqable_type)),
         methods: vec![
@@ -63,7 +63,7 @@ pub fn iseqable_type() -> &'static PyObj {
 
 pub fn iseq_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.ISeq",
+        name: "lepet_ext.ISeq",
         bases: vec![iseqable_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(iseq_type)),
@@ -78,7 +78,7 @@ pub fn iseq_type() -> &'static PyObj {
 
 pub fn isequential_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.ISequential",
+        name: "lepet_ext.ISequential",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(isequential_type)),
         ..Default::default()
@@ -87,7 +87,7 @@ pub fn isequential_type() -> &'static PyObj {
 
 pub fn icollection_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.ICollection",
+        name: "lepet_ext.ICollection",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(icollection_type)),
         methods: vec![
@@ -99,7 +99,7 @@ pub fn icollection_type() -> &'static PyObj {
 
 pub fn iindexed_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.IIndexed",
+        name: "lepet_ext.IIndexed",
         bases: vec![icounted_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(iindexed_type)),
@@ -112,7 +112,7 @@ pub fn iindexed_type() -> &'static PyObj {
 
 pub fn iassociative_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.IAssociative",
+        name: "lepet_ext.IAssociative",
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(iassociative_type)),
         methods: vec![
@@ -125,7 +125,7 @@ pub fn iassociative_type() -> &'static PyObj {
 
 pub fn irecord_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.IRecord",
+        name: "lepet_ext.IRecord",
         bases: vec![iassociative_type()],
         flags: Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
         new: Some(utils::disallowed_new!(irecord_type)),

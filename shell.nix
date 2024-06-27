@@ -13,6 +13,6 @@ pkgs.mkShell {
     ]))
   ];
   shellHook = ''
-    export PYTHONPATH=$PWD/rust/target
+    export PYTHONPATH=$PWD/ext/target
   '';
 }

@@ -8,7 +8,7 @@ import threading
 import types
 import weakref
 
-from clx_rust import \
+from lepet_ext import \
     IMeta, ICounted, IAssociative, ISeqable, ISeq, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
@@ -18,7 +18,7 @@ from clx_rust import \
     cons, lazy_seq, seq, \
     atom, is_atom, \
     first, next_, rest, get, nth, map_, filter_, reduce
-from clx_rust import define_record as define_record0
+from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
 PersistentMap = PersistentHashMap

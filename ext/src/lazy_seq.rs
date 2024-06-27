@@ -25,7 +25,7 @@ type Func = dyn Fn() -> Result<PyObj, ()>;
 
 pub fn lazyseq_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.LazySeq",
+        name: "lepet_ext.LazySeq",
         bases: vec![
             imeta_type(),
             iseq_type(),

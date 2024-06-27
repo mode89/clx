@@ -25,7 +25,7 @@ type HashMapImpl = std::collections::HashMap<PyObjHashable, PyObj>;
 pub fn hash_map_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
-            name: "clx_rust.PersistentHashMap",
+            name: "lepet_ext.PersistentHashMap",
             bases: vec![
                 imeta_type(),
                 icounted_type(),
@@ -410,7 +410,7 @@ pub struct HashMapIterator<'a> {
 
 pub fn hash_map_iterator_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.PersistentHashMapIterator",
+        name: "lepet_ext.PersistentHashMapIterator",
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<HashMapIterator>(),
         new: Some(utils::disallowed_new!(hash_map_iterator_type)),

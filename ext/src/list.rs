@@ -28,7 +28,7 @@ pub struct List {
 pub fn list_type() -> &'static PyObj {
     tpo::static_type!(
         tpo::TypeSpec {
-            name: "clx_rust.PersistentList",
+            name: "lepet_ext.PersistentList",
             bases: vec![
                 imeta_type(),
                 icounted_type(),

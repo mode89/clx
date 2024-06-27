@@ -22,7 +22,7 @@ pub struct Cons {
 
 pub fn cons_type() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.Cons",
+        name: "lepet_ext.Cons",
         bases: vec![
             imeta_type(),
             iseq_type(),

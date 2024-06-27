@@ -18,7 +18,7 @@ pub struct Atom {
 
 pub fn class() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.Atom",
+        name: "lepet_ext.Atom",
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<Atom>(),
         new: Some(utils::disallowed_new!(class)),

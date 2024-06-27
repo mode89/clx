@@ -1,6 +1,6 @@
 import pytest
 
-from clx_rust import \
+from lepet_ext import \
     Symbol, symbol, \
     Keyword, keyword, \
     PersistentList, list_, \

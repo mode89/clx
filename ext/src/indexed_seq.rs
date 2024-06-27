@@ -23,7 +23,7 @@ pub struct IndexedSeq
 
 pub fn class() -> &'static PyObj {
     tpo::static_type!(tpo::TypeSpec {
-        name: "clx_rust.IndexedSeq",
+        name: "lepet_ext.IndexedSeq",
         bases: vec![
             imeta_type(),
             iseq_type(),
