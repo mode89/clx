@@ -499,10 +499,10 @@ LocalContext = define_record("clx.bootstrap.LocalContext",
     _K_COLUMN,
 )
 
-@dataclass(frozen=True)
-class Binding:
-    py_name: str
-    meta: PersistentMap
+Binding = define_record("clx.bootstrap.Binding",
+    keyword("py_name"),
+    keyword("meta")
+)
 
 def init_context(namespaces):
     namespaces = {
@@ -725,7 +725,7 @@ def _compile_def(ctx, lctx, form):
     # TODO disallow redefinition of bound dynamic vars
     ctx.namespaces.swap(assoc_in,
         list_(current_ns, _K_BINDINGS, name.name),
-        Binding(py_name, meta=meta(name)))
+        Binding(py_name, meta(name)))
     value_expr, value_stmts = _compile(
         ctx, lctx.assoc(_K_TAIL_Q, False), third(form))
     return \
@@ -776,7 +776,7 @@ def _compile_let(ctx, lctx, form):
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name),
-            Binding(py_name, meta=_BINDING_META_LOCAL))
+            Binding(py_name, _BINDING_META_LOCAL))
     if len(form) == 3:
         body_expr, body_stmts = _compile(ctx, lctx, third(form))
         body.extend(body_stmts)
@@ -850,11 +850,11 @@ def _make_function_def(ctx, lctx, fname, params, body):
             assert is_simple_symbol(rest_param), \
                 "rest parameters of function must be a simple symbol"
             env = assoc(env, rest_param.name,
-                Binding(munge(rest_param.name), meta=_BINDING_META_LOCAL))
+                Binding(munge(rest_param.name), _BINDING_META_LOCAL))
             break
         pos_params.append(param)
         env = assoc(env, param.name,
-            Binding(munge(param.name), meta=_BINDING_META_LOCAL))
+            Binding(munge(param.name), _BINDING_META_LOCAL))
         params = rest(params)
     lctx = assoc(lctx, _K_ENV, env)
 
@@ -897,7 +897,7 @@ def _compile_letfn(ctx, lctx, form):
             "function name must be a simple symbol"
         py_name = munge(fname.name)
         lctx = assoc_in(lctx, list_(_K_ENV, fname.name),
-            Binding(py_name, meta=_BINDING_META_LOCAL))
+            Binding(py_name, _BINDING_META_LOCAL))
 
     stmts = []
     for fdef in fdefs:
@@ -959,7 +959,7 @@ def _compile_try(ctx, lctx, form):
 
             py_var = munge(var.name)
             _lctx = assoc_in(lctx, list_(_K_ENV, var.name),
-                Binding(py_var, meta=_BINDING_META_LOCAL))
+                Binding(py_var, _BINDING_META_LOCAL))
             catch_expr, catch_stmts = \
                 _compile(ctx, _lctx,
                     list_(_S_DO, *clause.rest().rest().rest()))
@@ -1008,7 +1008,7 @@ def _compile_loop(ctx, lctx, form):
         stmts.append(
             _node(ast.Assign, lctx,
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
-        binding = Binding(py_name, meta=_BINDING_META_LOCAL)
+        binding = Binding(py_name, _BINDING_META_LOCAL)
         loop_bindings.append(binding)
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
     lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
@@ -1141,7 +1141,7 @@ def _compile_python_with(ctx, lctx, form):
 
         py_name = munge(_name.name)
         lctx2 = assoc_in(lctx2, list_(_K_ENV, _name.name),
-            Binding(py_name, meta=_BINDING_META_LOCAL))
+            Binding(py_name, _BINDING_META_LOCAL))
 
         cm_expr, cm_stmts = _compile(ctx, lctx1, cm)
         stmts.extend(cm_stmts)
@@ -1261,7 +1261,7 @@ def _resolve_symbol(ctx, lctx, sym, not_found=_DUMMY):
         if _import is not None:
             return Binding(
                 munge(sym.name),
-                meta=hash_map(_K_IMPORTED_FROM, _import))
+                hash_map(_K_IMPORTED_FROM, _import))
 
         aliased_ns = get_in(namespaces,
             list_(current_ns, _K_ALIASES, sym.namespace))
