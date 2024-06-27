@@ -1,7 +1,6 @@
 import ast
 from bisect import bisect_left
 from collections.abc import Iterable
-from dataclasses import dataclass
 import functools
 import itertools
 import re
@@ -190,9 +189,7 @@ _S_DEREF = _core_symbol("deref")
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
 _K_CURRENT_NS = keyword("current-ns")
-_K_NAMESPACES = keyword("namespaces")
 _K_ENV = keyword("env")
-_K_PY_GLOBALS = keyword("py-globals")
 _K_PY_NAME = keyword("py-name")
 _K_LOCAL = keyword("local")
 _K_DYNAMIC = keyword("dynamic")
@@ -484,10 +481,10 @@ def escape(text):
 # Evaluation
 #************************************************************
 
-@dataclass(frozen=True)
-class Context:
-    namespaces: Atom
-    py_globals: dict
+Context = define_record("clx.bootstrap.Context",
+    keyword("namespaces"),
+    keyword("py_globals")
+)
 
 # Local context defines state that is local to a single form
 LocalContext = define_record("clx.bootstrap.LocalContext",

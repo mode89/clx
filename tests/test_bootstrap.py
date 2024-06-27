@@ -807,7 +807,7 @@ def test_meta():
 
 def test_resolve_symbol():
     ctx = clx.Context(
-        namespaces=clx.atom(M(
+        clx.atom(M(
             "clx.core",
                 M(K("bindings"), M("list", clx.list_),
                   K("imports"),  M()),
@@ -821,7 +821,7 @@ def test_resolve_symbol():
                                    "fred", 4),
                   K("imports"),  M()),
                 )),
-        py_globals={
+        {
             munge("clx.core/*ns*"): clx.DynamicVar("user"),
         },
     )
