@@ -361,7 +361,8 @@
   (is (= '(1 2 2 3 3 4) (mapcat (fn [x] [x (+ x 1)]) [1 2 3]))))
 
 (deftest defrecord
-  (let [Foo (eval '(defrecord Foo [a b c]))]
+  (let [Foo (eval '(do (defrecord Foo [a b c])
+                       Foo))]
     (is (inspect/isclass Foo))
     (is (instance? Foo (Foo 1 2 3)))
     (is (= 1 (.-a (Foo 1 2 3))))
@@ -375,7 +376,9 @@
     (is (not= (Foo 1 2 3) (Foo 1 4 3)))
     (is (= (Foo 4 2 3) (assoc (Foo 1 2 3) :a 4)))
     (is (= (Foo 1 5 3) (assoc (Foo 1 2 3) :b 5)))
-    (is (= (Foo 1 2 6) (assoc (Foo 1 2 3) :c 6)))))
+    (is (= (Foo 1 2 6) (assoc (Foo 1 2 3) :c 6))))
+  (raises Exception "must be.*simple"
+    (eval '(defrecord my/Foo [a b c]))))
 
 (deftest doseq
   (is (= nil (eval '(let [sum (atom 0)]

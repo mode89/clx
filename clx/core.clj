@@ -284,10 +284,10 @@
              fspecs)))))
 
 (defmacro defrecord [tname fields]
-  (assert (symbol? tname) "record name must be a symbol")
+  (assert (simple-symbol? tname) "record name must be a simple symbol")
   (assert (vector? fields) "record fields must be a vector")
   (let [qtname (str @*ns* "." (name tname))]
-    `(def tname
+    `(def ~tname
        (clx.bootstrap/define-record
          ~qtname
          ~@(map keyword fields)))))

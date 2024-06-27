@@ -518,6 +518,7 @@ def init_context(namespaces):
             "simple-keyword?": is_simple_keyword,
             "symbol": symbol,
             "symbol?": is_symbol,
+            "simple-symbol?": is_simple_symbol,
             "list": list_,
             "vector": vector,
             "vector?": is_vector,
