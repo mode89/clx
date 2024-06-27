@@ -84,7 +84,9 @@ pub fn new_type(spec: TypeSpec) -> PyObj {
             Mutex::new(LinkedList::new())
         }).lock().unwrap();
 
-    let size = spec.size;
+    // Add extra space for list of weak references
+    let size = spec.size + std::mem::size_of::<PyObject>();
+    let weaklistoffset = spec.size;
     let flags = spec.flags;
     let bases: Vec<PyObj> = spec.bases.iter()
         .map(|x| (*x).clone())
@@ -105,6 +107,7 @@ pub fn new_type(spec: TypeSpec) -> PyObj {
     let _type = unsafe { otype.as_ref::<PyTypeObject>() };
     _type.tp_as_sequence = &tbuf.sequence_methods as *const _ as *mut _;
     _type.tp_as_mapping = &tbuf.mapping_methods as *const _ as *mut _;
+    _type.tp_weaklistoffset = weaklistoffset as isize;
     otype
 }
 
@@ -301,5 +304,26 @@ fn type_from_spec(spec: &PyType_Spec, bases: Vec<PyObj>) -> PyObj {
                 spec as *const _ as *mut _,
                 _bases.into_ptr()))
         }
+    }
+}
+
+pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
+    unsafe { std::ptr::drop_in_place::<T>(obj.cast()) };
+    free(obj);
+}
+
+#[inline]
+pub fn free(obj: *mut PyObject) {
+    unsafe {
+        let obj_type = &*Py_TYPE(obj);
+
+        let weaklistoffset = obj_type.tp_weaklistoffset;
+        let weakreflist = obj.byte_offset(weaklistoffset);
+        if !weakreflist.is_null() {
+            PyObject_ClearWeakRefs(obj);
+        }
+
+        let free = obj_type.tp_free.unwrap();
+        free(obj.cast());
     }
 }

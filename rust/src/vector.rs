@@ -36,7 +36,7 @@ pub fn vector_type() -> &'static PyObj {
             flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Vector>(),
             new: Some(utils::disallowed_new!(vector_type)),
-            dealloc: Some(utils::generic_dealloc::<Vector>),
+            dealloc: Some(tpo::generic_dealloc::<Vector>),
             sequence_length: Some(py_vector_len),
             compare: Some(py_vector_compare),
             // TODO hash: Some(py_vector_hash),

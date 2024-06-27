@@ -134,9 +134,7 @@ extern "C" fn list_dealloc(obj: *mut PyObject) {
         }
 
         std::ptr::drop_in_place(l);
-        let obj_type = &*Py_TYPE(obj);
-        let free = obj_type.tp_free.unwrap();
-        free(obj.cast());
+        tpo::free(obj);
     }
 }
 

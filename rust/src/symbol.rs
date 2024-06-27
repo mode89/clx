@@ -33,7 +33,7 @@ pub fn symbol_type() -> &'static PyObj {
             flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Symbol>(),
             new: Some(utils::disallowed_new!(symbol_type)),
-            dealloc: Some(utils::generic_dealloc::<Symbol>),
+            dealloc: Some(tpo::generic_dealloc::<Symbol>),
             repr: Some(py_symbol_repr),
             hash: Some(py_symbol_hash),
             compare: Some(py_symbol_compare),

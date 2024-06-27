@@ -22,7 +22,7 @@ pub fn class() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<Atom>(),
         new: Some(utils::disallowed_new!(class)),
-        dealloc: Some(utils::generic_dealloc::<Atom>),
+        dealloc: Some(tpo::generic_dealloc::<Atom>),
         methods: vec![
             tpo::method!("deref", py_deref),
             tpo::method!("reset", py_reset),

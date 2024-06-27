@@ -32,7 +32,7 @@ pub fn class() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<IndexedSeq>(),
         new: Some(utils::disallowed_new!(class)),
-        dealloc: Some(utils::generic_dealloc::<IndexedSeq>),
+        dealloc: Some(tpo::generic_dealloc::<IndexedSeq>),
         compare: Some(py_compare),
         iter: Some(py_iter),
         members: vec![ tpo::member!("__meta__") ],

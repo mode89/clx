@@ -180,15 +180,6 @@ macro_rules! disallowed_new {
 
 pub(crate) use disallowed_new;
 
-pub extern "C" fn generic_dealloc<T>(obj: *mut PyObject) {
-    unsafe {
-        std::ptr::drop_in_place::<T>(obj.cast());
-        let obj_type = &*Py_TYPE(obj);
-        let free = obj_type.tp_free.unwrap();
-        free(obj.cast());
-    }
-}
-
 pub fn raise_exception(msg: &str) -> Result<PyObj, ()> {
     set_exception(msg);
     Err(())

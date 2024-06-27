@@ -35,7 +35,7 @@ pub fn hash_map_type() -> &'static PyObj {
             ],
             flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<HashMap>(),
-            dealloc: Some(utils::generic_dealloc::<HashMap>),
+            dealloc: Some(tpo::generic_dealloc::<HashMap>),
             new: Some(utils::disallowed_new!(hash_map_type)),
             compare: Some(py_hash_map_compare),
             // TODO hash: Some(py_vector_hash),
@@ -414,7 +414,7 @@ pub fn hash_map_iterator_type() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<HashMapIterator>(),
         new: Some(utils::disallowed_new!(hash_map_iterator_type)),
-        dealloc: Some(utils::generic_dealloc::<HashMapIterator>),
+        dealloc: Some(tpo::generic_dealloc::<HashMapIterator>),
         iter: Some(hash_map_iterator_iter),
         next: Some(hash_map_iterator_next),
         ..Default::default()

@@ -34,7 +34,7 @@ pub fn keyword_type() -> &'static PyObj {
             flags: Py_TPFLAGS_DEFAULT,
             size: std::mem::size_of::<Keyword>(),
             new: Some(utils::disallowed_new!(keyword_type)),
-            dealloc: Some(utils::generic_dealloc::<Keyword>),
+            dealloc: Some(tpo::generic_dealloc::<Keyword>),
             repr: Some(py_keyword_repr),
             hash: Some(py_keyword_hash),
             compare: Some(py_keyword_compare),

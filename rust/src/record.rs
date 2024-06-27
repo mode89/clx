@@ -197,11 +197,7 @@ extern "C" fn py_record_dealloc(obj: *mut PyObject) {
                 unsafe { std::ptr::drop_in_place(record.member_ptr(i)); }
             }
         }
-        unsafe {
-            let obj_type = &*Py_TYPE(obj);
-            let free = obj_type.tp_free.unwrap();
-            free(obj.cast());
-        }
+        tpo::free(obj);
     })
 }
 

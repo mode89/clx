@@ -26,7 +26,7 @@ pub fn seq_iterator_type() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<SeqIterator>(),
         new: Some(utils::disallowed_new!(seq_iterator_type)),
-        dealloc: Some(utils::generic_dealloc::<SeqIterator>),
+        dealloc: Some(tpo::generic_dealloc::<SeqIterator>),
         iter: Some(py_iter),
         next: Some(py_next),
         ..Default::default()

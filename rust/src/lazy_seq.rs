@@ -34,7 +34,7 @@ pub fn lazyseq_type() -> &'static PyObj {
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<LazySeq>(),
         new: Some(utils::disallowed_new!(lazyseq_type)),
-        dealloc: Some(utils::generic_dealloc::<LazySeq>),
+        dealloc: Some(tpo::generic_dealloc::<LazySeq>),
         compare: Some(py_lazyseq_compare),
         iter: Some(py_lazyseq_iter),
         // TODO hash: Some(py_vector_hash),
