@@ -1,6 +1,5 @@
 import ast
 from bisect import bisect_left
-from collections import namedtuple
 from collections.abc import Iterable
 from dataclasses import dataclass
 import functools
@@ -216,7 +215,11 @@ _BINDING_META_LOCAL = hash_map(_K_LOCAL, True)
 # Reader
 #************************************************************
 
-Token = namedtuple("Token", ["string", "line", "column"])
+Token = define_record("clx.bootstrap.Token",
+    keyword("string"),
+    keyword("line"),
+    keyword("column")
+)
 
 TOKEN_RE = re.compile(
     r"[\s,]*"
@@ -250,7 +253,7 @@ def tokenize(text):
             continue
         line_id = bisect_left(line_starts, match.start(1) + 1)
         column = match.start(1) - line_starts[line_id - 1] + 1
-        yield Token(string=token, line=line_id, column=column)
+        yield Token(token, line_id, column)
 
 def read_form(tokens):
     token = first(tokens)
