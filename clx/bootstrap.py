@@ -16,7 +16,7 @@ from clx_rust import \
     PersistentVector, vector, \
     PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
-    Atom, atom, is_atom, \
+    atom, is_atom, \
     first, next_, rest, get, nth, map_, filter_, reduce
 from clx_rust import define_record as define_record0
 
