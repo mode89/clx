@@ -93,9 +93,9 @@ fn record_infos() -> &'static Mutex<RecordInfos> {
 // This struct holds only the header of a record, the members are stored
 // in memory directly after the header.
 #[repr(C)]
-struct RecordBase<'a> {
+struct RecordBase {
     ob_base: PyObject,
-    info: &'a RecordInfo,
+    info: *const RecordInfo,
 }
 
 struct RecordInfo {
@@ -106,7 +106,7 @@ struct RecordInfo {
 // elements, rendering any existing references invalid.
 type RecordInfos = HashMap<*mut PyTypeObject, Box<RecordInfo>>;
 
-impl RecordBase<'_> {
+impl RecordBase {
     #[inline]
     unsafe fn member_ptr(&self, index: usize) -> *mut PyObj {
         let self_ = self as *const RecordBase;
@@ -135,7 +135,7 @@ impl RecordBase<'_> {
         });
         let new_base = unsafe { new.as_ref::<RecordBase>() };
         new_base.info = self.info;
-        let member_num = self.info.members.len();
+        let member_num = unsafe { (*self.info).members.len() };
         for i in 0..member_num {
             unsafe { new_base.init_member(i, self.member(i).clone()); }
         }
@@ -151,12 +151,18 @@ fn member_offset(index: usize) -> usize {
 extern "C" fn py_record_init(
     self_: *mut PyObject,
     args: *mut PyObject,
-    _kwargs: *mut PyObject,
+    kwargs: *mut PyObject,
 ) -> i32 {
     utils::handle_gil!({
-        match record_init(self_, args) {
-            Ok(_) => 0,
-            Err(_) => -1,
+        if kwargs.is_null() {
+            match record_init(self_, args) {
+                Ok(_) => 0,
+                Err(_) => -1,
+            }
+        } else {
+            utils::set_exception(
+                "record constructor does not accept keyword arguments");
+            -1
         }
     })
 }
@@ -166,7 +172,7 @@ fn record_init(self_: *mut PyObject, args: *mut PyObject) -> Result<(), ()> {
     let type_ = unsafe { Py_TYPE(self_) };
     if let Some(info) = infos.get(&type_) {
         let self_ = unsafe { &mut *(self_ as *mut RecordBase) };
-        self_.info = info;
+        self_.info = info.as_ref();
         let args = PyObj::borrow(args);
         let member_num = info.members.len();
         utils::py_assert(args.len()? == member_num as isize,
@@ -185,9 +191,11 @@ fn record_init(self_: *mut PyObject, args: *mut PyObject) -> Result<(), ()> {
 extern "C" fn py_record_dealloc(obj: *mut PyObject) {
     utils::handle_gil!({
         let record = unsafe { &mut *(obj as *mut RecordBase) };
-        let member_num = record.info.members.len();
-        for i in 0..member_num {
-            unsafe { std::ptr::drop_in_place(record.member_ptr(i)); }
+        if !record.info.is_null() {
+            let member_num = unsafe { (*record.info).members.len() };
+            for i in 0..member_num {
+                unsafe { std::ptr::drop_in_place(record.member_ptr(i)); }
+            }
         }
         unsafe {
             let obj_type = &*Py_TYPE(obj);
@@ -219,7 +227,7 @@ extern "C" fn py_record_compare(
 fn record_eq(self_: *mut PyObject, other: *mut PyObject) -> bool {
     let self_ = unsafe { &*(self_ as *const RecordBase) };
     let other = unsafe { &*(other as *const RecordBase) };
-    let member_num = self_.info.members.len();
+    let member_num = unsafe { (*self_.info).members.len() };
     for i in 0..member_num {
         if unsafe { self_.member(i) != other.member(i) } {
             return false;
@@ -244,7 +252,7 @@ extern "C" fn py_record_lookup(
 
 pub fn lookup(self_: &PyObj, key: PyObj, not_found: PyObj) -> PyObj {
     let self_ = unsafe { self_.as_ref::<RecordBase>() };
-    let members = &self_.info.members;
+    let members = unsafe { &(*self_.info).members };
     if let Some(index) = members.iter().position(|m| { m.is(&key) }) {
         unsafe { self_.member(index).clone() }
     } else {
@@ -266,7 +274,7 @@ extern "C" fn py_record_assoc(
         for i in (0..nargs).step_by(2) {
             let key = PyObj::borrow(unsafe { *args.offset(i) });
             let value = PyObj::borrow(unsafe { *args.offset(i + 1) });
-            let members = &self_.info.members;
+            let members = unsafe { &(*self_.info).members };
             if let Some(m) = members.iter().position(|m| { m.is(&key) }) {
                 unsafe { new_base.replace_member(m, value); }
             } else {
