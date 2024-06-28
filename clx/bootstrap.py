@@ -17,7 +17,7 @@ from lepet_ext import \
     PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     atom, is_atom, \
-    is_record, \
+    is_seq, is_record, \
     first, next_, rest, get, nth, map_, filter_, reduce
 from lepet_ext import define_record as define_record0
 
@@ -533,6 +533,7 @@ def init_context(namespaces):
             "vec": vec,
             "hash-map": hash_map,
             "lazy-seq*": lazy_seq,
+            "seq?": is_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),
             "atom": atom,
             "atom?": is_atom,
@@ -1483,9 +1484,6 @@ def _count_seqable(x):
         num += 1
         x = x.next()
     return num
-
-def is_seq(obj):
-    return isinstance(obj, ISeq)
 
 def is_seqable(obj):
     return obj is None or isinstance(obj, (ISeqable, Iterable))

@@ -21,6 +21,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, map_, py_map);
     utils::module_add_method!(module, filter_, py_filter);
     utils::module_add_method!(module, reduce, py_reduce);
+    utils::module_add_method!(module, is_seq, py_is_seq);
 }
 
 extern "C" fn py_cons(
@@ -445,4 +446,19 @@ fn reduce(f: PyObj, init: PyObj, coll: PyObj) -> Result<PyObj, ()> {
         acc = f.call2(acc, first(&coll)?)?;
         coll = next(&coll)?;
     }
+}
+
+extern "C" fn py_is_seq(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            let obj = PyObj::borrow(unsafe { *args });
+            Ok(PyObj::from(obj.is_instance(iseq_type())))
+        } else {
+            utils::raise_exception("seq? takes exactly one argument")
+        }
+    })
 }
