@@ -244,7 +244,7 @@
         (if (nil? spath)
           (throw (Exception (str "Could not locate '" p ".clj' on "
                                  "python search path")))
-          (let [candidate (pathlib/Path (str spath "/" p ".clj"))]
+          (let [candidate (pathlib/Path spath (str p ".clj"))]
             (if (.exists candidate)
               (load-file (str candidate))
               (recur (rest sys-path)))))))))
