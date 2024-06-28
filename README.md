@@ -8,19 +8,24 @@
 - [x] Quoting
 - [x] Lazy sequences
 - [x] Macros
-- [ ] Host interop
+- [x] Core
+- [x] Host interop
    - [x] Eval host code
-   - [ ] Dot notation
-   - [ ] `set!`
+   - [x] Dot notation
+   - [x] `set!`
+- [x] Error handling
 - [ ] Modules
-  - [ ] Load files
-  - [ ] Import host modules
-- [ ] Core
-- [ ] Error handling
+  - [x] Load files
+  - [x] Import host modules
+  - [ ] `require`
+  - [ ] `import`
+- [ ] Print records
+- [ ] Multi-arity functions in rust
+- [ ] Destructuring (in rust?)
 - [ ] Packaging
   - [ ] Integration with setuptools/toml
 - [ ] Testing
-  - [ ] Integration with unittest/pytest
+  - [x] Integration with unittest/pytest
   - [ ] Coverage
 - [ ] Protocols
 - [ ] Multi functions
