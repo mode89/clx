@@ -17,6 +17,7 @@ from lepet_ext import \
     PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     atom, is_atom, \
+    is_record, \
     first, next_, rest, get, nth, map_, filter_, reduce
 from lepet_ext import define_record as define_record0
 
@@ -529,6 +530,7 @@ def init_context(namespaces):
             "atom": atom,
             "atom?": is_atom,
             "deref": lambda x: x.deref(),
+            "record?": is_record,
             "first": first,
             "second": second,
             "rest": rest,

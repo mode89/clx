@@ -9,6 +9,7 @@ use std::sync::Mutex;
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, define_record, py_define_record);
+    utils::module_add_method!(module, is_record, py_is_record);
 }
 
 extern "C" fn py_define_record(
@@ -279,5 +280,20 @@ extern "C" fn py_record_assoc(
             }
         }
         Ok(new)
+    })
+}
+
+extern "C" fn py_is_record(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            let obj = PyObj::borrow(unsafe { *args });
+            Ok(PyObj::from(obj.is_instance(irecord_type())))
+        } else {
+            utils::raise_exception("is_record expects only one argument")
+        }
     })
 }
