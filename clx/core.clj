@@ -237,6 +237,12 @@
              "")
          args)))
 
+(defn subs
+  ([s start]
+   (subs s start (count s)))
+  ([s start end]
+   (python* s "[" start ":" end "]")))
+
 (defn load [& paths]
   (doseq [p paths]
     (loop* [sys-path (seq sys/path)]

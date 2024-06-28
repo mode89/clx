@@ -341,6 +341,12 @@
   (is (= "(1 2 3)" (str '(1 2 3))))
   (is (= "{:a 1}" (str {:a 1}))))
 
+(deftest subs
+  (is (= "hello" (subs "hello" 0)))
+  (is (= "hello" (subs "hello" 0 5)))
+  (is (= "ell" (subs "hello" 1 4)))
+  (is (= "llo" (subs "hello" 2))))
+
 (deftest instance?
   (is (= true (instance? python/int 42)))
   (is (= false (instance? python/int 42.0)))
