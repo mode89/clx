@@ -1,5 +1,7 @@
+use crate::utils;
 use pyo3_ffi::*;
 use std::hash::{Hash, Hasher};
+use std::ffi::CString;
 
 // The pointer must be at the beginning of the structure, otherwise
 // the offset calculation will be incorrect and member definitions will
@@ -127,8 +129,17 @@ impl PyObj {
     }
 
     #[inline]
-    pub fn get_type(&self) -> PyObj {
-        PyObj::from_borrowed_ptr(unsafe { Py_TYPE(self.0) }.cast())
+    pub fn class(&self) -> PyObj {
+        PyObj::from_borrowed_ptr(self.type_ptr().cast())
+    }
+
+    #[inline]
+    pub fn qual_name_string(&self) -> Result<String, ()> {
+        let name = self.get_attr(&utils::static_pystring!("__name__"))?;
+        let name = name.as_cstr()?.to_str().unwrap();
+        let module = self.get_attr(&utils::static_pystring!("__module__"))?;
+        let module = module.as_cstr()?.to_str().unwrap();
+        Ok(format!("{}.{}", module, name))
     }
 
     #[inline]
@@ -349,6 +360,13 @@ impl From<i64> for PyObj {
     #[inline]
     fn from(val: i64) -> Self {
         PyObj::own(unsafe { PyLong_FromLong(val) })
+    }
+}
+
+impl From<&CString> for PyObj {
+    #[inline]
+    fn from(val: &CString) -> Self {
+        PyObj::own(unsafe { PyUnicode_FromString(val.as_ptr()) })
     }
 }
 

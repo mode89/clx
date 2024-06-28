@@ -158,16 +158,10 @@ macro_rules! disallowed_new {
                     utils::wrap_body!({
                         use crate::object::PyObj;
                         use crate::utils;
-                        let cls = PyObj::borrow(cls as *mut PyObject);
-                        let name = cls.get_attr(
-                            &utils::static_pystring!("__name__"))?;
-                        let name = name.as_cstr()?.to_str().unwrap();
-                        let module = cls.get_attr(
-                            &utils::static_pystring!("__module__"))?;
-                        let module = module.as_cstr()?.to_str().unwrap();
                         utils::raise_exception(
-                            &format!("{}.{} cannot be instantiated directly",
-                                module, name))
+                            &format!("{} cannot be instantiated directly",
+                                PyObj::borrow(cls as *mut PyObject)
+                                    .qual_name_string()?))
                     })
                 } else {
                     unsafe { PyType_GenericNew(cls, args, kws) }

@@ -191,10 +191,8 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
     } else if coll.is_instance(iterable_type()) {
         seq(&iterator_seq(&coll.get_iter()?)?)
     } else {
-        let type_name = coll.get_type()
-            .get_attr(&utils::static_pystring!("__name__"))?;
         let msg = format!("Don't know how to create ISeq from '{}'",
-            type_name.as_cstr()?.to_str().unwrap());
+            coll.class().qual_name_string()?);
         utils::raise_exception(&msg)
     }
 }
@@ -348,10 +346,8 @@ pub fn nth(
             }
         }
     } else {
-        let type_name = coll.get_type()
-            .get_attr(&utils::static_pystring!("__name__"))?;
         let msg = format!("nth() not supported for '{}'",
-            type_name.as_cstr()?.to_str().unwrap());
+            coll.class().qual_name_string()?);
         utils::raise_exception(&msg)
     }
 }

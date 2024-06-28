@@ -1,5 +1,6 @@
 use crate::object::PyObj;
 use crate::utils;
+use crate::keyword;
 use crate::type_object as tpo;
 use crate::protocols::*;
 use pyo3_ffi::*;
@@ -38,7 +39,7 @@ extern "C" fn py_define_record(
                         "define_record field spec must have two elements")?;
                     let fkw = fspec.get_tuple_item(0)?;
                     utils::py_assert(
-                        fkw.type_is(crate::keyword::keyword_type()),
+                        fkw.type_is(keyword::keyword_type()),
                         "define_record expects keyword as first element \
                         of field spec")?;
                     let fstr = fspec.get_tuple_item(1)?;
