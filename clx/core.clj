@@ -294,3 +294,6 @@
        (clx.bootstrap/define-record
          ~qtname
          ~@(map keyword fields)))))
+
+(defn println [& args]
+  (apply python/print (map pr-str args)))
