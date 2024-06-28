@@ -1,6 +1,7 @@
 # pylint: disable=disallowed-name
 # pylint: disable=protected-access
 import re
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +15,8 @@ S = clx.symbol
 L = clx.list_
 V = clx.vector
 M = clx.hash_map
+
+TEST_DIR = Path(__file__).parent
 
 def _make_test_context():
     box = [None]
@@ -780,8 +783,16 @@ def test_python_with():
         """) == [42, None]
 
 def test_regex():
-    assert _eval("#\"[a-z]+\"") == re.compile("[a-z]+")
-    assert _eval("(re-pattern \"[\\s]?\")") == re.compile("[\\s]?")
+    with open(TEST_DIR / "examples" / "regex.clj", encoding="utf-8") as f:
+        examples = f.readlines()
+    assert _eval(examples[0]) == re.compile("[a-z]+")
+    assert _eval(examples[1]) == re.compile(r"[\s]?")
+    assert _eval(examples[2]) == re.compile(r"\\")
+    assert _eval(examples[3]) == re.compile(r"\n")
+    assert _eval(examples[4]) == re.compile(r"\d+")
+    assert _eval(examples[5]) == re.compile(r"\w\"\\")
+    assert _eval(examples[6]) == re.compile(r"[^\\\"]")
+    assert re.compile(_eval(examples[7])).search(examples[8]) is not None
 
 def test_meta():
     assert clx.meta(None) is None

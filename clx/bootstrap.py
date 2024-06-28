@@ -302,11 +302,14 @@ def read_form(tokens):
 
 def read_dispatch(t0, tokens):
     if t0 == "#":
-        form, _rest = read_form(tokens)
-        if type(form) is str:
-            return re.compile(form), _rest
-        elif type(form) is PersistentList:
-            return _function_shorthand(form), _rest
+        t1 = first(tokens).string
+        if t1[0] == "\"":
+            assert t1[-1] == "\"", "Unterminated regex"
+            return re.compile(t1[1:-1]), rest(tokens)
+        else:
+            form, _rest = read_form(tokens)
+            if type(form) is PersistentList:
+                return _function_shorthand(form), _rest
 
     raise Exception("Unsupported reader macro")
 
