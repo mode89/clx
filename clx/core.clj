@@ -316,3 +316,16 @@
                  (list form res))
                (next forms)))
       res)))
+
+(defmacro ->> [x & forms]
+  (loop* [res x
+          forms forms]
+    (if (seq forms)
+      (let [form (first forms)]
+        (recur (if (seq? form)
+                 (let [head (first form)
+                       tail (next form)]
+                   (with-meta `(~head ~@tail ~res) (meta form)))
+                 (list form res))
+               (next forms)))
+      res)))
