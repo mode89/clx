@@ -30,7 +30,8 @@ extern "C" fn py_define_record(
                 let field_num = (nargs - 1) as usize;
 
                 let mut members: Vec<tpo::MemberDef> = Vec::new();
-                let mut kw_members: Vec<PyObj> = Vec::new();
+                let mut members_vec: Vec<PyObj> = Vec::new();
+                let members_tuple = PyObj::tuple(field_num as isize)?;
                 for i in 0..field_num {
                     let fspec = PyObj::borrow(
                         unsafe { *args.add(i + 1) });
@@ -53,7 +54,8 @@ extern "C" fn py_define_record(
                         offset: Some(member_offset(i)),
                         flags: Py_READONLY,
                     });
-                    kw_members.push(fkw);
+                    members_vec.push(fkw.clone());
+                    members_tuple.set_tuple_item(i as isize, fkw)?;
                 }
 
                 let type_ = tpo::new_type(tpo::TypeSpec {
@@ -68,6 +70,7 @@ extern "C" fn py_define_record(
                     methods: vec![
                         tpo::method!("lookup", py_record_lookup),
                         tpo::method!("assoc", py_record_assoc),
+                        tpo::method!("keys", py_keys),
                     ],
                     ..Default::default()
                 });
@@ -76,7 +79,8 @@ extern "C" fn py_define_record(
                 infos.insert(
                     unsafe { type_.as_ptr() },
                     Box::new(RecordInfo {
-                        members: kw_members,
+                        members: members_vec,
+                        members_tuple,
                     })
                 );
 
@@ -102,6 +106,7 @@ struct RecordBase {
 
 struct RecordInfo {
     members: Vec<PyObj>,
+    members_tuple: PyObj,
 }
 
 // Need to wrap the RecordInfo in a Box, because HashMap may relocate its
@@ -280,6 +285,22 @@ extern "C" fn py_record_assoc(
             }
         }
         Ok(new)
+    })
+}
+
+extern "C" fn py_keys(
+    self_: *mut PyObject,
+    _args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 0 {
+            let self_ = unsafe { &*(self_ as *const RecordBase) };
+            let info = unsafe { &(*self_.info) };
+            Ok(info.members_tuple.clone())
+        } else {
+            utils::raise_exception("keys() expects no arguments")
+        }
     })
 }
 

@@ -474,3 +474,6 @@ def test_record():
     assert r1.lookup(K("b"), None) is K("bar")
     assert r1.lookup(K("c"), None) == 42
     assert TestRecord(1, 2, 3) == TestRecord(1, 2, 3)
+    assert r1.keys() == (K("a"), K("b"), K("c"))
+    assert r2.keys() == (K("a"), K("b"), K("c"))
+    assert r3.keys() == (K("a"), K("b"), K("c"))
