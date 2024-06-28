@@ -191,6 +191,8 @@ def test_printer():
     assert clx.pr_str(M("a", 1)) == "{a 1}"
     assert clx.pr_str(M("a", 1), True) == "{\"a\" 1}"
     assert clx.pr_str(_lazy_range(5, 10)) == "(5 6 7 8 9)"
+    Record = clx.define_record("dummy.Record", K("a"), K("b"))
+    assert clx.pr_str(Record("foo", 42)) == "#dummy.Record{:a \"foo\", :b 42}"
 
 def test_munge():
     assert munge("foo") == "foo"

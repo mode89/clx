@@ -469,6 +469,13 @@ def pr_str(obj, readably=False):
         return "(" + \
             " ".join(map(lambda x: pr_str(x, readably), obj)) + \
             ")"
+    elif is_record(obj):
+        def pr_field(k):
+            v = obj.lookup(k, None)
+            return pr_str(v, True)
+        return "#" + obj.__module__ + "." + obj.__class__.__name__ + "{" + \
+            ", ".join([f"{k} {pr_field(k)}" for k in obj.keys()]) + \
+            "}"
     else:
         return repr(obj) if readably else str(obj)
 
