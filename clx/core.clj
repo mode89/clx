@@ -240,11 +240,14 @@
 (defn load [& paths]
   (doseq [p paths]
     (loop* [sys-path (seq sys/path)]
-      (when-let [spath (first sys-path)]
-        (let [candidate (pathlib/Path (str spath "/" p ".clj"))]
-          (if (.exists candidate)
-            (load-file (str candidate))
-            (recur (rest sys-path))))))))
+      (let [spath (first sys-path)]
+        (if (nil? spath)
+          (throw (Exception (str "Could not locate '" p ".clj' on "
+                                 "python search path")))
+          (let [candidate (pathlib/Path (str spath "/" p ".clj"))]
+            (if (.exists candidate)
+              (load-file (str candidate))
+              (recur (rest sys-path)))))))))
 
 (load "clx/python")
 
