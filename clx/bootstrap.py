@@ -12,7 +12,7 @@ from lepet_ext import \
     IMeta, ICounted, IAssociative, ISeqable, ISeq, \
     Symbol, symbol, is_symbol, is_simple_symbol, \
     Keyword, keyword, is_keyword, is_simple_keyword, \
-    PersistentList, list_, \
+    PersistentList, list_, is_list, \
     PersistentVector, vector, \
     PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
@@ -104,9 +104,6 @@ def munge(obj):
 #************************************************************
 # Types
 #************************************************************
-
-def is_list(obj):
-    return type(obj) is PersistentList
 
 def is_vector(obj):
     return type(obj) is PersistentVector
@@ -528,6 +525,7 @@ def init_context(namespaces):
             "symbol?": is_symbol,
             "simple-symbol?": is_simple_symbol,
             "list": list_,
+            "list?": is_list,
             "vector": vector,
             "vector?": is_vector,
             "vec": vec,

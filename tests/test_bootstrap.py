@@ -55,6 +55,17 @@ def _lazy_range(*args):
 def _throw():
     raise Exception()
 
+def test_is_list():
+    assert clx.is_list(None) is False
+    assert clx.is_list(L()) is True
+    assert clx.is_list(V()) is False
+    assert clx.is_list(M()) is False
+    assert clx.is_list([]) is False
+    assert clx.is_list(()) is False
+    assert clx.is_list({}) is False
+    assert clx.is_list(set()) is False
+    assert clx.is_list("hello") is False
+
 def test_is_seq():
     assert clx.is_seq(None) is False
     assert clx.is_seq(L()) is True
