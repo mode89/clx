@@ -14,14 +14,15 @@
    - [x] Dot notation
    - [x] `set!`
 - [x] Error handling
+- [x] Print records
 - [ ] Modules
   - [x] Load files
   - [x] Import host modules
   - [ ] `require`
   - [ ] `import`
-- [ ] Print records
 - [ ] Multi-arity functions in rust
 - [ ] Destructuring (in rust?)
+- [ ] Truthiness
 - [ ] Packaging
   - [ ] Integration with setuptools/toml
 - [ ] Testing
