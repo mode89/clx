@@ -18,6 +18,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, rest, py_rest);
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
+    utils::module_add_method!(module, conj, py_conj);
     utils::module_add_method!(module, map_, py_map);
     utils::module_add_method!(module, filter_, py_filter);
     utils::module_add_method!(module, reduce, py_reduce);
@@ -351,6 +352,36 @@ pub fn nth(
             coll.class().qual_name_string()?);
         utils::raise_exception(&msg)
     }
+}
+
+extern "C" fn py_conj(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            let coll = PyObj::borrow(unsafe { *args });
+            let item = PyObj::borrow(unsafe { *args.add(1) });
+            if coll.is_none() {
+                Ok(cons::cons(item, list::empty_list()))
+            } else if coll.type_is(vector::vector_type()) {
+                Ok(vector::conj(coll, item))
+            } else if coll.type_is(list::list_type()) {
+                Ok(list::conj(coll, item))
+            } else if coll.is_instance(iseq_type()) {
+                Ok(cons::cons(item, coll))
+            } else if coll.is_instance(icollection_type()) {
+                coll.call_method1(&utils::static_pystring!("conj"), item)
+            } else {
+                utils::raise_exception(
+                    &format!("conj() not supported for '{}'",
+                        coll.class().qual_name_string()?))
+            }
+        } else {
+            utils::raise_exception("conj() expects exactly 2 arguments")
+        }
+    })
 }
 
 extern "C" fn py_map(

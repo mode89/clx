@@ -121,6 +121,7 @@ def test_list():
     assert L(1, 2).rest() == L(2)
     assert L(1, 2).next() == L(2)
     assert L(1, 2).conj(3) == L(3, 1, 2)
+    assert isinstance(L(1, 2).conj(3), PersistentList)
     assert L() is not None
     assert L() != 42
     assert L() == V()
@@ -207,6 +208,8 @@ def test_vector():
     with pytest.raises(TypeError):
         V(1, 2, 3).nth(None)
     assert [*V(1, 2, 3)] == [1, 2, 3]
+    assert V(1, 2).conj(3) == V(1, 2, 3)
+    assert isinstance(V(1, 2).conj(3), PersistentVector)
 
 def test_hash_map():
     m0 = M()
@@ -265,6 +268,7 @@ def test_cons():
     assert cons(1, cons(2, cons(3, L()))) == L(1, 2, 3)
     assert cons(1, L()).next() is None
     assert [*cons(1, cons(2, cons(3, L())))] == [1, 2, 3]
+    assert cons(1, L()).conj(2) == L(2, 1)
 
 def test_lazy_seq():
     def nth(coll, n):
@@ -353,6 +357,8 @@ def test_lazy_seq():
         s.next().next().first()
     assert [*_lazy_range(0)] == []
     assert [*_lazy_range(3)] == [0, 1, 2]
+
+    assert lazy_seq(lambda: L(1, 2)).conj(3) == L(3, 1, 2)
 
 def test_seq():
     assert seq(None) is None

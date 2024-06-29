@@ -7,7 +7,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, map_, filter_, reduce, \
+    assoc, get, munge, nth, conj, map_, filter_, reduce, \
     _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
@@ -962,6 +962,21 @@ def test_nth():
     assert nth(_lazy_range(10000000), -1, 42) == 42
     with pytest.raises(IndexError):
         nth(_lazy_range(10000000), -1)
+
+def test_conj():
+    assert conj(None, 42) == L(42)
+    assert conj(L(), 42) == L(42)
+    assert conj(L(1), 2) == L(2, 1)
+    assert conj(L(1, 2), 3) == L(3, 1, 2)
+    assert clx.is_list(conj(L(1, 2), 3))
+    assert conj(V(), 42) == V(42)
+    assert conj(V(1), 2) == V(1, 2)
+    assert conj(V(1, 2), 3) == V(1, 2, 3)
+    assert clx.is_vector(conj(V(1, 2), 3))
+    assert conj(cons(1, None), 2) == L(2, 1)
+    assert conj(cons(1, cons(2, None)), 3) == L(3, 1, 2)
+    assert conj(lazy_seq(lambda: L(1, 2)), 3) == L(3, 1, 2)
+    assert conj(seq(V(1, 2)), 3) == L(3, 1, 2)
 
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)

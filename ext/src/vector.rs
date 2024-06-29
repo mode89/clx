@@ -48,7 +48,7 @@ pub fn vector_type() -> &'static PyObj {
                 tpo::method!("count_", py_vector_count),
                 tpo::method!("nth", py_vector_nth),
                 tpo::method!("seq", py_vector_seq),
-                // TODO ("conj", py_vector_conj),
+                tpo::method!("conj", py_conj),
             ],
             ..Default::default()
         }
@@ -189,6 +189,29 @@ pub fn seq(self_: &PyObj) -> PyObj {
     } else {
         PyObj::none()
     }
+}
+
+extern "C" fn py_conj(
+    self_: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            Ok(conj(PyObj::borrow(self_), PyObj::borrow(unsafe { *args })))
+        } else {
+            utils::raise_exception(
+                "PersistentVector.conj() expects one argument")
+        }
+    })
+}
+
+#[inline]
+pub fn conj(self_: PyObj, item: PyObj) -> PyObj {
+    let v = unsafe { self_.as_ref::<Vector>() };
+    let mut impl_ = v.impl_.clone();
+    impl_.push(item.clone());
+    vector(impl_, PyObj::none(), None)
 }
 
 extern "C" fn py_vector_item(

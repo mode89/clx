@@ -349,7 +349,7 @@ pub fn seq(self_: &PyObj) -> PyObj {
         let mut lst = list::empty_list();
         for (key, value) in self_.impl_.iter() {
             let kv = PyObj::tuple2(key.as_pyobj().clone(), value.clone());
-            lst = list::list_conj(lst, kv);
+            lst = list::conj(lst, kv);
         }
         lst
     }

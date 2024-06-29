@@ -18,7 +18,7 @@ from lepet_ext import \
     cons, lazy_seq, seq, \
     atom, is_atom, \
     is_seq, is_record, \
-    first, next_, rest, get, nth, map_, filter_, reduce
+    first, next_, rest, get, nth, conj, map_, filter_, reduce
 from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
@@ -552,6 +552,7 @@ def init_context(namespaces):
             "assoc": assoc,
             "get": get,
             "nth": nth,
+            "conj": conj,
             "map": map_,
             "filter": filter_,
             "reduce": reduce,

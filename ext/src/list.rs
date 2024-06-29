@@ -332,17 +332,18 @@ unsafe extern "C" fn py_list_conj(
     nargs: isize,
 ) -> *mut PyObject {
     utils::wrap_body!({
-        if nargs != 1 {
-            utils::raise_exception("PersistentList.conj() takes one argument")
-        } else {
+        if nargs == 1 {
             let oself = PyObj::borrow(self_);
             let item = PyObj::borrow(*args);
-            Ok(list_conj(oself, item))
+            Ok(conj(oself, item))
+        } else {
+            utils::raise_exception("PersistentList.conj() takes one argument")
         }
     })
 }
 
-pub fn list_conj(oself: PyObj, item: PyObj) -> PyObj {
+#[inline]
+pub fn conj(oself: PyObj, item: PyObj) -> PyObj {
     let self_ = unsafe { oself.as_ref::<List>() };
     let length = self_.length + 1;
     list(item.clone(), oself.clone(), PyObj::none(), length, None)

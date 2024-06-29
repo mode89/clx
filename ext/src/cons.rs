@@ -27,6 +27,7 @@ pub fn cons_type() -> &'static PyObj {
             imeta_type(),
             iseq_type(),
             isequential_type(),
+            icollection_type(),
         ],
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<Cons>(),
@@ -40,6 +41,7 @@ pub fn cons_type() -> &'static PyObj {
             tpo::method!("first", py_cons_first),
             tpo::method!("rest", py_cons_rest),
             tpo::method!("next", py_cons_next),
+            tpo::method!("conj", py_conj),
         ],
         ..Default::default()
     })
@@ -171,6 +173,20 @@ extern "C" fn py_cons_next(
 pub fn next(self_: &PyObj) -> Result<PyObj, ()> {
     let cons = unsafe { self_.as_ref::<Cons>() };
     common::seq(&cons.rest)
+}
+
+extern "C" fn py_conj(
+    self_: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            Ok(cons(PyObj::borrow(unsafe { *args }), PyObj::borrow(self_)))
+        } else {
+            utils::raise_exception("Cons.conj() takes exactly one argument")
+        }
+    })
 }
 
 extern "C" fn py_cons_compare(

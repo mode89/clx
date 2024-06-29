@@ -1,6 +1,7 @@
 use crate::object::PyObj;
 use crate::type_object as tpo;
 use crate::utils;
+use crate::cons;
 use crate::protocols::*;
 use crate::common;
 use crate::seq_iterator;
@@ -30,6 +31,7 @@ pub fn lazyseq_type() -> &'static PyObj {
             imeta_type(),
             iseq_type(),
             isequential_type(),
+            icollection_type(),
         ],
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<LazySeq>(),
@@ -45,7 +47,7 @@ pub fn lazyseq_type() -> &'static PyObj {
             tpo::method!("rest", py_lazyseq_rest),
             tpo::method!("next", py_lazyseq_next),
             tpo::method!("seq", py_lazyseq_seq),
-            // TODO ("conj", py_vector_conj),
+            tpo::method!("conj", py_conj),
         ],
         ..Default::default()
     })
@@ -201,6 +203,22 @@ extern "C" fn py_lazyseq_seq(
 pub fn seq(self_: &PyObj) -> Result<PyObj, ()> {
     let s = force1(self_)?;
     common::seq(&s)
+}
+
+extern "C" fn py_conj(
+    self_: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize,
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            Ok(cons::cons(
+                PyObj::borrow(unsafe { *args }),
+                PyObj::borrow(self_)))
+        } else {
+            utils::raise_exception("LazySeq.conj() requires one argument")
+        }
+    })
 }
 
 extern "C" fn py_lazyseq_iter(
