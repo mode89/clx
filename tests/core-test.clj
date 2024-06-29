@@ -172,6 +172,12 @@
   ; TODO (is (= false (not []))
   ; TODO (is (= false (not (python/list)))))
 
+(deftest identical?
+  (is (identical? nil nil))
+  (is (not (identical? nil false)))
+  (is (identical? 42 42))
+  (is (not (identical? 42 43))))
+
 (deftest even?
   (is (= true (even? 0)))
   (is (= false (even? 1)))

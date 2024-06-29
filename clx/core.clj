@@ -120,6 +120,9 @@
 (defn not [x]
   (if x false true))
 
+(defn identical? [x y]
+  (python* x " is " y))
+
 (defn even? [x]
   (python* "not " x " & 1"))
 
