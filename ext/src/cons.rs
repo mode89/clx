@@ -198,26 +198,14 @@ extern "C" fn py_cons_compare(
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
         Ok(PyObj::from(match op {
-            pyo3_ffi::Py_EQ => cons_eq(&self_, &other)?,
-            pyo3_ffi::Py_NE => !cons_eq(&self_, &other)?,
+            pyo3_ffi::Py_EQ => common::sequential_eq(&self_, &other)?,
+            pyo3_ffi::Py_NE => !common::sequential_eq(&self_, &other)?,
             _ => {
                 return utils::raise_exception(
                     "Cons comparison not supported");
             }
         }))
     })
-}
-
-fn cons_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
-    if self_.is(other) {
-        Ok(true)
-    } else {
-        if other.is_instance(isequential_type()) {
-            common::sequential_eq(self_, other)
-        } else {
-            Ok(false)
-        }
-    }
 }
 
 extern "C" fn py_iter(self_: *mut PyObject,) -> *mut PyObject {

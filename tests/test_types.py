@@ -133,8 +133,8 @@ def test_list():
     assert L(1, 2, 3) == L(1, 2, 3)
     assert L(1, 2, 3) == V(1, 2, 3)
     assert L(1, 2, 3) == _lazy_range(1, 4)
-    assert L(1, 2, 3) != [1, 2, 3]
-    assert L(1, 2, 3) != (1, 2, 3)
+    assert L(1, 2, 3) == [1, 2, 3]
+    assert L(1, 2, 3) == (1, 2, 3)
     assert list(iter(L(1, 2, 3))) == [1, 2, 3]
     assert hash(L()) == hash(L())
     assert hash(L(1)) == hash(L(1))
@@ -185,8 +185,8 @@ def test_vector():
     assert V(1, 2, 3) == V(1, 2, 3)
     assert V(1, 2, 3) == L(1, 2, 3)
     assert V(1, 2, 3) == _lazy_range(1, 4)
-    assert V(1, 2, 3) != [1, 2, 3]
-    assert V(1, 2, 3) != (1, 2, 3)
+    assert V(1, 2, 3) == [1, 2, 3]
+    assert V(1, 2, 3) == (1, 2, 3)
     assert V(*range(1000)) == V(*range(1000))
     assert V(42, 9001)(0) == 42
     assert V(42, 9001)(1) == 9001
@@ -269,6 +269,8 @@ def test_cons():
     assert cons(1, L()).next() is None
     assert [*cons(1, cons(2, cons(3, L())))] == [1, 2, 3]
     assert cons(1, L()).conj(2) == L(2, 1)
+    assert cons(1, (cons(2, cons(3, None)))) == [1, 2, 3]
+    assert cons(1, (cons(2, cons(3, None)))) == (1, 2, 3)
 
 def test_lazy_seq():
     def nth(coll, n):
@@ -360,6 +362,9 @@ def test_lazy_seq():
 
     assert lazy_seq(lambda: L(1, 2)).conj(3) == L(3, 1, 2)
 
+    assert _lazy_range(3) == [0, 1, 2]
+    assert _lazy_range(3) == (0, 1, 2)
+
 def test_seq():
     assert seq(None) is None
     assert seq(L()) is None
@@ -404,6 +409,8 @@ def test_indexed_seq():
     assert s1.first() == "r"
     assert s1.count_() == 1
     assert s1 == L("r")
+    assert seq("baz") == ["b", "a", "z"]
+    assert seq("baz") == ("b", "a", "z")
 
 def test_atom():
     a = atom(42)

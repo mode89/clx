@@ -213,21 +213,29 @@ pub fn iterator_seq(it: &PyObj) -> Result<PyObj, ()> {
 }
 
 pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
-    let mut x = seq(self_)?;
-    let mut y = seq(other)?;
-    loop {
-        if x.is_none() {
-            return Ok(y.is_none());
-        } else if y.is_none() {
-            return Ok(false);
-        } else if x.is(&y) {
-            return Ok(true);
-        } else if first(&x)? != first(&y)? {
-            return Ok(false);
-        } else {
-            x = next(&x)?;
-            y = next(&y)?;
+    if self_.is(other) {
+        Ok(true)
+    } else if (other.is_instance(isequential_type())
+            || other.is_instance(sequence_type()))
+            && !other.is_string() {
+        let mut x = seq(self_)?;
+        let mut y = seq(other)?;
+        loop {
+            if x.is_none() {
+                return Ok(y.is_none());
+            } else if y.is_none() {
+                return Ok(false);
+            } else if x.is(&y) {
+                return Ok(true);
+            } else if first(&x)? != first(&y)? {
+                return Ok(false);
+            } else {
+                x = next(&x)?;
+                y = next(&y)?;
+            }
         }
+    } else {
+        Ok(false)
     }
 }
 

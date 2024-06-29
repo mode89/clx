@@ -111,14 +111,14 @@ extern "C" fn py_vector_compare(
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
         match op {
-            pyo3_ffi::Py_EQ => Ok(PyObj::from(vector_eq(&self_, &other)?)),
-            pyo3_ffi::Py_NE => Ok(PyObj::from(!vector_eq(&self_, &other)?)),
+            pyo3_ffi::Py_EQ => Ok(PyObj::from(equal(&self_, &other)?)),
+            pyo3_ffi::Py_NE => Ok(PyObj::from(!equal(&self_, &other)?)),
             _ => utils::raise_exception("vector comparison not supported")
         }
     })
 }
 
-fn vector_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
+fn equal(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
     if self_.is(other) {
         Ok(true)
     } else {
@@ -135,10 +135,8 @@ fn vector_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
             } else {
                 Ok(false)
             }
-        } else if other.is_instance(isequential_type()) {
-            common::sequential_eq(self_, other)
         } else {
-            Ok(false)
+            common::sequential_eq(self_, other)
         }
     }
 }

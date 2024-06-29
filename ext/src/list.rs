@@ -157,8 +157,8 @@ extern "C" fn py_list_compare(
         let self_ = PyObj::borrow(self_);
         let other = PyObj::borrow(other);
         Ok(PyObj::from(match op {
-            pyo3_ffi::Py_EQ => list_eq(&self_, &other)?,
-            pyo3_ffi::Py_NE => !list_eq(&self_, &other)?,
+            pyo3_ffi::Py_EQ => equal(&self_, &other)?,
+            pyo3_ffi::Py_NE => !equal(&self_, &other)?,
             _ => {
                 return utils::raise_exception(
                     "list comparison not supported");
@@ -167,7 +167,7 @@ extern "C" fn py_list_compare(
     })
 }
 
-fn list_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
+fn equal(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
     if self_.is(other) {
         Ok(true)
     } else {
@@ -188,10 +188,8 @@ fn list_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
             } else {
                 Ok(false)
             }
-        } else if other.is_instance(isequential_type()) {
-            common::sequential_eq(self_, other)
         } else {
-            Ok(false)
+            common::sequential_eq(self_, other)
         }
     }
 }

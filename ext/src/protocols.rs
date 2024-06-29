@@ -146,3 +146,10 @@ pub fn iterable_type() -> &'static PyObj {
         module.get_attr(&utils::static_pystring!("Iterable")).unwrap()
     })
 }
+
+pub fn sequence_type() -> &'static PyObj {
+    utils::lazy_static!(PyObj, {
+        let module = PyObj::import("collections.abc").unwrap();
+        module.get_attr(&utils::static_pystring!("Sequence")).unwrap()
+    })
+}
