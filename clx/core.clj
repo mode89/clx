@@ -40,41 +40,41 @@
 
 (def multi-arity-fn
   (fn* multi-arity-fn [fname decls]
-    (let* [variadic? (fn* [args]
-                       (loop* [args* args]
-                         (when (seq args*)
-                           (if (operator/eq '& (first args*))
-                             true
-                             (recur (rest args*))))))
+    (let [variadic? (fn* [args]
+                      (loop [args* args]
+                        (when (seq args*)
+                          (if (operator/eq '& (first args*))
+                            true
+                            (recur (rest args*))))))
            arity-name (fn* [arity]
                         (when fname
                           (vector
                             (symbol
-                              (let* [fname* (python* "str(" fname ")")
-                                     arity* (python* "str(" arity ")")]
+                              (let [fname* (python* "str(" fname ")")
+                                    arity* (python* "str(" arity ")")]
                                 (python*
                                   fname*
                                   " + \"-arity-\" + "
                                   arity*))))))
            decl-entry (fn* [decl]
-                        (let* [args (first decl)
-                               _ (assert (vector? args)
-                                   "args must be a vector")
-                               body (rest decl)
-                               arity (if (variadic? args)
-                                       :variadic
-                                       (count args))]
+                        (let [args (first decl)
+                              _ (assert (vector? args)
+                                  "args must be a vector")
+                              body (rest decl)
+                              arity (if (variadic? args)
+                                      :variadic
+                                      (count args))]
                           `(list ~arity
                              (fn* ~@(arity-name arity) [~@args]
                                (do ~@body)))))]
-      `(let* [arities# (list ~@(loop* [decls* decls
-                                       entries (list)]
-                                 (if (seq decls*)
-                                   (recur
-                                     (rest decls*)
-                                     (cons (decl-entry (first decls*))
-                                           entries))
-                                   entries)))
+      `(let [arities# (list ~@(loop [decls* decls
+                                     entries (list)]
+                                (if (seq decls*)
+                                  (recur
+                                    (rest decls*)
+                                    (cons (decl-entry (first decls*))
+                                          entries))
+                                  entries)))
               arities-dict# (python* "dict(" arities# ")")
               variadic# (.get arities-dict# :variadic)]
          (fn* ~@(when fname [fname]) [& args]
@@ -87,14 +87,14 @@
 (def ^{:macro? true} fn
   (fn* clx.core/fn [& args]
     (if (symbol? (first args))
-      (let* [fname (first args)]
+      (let [fname (first args)]
         (if (vector? (second args))
-          (let* [params (second args)]
+          (let [params (second args)]
             `(fn* ~fname ~params
                (do ~@(rest (rest args)))))
           (multi-arity-fn fname (rest args))))
       (if (vector? (first args))
-        (let* [params (first args)]
+        (let [params (first args)]
           `(fn* ~params
              (do ~@(rest args))))
         (multi-arity-fn (gensym "___fn_") args)))))
@@ -173,13 +173,6 @@
        x#
        (or ~@xs)))))
 
-(defmacro let [bindings & body]
-  (assert (vector? bindings) "bindings must be a vector")
-  (assert (even? (count bindings))
-    "bindings must have an even number of elements")
-  `(let* ~bindings
-    (do ~@body)))
-
 (defmacro when-let [bindings & body]
   (assert (vector? bindings) "bindings must be a vector")
   (assert (operator/eq 2 (count bindings))
@@ -208,8 +201,8 @@
 
 (defn drop [n coll]
   (lazy-seq
-    (loop* [n n
-            coll (seq coll)]
+    (loop [n n
+           coll (seq coll)]
       (if (and (pos? n) coll)
         (recur (dec n) (rest coll))
         coll))))
@@ -227,7 +220,7 @@
   (assert (= 2 (count bindings)) "bindings must have exactly two elements")
   (let [b (bindings 0)
         s (bindings 1)]
-    `(loop* [s# (seq ~s)]
+    `(loop [s# (seq ~s)]
       (when s#
         (let [~b (first s#)]
           ~@body
@@ -248,7 +241,7 @@
 
 (defn load [& paths]
   (doseq [p paths]
-    (loop* [sys-path (seq sys/path)]
+    (loop [sys-path (seq sys/path)]
       (let [spath (first sys-path)]
         (if (nil? spath)
           (throw (Exception (str "Could not locate '" p ".clj' on "
@@ -308,7 +301,7 @@
   (apply python/print (map pr-str args)))
 
 (defmacro -> [x & forms]
-  (loop* [res x
+  (loop [res x
           forms forms]
     (if (seq forms)
       (let [form (first forms)]
@@ -321,7 +314,7 @@
       res)))
 
 (defmacro ->> [x & forms]
-  (loop* [res x
+  (loop [res x
           forms forms]
     (if (seq forms)
       (let [form (first forms)]

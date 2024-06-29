@@ -153,14 +153,14 @@ _S_UNQUOTE = symbol("unquote")
 _S_SPLICE_UNQUOTE = symbol("splice-unquote")
 _S_DEF = symbol("def")
 _S_DO = symbol("do")
-_S_LET_STAR = symbol("let*")
+_S_LET = symbol("let")
 _S_COND = symbol("cond")
 _S_FN_STAR = symbol("fn*")
 _S_LETFN = symbol("letfn")
 _S_TRY = symbol("try")
 _S_CATCH = symbol("catch")
 _S_FINALLY = symbol("finally")
-_S_LOOP_STAR = symbol("loop*")
+_S_LOOP = symbol("loop")
 _S_RECUR = symbol("recur")
 _S_DOT = symbol(".")
 _S_IMPORT_STAR = symbol("import*")
@@ -766,13 +766,12 @@ def _compile_do(ctx, lctx, form):
     return _node(ast.Constant, lctx, None), []
 
 def _compile_let(ctx, lctx, form):
-    assert len(form) > 1, "let* expects at least 1 argument"
-    assert len(form) < 4, "let* expects at most 2 arguments"
+    assert len(form) > 1, "let expects at least 1 argument"
     bindings = second(form)
     assert is_vector(bindings), \
-        "let* expects a vector as the first argument"
+        "let expects a vector as the first argument"
     assert len(bindings) % 2 == 0, \
-        "bindings of let* must have even number of elements"
+        "bindings of let must have even number of elements"
     body = []
     for i in range(0, len(bindings), 2):
         _name, value = bindings[i], bindings[i + 1]
@@ -788,11 +787,9 @@ def _compile_let(ctx, lctx, form):
                 [_node(ast.Name, lctx, py_name, ast.Store())], value_expr))
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name),
             Binding(py_name, _BINDING_META_LOCAL))
-    if len(form) == 3:
-        body_expr, body_stmts = _compile(ctx, lctx, third(form))
-        body.extend(body_stmts)
-    else:
-        body_expr = _node(ast.Constant, lctx, None)
+    body_expr, body_stmts = _compile(ctx, lctx,
+        _wrap_with_do(form.rest().rest()))
+    body.extend(body_stmts)
     return body_expr, body
 
 def _compile_cond(ctx, lctx, form):
@@ -915,12 +912,12 @@ def _compile_letfn(ctx, lctx, form):
         fname = first(fdef)
         params = second(fdef)
         assert is_vector(params), "function parameters must be a vector"
-        fbody = list_(_S_DO, *fdef.rest().rest())
+        fbody = _wrap_with_do(fdef.rest().rest())
         _lctx = lctx.assoc(_K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
         _fexpr, fstmt = _make_function_def(ctx, _lctx, fname, params, fbody)
         stmts.append(fstmt)
 
-    body = list_(_S_DO, *form.rest().rest())
+    body = _wrap_with_do(form.rest().rest())
     body_expr, body_stmts = _compile(ctx, lctx, body)
     stmts.extend(body_stmts)
     return body_expr, stmts
@@ -934,7 +931,7 @@ def _compile_try(ctx, lctx, form):
     id_body = lambda f: not is_prologue(f)
 
     body = itertools.takewhile(id_body, form.rest())
-    body_expr, body_stmts = _compile(ctx, lctx, list_(_S_DO, *body))
+    body_expr, body_stmts = _compile(ctx, lctx, _wrap_with_do(body))
     prologue = list(itertools.dropwhile(id_body, form.rest()))
 
     if prologue:
@@ -973,7 +970,7 @@ def _compile_try(ctx, lctx, form):
                 Binding(py_var, _BINDING_META_LOCAL))
             catch_expr, catch_stmts = \
                 _compile(ctx, _lctx,
-                    list_(_S_DO, *clause.rest().rest().rest()))
+                    _wrap_with_do(clause.rest().rest().rest()))
 
             handler = _node(ast.ExceptHandler, lctx,
                 _binding_node(lctx, ast.Load(), clazz),
@@ -986,7 +983,7 @@ def _compile_try(ctx, lctx, form):
         finalbody = []
         if finally_clause is not None:
             finally_expr, finally_stmts = \
-                _compile(ctx, lctx, list_(_S_DO, *finally_clause.rest()))
+                _compile(ctx, lctx, _wrap_with_do(finally_clause.rest()))
             finalbody.extend([
                 *finally_stmts,
                 _node(ast.Expr, lctx, finally_expr),
@@ -998,13 +995,12 @@ def _compile_try(ctx, lctx, form):
         return body_expr, body_stmts
 
 def _compile_loop(ctx, lctx, form):
-    assert len(form) > 1, "loop* expects at least 1 argument"
-    assert len(form) < 4, "loop* expects at most 2 arguments"
+    assert len(form) > 1, "loop expects at least 1 argument"
     bindings = second(form)
     assert is_vector(bindings), \
-        "loop* expects a vector as the first argument"
+        "loop expects a vector as the first argument"
     assert len(bindings) % 2 == 0, \
-        "bindings of loop* must have even number of elements"
+        "bindings of loop must have even number of elements"
     lctx = lctx.assoc(_K_TOP_LEVEL_Q, False, _K_TAIL_Q, False)
     stmts = []
     loop_bindings = []
@@ -1023,10 +1019,11 @@ def _compile_loop(ctx, lctx, form):
         loop_bindings.append(binding)
         lctx = assoc_in(lctx, list_(_K_ENV, _name.name), binding)
     lctx = assoc(lctx, _K_LOOP_BINDINGS, loop_bindings)
-    if len(form) == 3:
+    if len(form) > 2:
         result_name = _gen_name("___loop_")
         body_expr, body_stmts = _compile(
-            ctx, lctx.assoc(_K_TAIL_Q, True), third(form))
+            ctx, lctx.assoc(_K_TAIL_Q, True),
+            _wrap_with_do(form.rest().rest()))
         stmts.append(
             _node(ast.While, lctx, _node(ast.Constant, lctx, True), [
                 *body_stmts,
@@ -1041,7 +1038,7 @@ def _compile_loop(ctx, lctx, form):
     return expr, stmts
 
 def _compile_recur(ctx, lctx, form):
-    assert lctx.loop_bindings is not None, "recur allowed only in loop*"
+    assert lctx.loop_bindings is not None, "recur allowed only in loop"
     assert len(form) == len(lctx.loop_bindings) + 1, \
         f"recur expects {len(lctx.loop_bindings)} arguments"
     assert lctx.tail_QMARK_, "recur allowed only in tail position"
@@ -1161,7 +1158,7 @@ def _compile_python_with(ctx, lctx, form):
             _node(ast.withitem, lctx,
                 cm_expr, _node(ast.Name, lctx, py_name, ast.Store())))
 
-    body_expr, body_stmts = _compile(ctx, lctx2, list_(_S_DO, *body))
+    body_expr, body_stmts = _compile(ctx, lctx2, _wrap_with_do(body))
 
     result = _gen_name("___with_")
     result_assign = lambda expr: \
@@ -1186,12 +1183,12 @@ def _trace_local_context(_ctx, lctx, form):
 _SPECIAL_FORM_COMPILERS = {
     _S_DEF: _compile_def,
     _S_DO: _compile_do,
-    _S_LET_STAR: _compile_let,
+    _S_LET: _compile_let,
     _S_COND: _compile_cond,
     _S_FN_STAR: _compile_fn,
     _S_LETFN: _compile_letfn,
     _S_TRY: _compile_try,
-    _S_LOOP_STAR: _compile_loop,
+    _S_LOOP: _compile_loop,
     _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
     _S_DOT: _compile_dot,
@@ -1309,6 +1306,15 @@ def _gen_name(prefix="___gen_"):
     if not hasattr(_gen_name, "counter"):
         _gen_name.counter = atom(10000)
     return f"{prefix}{_gen_name.counter.swap(lambda x: x + 1)}"
+
+def _wrap_with_do(forms):
+    forms = seq(forms)
+    if forms is None:
+        return None
+    elif forms.next() is None:
+        return forms.first()
+    else:
+        return list_(_S_DO, *forms)
 
 def _node(type_, lctx, *args):
     _n = type_(*args)

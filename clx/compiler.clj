@@ -61,8 +61,8 @@
       (. replace "\\\\" "\\")))
 
 (defn read-collection [ts ctor end]
-  (loop* [elements []
-          ts ts]
+  (loop [elements []
+         ts ts]
     (let [token (first ts)]
       (assert (some? token) (str "Expected '" end "'"))
       (assert (instance? Token token))
