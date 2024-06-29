@@ -190,3 +190,14 @@ extern "C" fn py_iter(
         seq_iterator::from(self_)
     })
 }
+
+#[inline]
+pub fn drop(self_: PyObj, n: usize) -> PyObj {
+    let self_ = unsafe { self_.as_ref::<IndexedSeq>() };
+    let offset = self_.offset + n;
+    if offset < self_.len {
+        new(self_.coll.clone(), self_.len, offset)
+    } else {
+        list::empty_list()
+    }
+}

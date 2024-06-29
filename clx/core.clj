@@ -199,14 +199,6 @@
       (when-let [s (seq coll)]
         (cons (first s) (take (dec n) (rest s)))))))
 
-(defn drop [n coll]
-  (lazy-seq
-    (loop [n n
-           coll (seq coll)]
-      (if (and (pos? n) coll)
-        (recur (dec n) (rest coll))
-        coll))))
-
 (defn partition [n coll]
   (lazy-seq
     (when-let [s (seq coll)]

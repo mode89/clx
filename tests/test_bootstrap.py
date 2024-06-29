@@ -7,7 +7,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, conj, map_, filter_, reduce, \
+    assoc, get, munge, nth, conj, drop, map_, filter_, reduce, \
     _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
@@ -977,6 +977,43 @@ def test_conj():
     assert conj(cons(1, cons(2, None)), 3) == L(3, 1, 2)
     assert conj(lazy_seq(lambda: L(1, 2)), 3) == L(3, 1, 2)
     assert conj(seq(V(1, 2)), 3) == L(3, 1, 2)
+
+def test_drop():
+    assert drop(0, None) is L()
+    assert drop(1, None) is L()
+    assert drop(-1, None) is L()
+    assert drop(0, V()) == L()
+    assert drop(1, V()) == L()
+    assert drop(-1, V()) == L()
+    assert drop(0, V(1, 2)) == L(1, 2)
+    assert drop(1, V(1, 2)) == L(2)
+    assert drop(2, V(1, 2)) is V()
+    assert drop(3, V(1, 2)) is V()
+    assert drop(-1, V(1, 2)) == L(1, 2)
+    assert drop(0, L()) == L()
+    assert drop(1, L()) == L()
+    assert drop(-1, L()) == L()
+    assert drop(0, L(1, 2)) == L(1, 2)
+    assert drop(1, L(1, 2)) == L(2)
+    assert drop(2, L(1, 2)) == L()
+    assert drop(3, L(1, 2)) == L()
+    assert drop(-1, L(1, 2)) == L(1, 2)
+    assert drop(100, _lazy_range()).first() == 100
+    assert drop(1,
+        lazy_seq(lambda:
+            cons(42, lazy_seq(lambda:
+                cons(43, lazy_seq(_throw)))))).first() == 43
+    assert drop(0, "bar") == seq("bar")
+    assert drop(1, "bar") == seq("ar")
+    assert drop(2, "bar") == seq("r")
+    assert drop(3, "bar") == []
+    assert drop(4, "bar") == []
+    assert drop(-1, "bar") == seq("bar")
+    assert drop(0, (1, 2)) == [1, 2]
+    assert drop(1, (1, 2)) == [2]
+    assert drop(2, (1, 2)) == []
+    assert drop(3, (1, 2)) == []
+    assert drop(-1, (1, 2)) == [1, 2]
 
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)

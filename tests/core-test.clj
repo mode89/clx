@@ -300,20 +300,6 @@
   (is (= '(1 2 3) (take 4 '(1 2 3))))
   (is (= '(1 2 3) (take 4 [1 2 3]))))
 
-(deftest drop
-  (is (= '() (drop 0 nil)))
-  (is (= '(1 2 3) (drop 0 '(1 2 3))))
-  (is (= '(1 2 3) (drop 0 [1 2 3])))
-  (is (= '(2 3) (drop 1 '(1 2 3))))
-  (is (= '(2 3) (drop 1 [1 2 3])))
-  (is (= '(3) (drop 2 '(1 2 3))))
-  (is (= '(3) (drop 2 [1 2 3])))
-  (is (= '() (drop 3 '(1 2 3))))
-  (is (= '() (drop 3 [1 2 3])))
-  (is (= '() (drop 4 '(1 2 3))))
-  (is (= '() (drop 4 [1 2 3])))
-  (is (= '(9) (drop 9 (range* 10)))))
-
 (deftest partition
   (is (= '() (partition nil nil)))
   (is (= '() (partition 2 nil)))

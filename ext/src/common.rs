@@ -19,6 +19,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
     utils::module_add_method!(module, conj, py_conj);
+    utils::module_add_method!(module, drop, py_drop);
     utils::module_add_method!(module, map_, py_map);
     utils::module_add_method!(module, filter_, py_filter);
     utils::module_add_method!(module, reduce, py_reduce);
@@ -388,6 +389,49 @@ extern "C" fn py_conj(
             }
         } else {
             utils::raise_exception("conj() expects exactly 2 arguments")
+        }
+    })
+}
+
+extern "C" fn py_drop(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            let n_obj = PyObj::borrow(unsafe { *args });
+            let coll = PyObj::borrow(unsafe { *args.add(1) });
+            let n = n_obj.as_int()?;
+            if coll.is_none() {
+                Ok(list::empty_list())
+            } else if n <= 0 {
+                let res = seq(&coll)?;
+                if res.is_none() {
+                    Ok(list::empty_list())
+                } else {
+                    Ok(res)
+                }
+            } else if coll.type_is(vector::vector_type()) {
+                Ok(vector::drop(coll, n as usize))
+            } else if coll.type_is(indexed_seq::class()) {
+                Ok(indexed_seq::drop(coll, n as usize))
+            } else if coll.is_tuple() || coll.is_string() {
+                Ok(indexed_seq::drop(seq(&coll)?, n as usize))
+            } else {
+                Ok(lazy_seq::lazy_seq(Box::new(move || {
+                    let mut coll = seq(&coll)?;
+                    for _ in 0..n {
+                        if coll.is_none() {
+                            break;
+                        }
+                        coll = next(&coll)?;
+                    }
+                    Ok(coll)
+                })))
+            }
+        } else {
+            utils::raise_exception("drop() expects exactly 2 arguments")
         }
     })
 }
