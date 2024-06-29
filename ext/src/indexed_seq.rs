@@ -28,6 +28,7 @@ pub fn class() -> &'static PyObj {
             imeta_type(),
             iseq_type(),
             isequential_type(),
+            icounted_type(),
         ],
         flags: Py_TPFLAGS_DEFAULT,
         size: std::mem::size_of::<IndexedSeq>(),
