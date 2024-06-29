@@ -23,6 +23,7 @@
 - [ ] Multi-arity functions in rust
 - [ ] Destructuring (in rust?)
 - [ ] Truthiness
+- [ ] `(apply-kw f a b c {:foo d :bar e})`
 - [ ] Packaging
   - [ ] Integration with setuptools/toml
 - [ ] Testing
