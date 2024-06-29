@@ -69,7 +69,7 @@
                                (plus 7 8 9 10 11)]))))
 
 (deftest throw
-  (raises Exception "Hello, World!"
+  (raises Exception #"Hello, World!"
     (throw (Exception "Hello, World!"))))
 
 (deftest let
@@ -108,7 +108,7 @@
   (is (= 42 (do (assert true) 42)))
   (raises Exception
     (assert false))
-  (raises Exception "Hello.*World!"
+  (raises Exception #"Hello.*World!"
     (assert false "Hello, World!")))
 
 (deftest lazy-seq
@@ -383,7 +383,7 @@
     (is (= (Foo 4 2 3) (assoc (Foo 1 2 3) :a 4)))
     (is (= (Foo 1 5 3) (assoc (Foo 1 2 3) :b 5)))
     (is (= (Foo 1 2 6) (assoc (Foo 1 2 3) :c 6))))
-  (raises Exception "must be.*simple"
+  (raises Exception #"must be.*simple"
     (eval '(defrecord my/Foo [a b c]))))
 
 (deftest doseq

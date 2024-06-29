@@ -17,7 +17,7 @@
   (is (= (comp/read-string "nil") nil))
   (is (= (comp/read-string "\"hello world\"") "hello world"))
   (is (= (comp/read-string "\"a \\\\foo\\nbar\\\" b\"") "a \\foo\nbar\" b"))
-  (raises Exception "Unterminated string"
+  (raises Exception #"Unterminated string"
     (comp/read-string "\"hello world"))
   (is (= (comp/read-string ":hello") :hello))
   (is (= (comp/read-string ":hello/world") :hello/world))

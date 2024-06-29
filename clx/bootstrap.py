@@ -536,6 +536,7 @@ def init_context(namespaces):
             "lazy-seq*": lazy_seq,
             "seq?": is_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),
+            "re-pattern?": lambda x: isinstance(x, re.Pattern),
             "atom": atom,
             "atom?": is_atom,
             "deref": lambda x: x.deref(),

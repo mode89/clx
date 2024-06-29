@@ -12,7 +12,7 @@
   `(assert ~x "Test failed"))
 
 (defmacro raises [ex-type arg0 & args]
-  (if (string? arg0)
+  (if (re-pattern? arg0)
     `(let [pattern# ~arg0]
        (python/with [_ (python* clx.test/raises*
                          "(" ~ex-type ", match=" pattern# ")")]
