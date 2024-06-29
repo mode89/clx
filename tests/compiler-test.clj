@@ -22,4 +22,9 @@
   (is (= (comp/read-string ":hello") :hello))
   (is (= (comp/read-string ":hello/world") :hello/world))
   (is (= (comp/read-string "hello") 'hello))
-  (is (= (comp/read-string "hello/world") 'hello/world)))
+  (is (= (comp/read-string "hello/world") 'hello/world))
+  (is (identical? (comp/read-string "()") '()))
+  (is (= (comp/read-string "(1 2 3)") '(1 2 3)))
+  (is (= (comp/read-string "(1 (2 3) ((4 5) 6))") '(1 (2 3) ((4 5) 6))))
+  (raises Exception #"Expected '\)'"
+    (comp/read-string "(1 2 3")))

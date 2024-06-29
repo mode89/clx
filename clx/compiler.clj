@@ -30,12 +30,15 @@
 (defn read-string [s]
   (first (read-form (tokenize s))))
 
+(declare read-collection)
 (declare read-atom)
 
 (defn read-form [tokens]
-  (let [token (first tokens)
-        rtokens (rest tokens)]
-    [(read-atom (.-text token)) rtokens]))
+  (let [t (.-text (first tokens))
+        ts (rest tokens)]
+    (cond
+      (= "(" t) (read-collection ts list ")")
+      :else [(read-atom t) ts])))
 
 (declare read-string-literal)
 
@@ -56,3 +59,14 @@
   (-> (subs token 1 (dec (count token)))
       (. replace "\\\"" "\"")
       (. replace "\\\\" "\\")))
+
+(defn read-collection [ts ctor end]
+  (loop* [elements []
+          ts ts]
+    (let [token (first ts)]
+      (assert (some? token) (str "Expected '" end "'"))
+      (assert (instance? Token token))
+      (if (= end (.-text token))
+        [(apply ctor elements) (rest ts)]
+        (let [x (read-form ts)]
+          (recur (conj elements (first x)) (second x)))))))
