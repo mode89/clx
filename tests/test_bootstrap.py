@@ -7,7 +7,7 @@ import pytest
 
 import clx.bootstrap as clx
 from clx.bootstrap import second, seq, lazy_seq, cons, \
-    assoc, get, munge, nth, conj, drop, map_, filter_, reduce, \
+    assoc, get, munge, nth, conj, take, drop, map_, filter_, reduce, \
     _S_LIST, _S_VEC, _S_HASH_MAP, _S_CONCAT, _S_APPLY
 
 K = clx.keyword
@@ -977,6 +977,27 @@ def test_conj():
     assert conj(cons(1, cons(2, None)), 3) == L(3, 1, 2)
     assert conj(lazy_seq(lambda: L(1, 2)), 3) == L(3, 1, 2)
     assert conj(seq(V(1, 2)), 3) == L(3, 1, 2)
+
+def test_take():
+    assert take(0, None) is L()
+    assert take(1, None) is L()
+    assert take(-1, None) is L()
+    assert take(0, L()) is L()
+    assert take(1, L()) == L()
+    assert take(-1, L()) == L()
+    assert take(0, L(1, 2)) is L()
+    assert take(1, L(1, 2)) == L(1)
+    assert take(2, L(1, 2)) == L(1, 2)
+    assert take(3, L(1, 2)) == L(1, 2)
+    assert take(-1, L(1, 2)) is L()
+    assert take(0, V()) is L()
+    assert take(1, V()) == L()
+    assert take(-1, V()) is L()
+    assert take(0, V(1, 2)) is L()
+    assert take(1, V(1, 2)) == L(1)
+    assert take(2, V(1, 2)) == L(1, 2)
+    assert take(3, V(1, 2)) == L(1, 2)
+    assert take(-1, V(1, 2)) is L()
 
 def test_drop():
     assert drop(0, None) is L()

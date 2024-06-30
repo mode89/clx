@@ -283,6 +283,16 @@ pub fn nth(
 }
 
 #[inline]
+pub fn take(self_: PyObj, n: usize) -> PyObj {
+    let v = unsafe { self_.as_ref::<Vector>() };
+    if n < v.impl_.len() {
+        indexed_seq::new(self_.clone(), n, 0)
+    } else {
+        self_
+    }
+}
+
+#[inline]
 pub fn drop(self_: PyObj, n: usize) -> PyObj {
     let v = unsafe { self_.as_ref::<Vector>() };
     if n < v.impl_.len() {

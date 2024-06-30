@@ -19,6 +19,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
     utils::module_add_method!(module, conj, py_conj);
+    utils::module_add_method!(module, take, py_take);
     utils::module_add_method!(module, drop, py_drop);
     utils::module_add_method!(module, count, py_count);
     utils::module_add_method!(module, map_, py_map);
@@ -390,6 +391,45 @@ extern "C" fn py_conj(
             }
         } else {
             utils::raise_exception("conj() expects exactly 2 arguments")
+        }
+    })
+}
+
+extern "C" fn py_take(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            let n_obj = PyObj::borrow(unsafe { *args });
+            let coll = PyObj::borrow(unsafe { *args.add(1) });
+            let n = n_obj.as_int()?;
+            if coll.is_none() || n <= 0 {
+                Ok(list::empty_list())
+            } else if coll.type_is(vector::vector_type()) {
+                Ok(vector::take(coll, n as usize))
+            } else if coll.type_is(indexed_seq::class()) {
+                Ok(indexed_seq::take(coll, n as usize))
+            } else if coll.is_tuple() || coll.is_string() {
+                Ok(indexed_seq::take(seq(&coll)?, n as usize))
+            } else {
+                fn step(n: usize, coll: PyObj) -> Result<PyObj, ()> {
+                    if n == 0 || coll.is_none() {
+                        Ok(PyObj::none())
+                    } else {
+                        Ok(cons::cons(first(&coll)?,
+                            lazy_seq::lazy_seq(
+                                Box::new(move ||
+                                    step(n - 1, next(&coll)?)))))
+                    }
+                }
+                Ok(lazy_seq::lazy_seq(
+                    Box::new(move ||
+                        step(n as usize, seq(&coll)?))))
+            }
+        } else {
+            utils::raise_exception("take() expects exactly 2 arguments")
         }
     })
 }

@@ -198,6 +198,17 @@ extern "C" fn py_iter(
 }
 
 #[inline]
+pub fn take(oself_: PyObj, n: usize) -> PyObj {
+    let self_ = unsafe { oself_.as_ref::<IndexedSeq>() };
+    let len = self_.len - self_.offset;
+    if n < len {
+        new(self_.coll.clone(), self_.offset + n, self_.offset)
+    } else {
+        oself_.clone()
+    }
+}
+
+#[inline]
 pub fn drop(self_: PyObj, n: usize) -> PyObj {
     let self_ = unsafe { self_.as_ref::<IndexedSeq>() };
     let offset = self_.offset + n;

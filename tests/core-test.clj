@@ -287,19 +287,6 @@
   (is (= nil (or false false nil)))
   (is (= false (or false nil false))))
 
-(deftest take
-  (is (= '() (take 0 nil)))
-  (is (= '() (take 0 '(1 2 3))))
-  (is (= '() (take 0 [1 2 3])))
-  (is (= '(1) (take 1 '(1 2 3))))
-  (is (= '(1) (take 1 [1 2 3])))
-  (is (= '(1 2) (take 2 '(1 2 3))))
-  (is (= '(1 2) (take 2 [1 2 3])))
-  (is (= '(1 2 3) (take 3 '(1 2 3))))
-  (is (= '(1 2 3) (take 3 [1 2 3])))
-  (is (= '(1 2 3) (take 4 '(1 2 3))))
-  (is (= '(1 2 3) (take 4 [1 2 3]))))
-
 (deftest partition
   (is (= '() (partition nil nil)))
   (is (= '() (partition 2 nil)))

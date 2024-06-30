@@ -193,12 +193,6 @@
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
 
-(defn take [n coll]
-  (lazy-seq
-    (when (pos? n)
-      (when-let [s (seq coll)]
-        (cons (first s) (take (dec n) (rest s)))))))
-
 (defn partition [n coll]
   (lazy-seq
     (when-let [s (seq coll)]

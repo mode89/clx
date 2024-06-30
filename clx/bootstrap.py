@@ -18,7 +18,8 @@ from lepet_ext import \
     cons, lazy_seq, seq, \
     atom, is_atom, \
     is_seq, is_record, \
-    first, next_, rest, get, nth, conj, drop, count, map_, filter_, reduce
+    first, next_, rest, get, nth, conj, take, drop, count, \
+    map_, filter_, reduce
 from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
@@ -554,6 +555,7 @@ def init_context(namespaces):
             "get": get,
             "nth": nth,
             "conj": conj,
+            "take": take,
             "take-last": take_last,
             "drop": drop,
             "last": last,
