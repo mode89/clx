@@ -554,6 +554,7 @@ def init_context(namespaces):
             "get": get,
             "nth": nth,
             "conj": conj,
+            "take-last": take_last,
             "drop": drop,
             "map": map_,
             "filter": filter_,
@@ -1548,6 +1549,15 @@ def merge(*maps):
         else:
             return m1.merge(m2)
     return functools.reduce(helper, maps, None)
+
+def take_last(n, coll):
+    size = count(coll)
+    if n <= 0:
+        return None
+    elif n >= size:
+        return seq(coll)
+    else:
+        return drop(size - n, coll)
 
 def _in_ns(ctx, ns):
     _current_ns(ctx).set(ns.name)

@@ -1042,6 +1042,19 @@ def test_first():
     assert clx.first(V(2, 3)) == 2
     assert clx.first(tuple()) is None
 
+def test_take_last():
+    assert clx.take_last(0, None) is None
+    assert clx.take_last(1, None) is None
+    assert clx.take_last(-1, None) is None
+    assert clx.take_last(0, L()) is None
+    assert clx.take_last(1, L()) is None
+    assert clx.take_last(-1, L()) is None
+    assert clx.take_last(0, L(1, 2)) is None
+    assert clx.take_last(1, L(1, 2)) == [2]
+    assert clx.take_last(2, L(1, 2)) == [1, 2]
+    assert clx.take_last(3, L(1, 2)) == [1, 2]
+    assert clx.take_last(-1, L(1, 2)) is None
+
 def test_map():
     inc = lambda x: x + 1
 
