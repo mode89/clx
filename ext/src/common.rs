@@ -20,6 +20,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, nth, py_nth);
     utils::module_add_method!(module, conj, py_conj);
     utils::module_add_method!(module, drop, py_drop);
+    utils::module_add_method!(module, count, py_count);
     utils::module_add_method!(module, map_, py_map);
     utils::module_add_method!(module, filter_, py_filter);
     utils::module_add_method!(module, reduce, py_reduce);
@@ -432,6 +433,49 @@ extern "C" fn py_drop(
             }
         } else {
             utils::raise_exception("drop() expects exactly 2 arguments")
+        }
+    })
+}
+
+extern "C" fn py_count(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 1 {
+            let coll = PyObj::borrow(unsafe { *args });
+            Ok(PyObj::from(
+                if coll.is_none() {
+                    0
+                } else if coll.type_is(vector::vector_type()) {
+                    vector::count(&coll)
+                } else if coll.type_is(indexed_seq::class()) {
+                    indexed_seq::count(&coll)
+                } else if coll.type_is(list::list_type()) {
+                    list::count(&coll)
+                } else if coll.type_is(hash_map::hash_map_type()) {
+                    hash_map::count(&coll)
+                } else if coll.is_instance(icounted_type()) {
+                    coll.call_method0(
+                        &utils::static_pystring!("count"))?.as_int()? as i64
+                } else if coll.is_instance(iseqable_type()) {
+                    let mut count = 0;
+                    let mut coll = seq(&coll)?;
+                    loop {
+                        if coll.is_none() {
+                            break;
+                        }
+                        count += 1;
+                        coll = next(&coll)?;
+                    }
+                    count
+                } else {
+                    coll.len()? as i64
+                }
+            ))
+        } else {
+            utils::raise_exception("count() expects exactly 1 argument")
         }
     })
 }

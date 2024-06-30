@@ -176,11 +176,16 @@ extern "C" fn py_count(
         if nargs != 0 {
             utils::raise_exception("IndexedSeq.count_() takes no arguments")
         } else {
-            let self_ = unsafe { &*self_.cast::<IndexedSeq>() };
-            let len = self_.len - self_.offset;
-            Ok(PyObj::from(len as i64))
+            let self_ = PyObj::borrow(self_);
+            Ok(PyObj::from(count(&self_)))
         }
     })
+}
+
+#[inline]
+pub fn count(self_: &PyObj) -> i64 {
+    let self_ = unsafe { self_.as_ref::<IndexedSeq>() };
+    (self_.len - self_.offset) as i64
 }
 
 extern "C" fn py_iter(

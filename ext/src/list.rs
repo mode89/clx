@@ -204,10 +204,14 @@ extern "C" fn py_list_count(
             utils::raise_exception("PersistentList.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
-            let self_ = unsafe { self_.as_ref::<List>() };
-            Ok(PyObj::from(self_.length))
+            Ok(PyObj::from(count(&self_)))
         }
     })
+}
+
+#[inline]
+pub fn count(self_: &PyObj) -> i64 {
+    unsafe { self_.as_ref::<List>() }.length
 }
 
 extern "C" fn py_list_first(

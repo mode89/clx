@@ -152,10 +152,14 @@ extern "C" fn py_vector_count(
                 "PersistentVector.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
-            let self_ = unsafe { self_.as_ref::<Vector>() };
-            Ok(PyObj::from(self_.impl_.len() as i64))
+            Ok(PyObj::from(count(&self_)))
         }
     })
+}
+
+#[inline]
+pub fn count(self_: &PyObj) -> i64 {
+    unsafe { self_.as_ref::<Vector>() }.impl_.len() as i64
 }
 
 unsafe extern "C" fn py_vector_len(

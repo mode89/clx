@@ -18,7 +18,7 @@ from lepet_ext import \
     cons, lazy_seq, seq, \
     atom, is_atom, \
     is_seq, is_record, \
-    first, next_, rest, get, nth, conj, drop, map_, filter_, reduce
+    first, next_, rest, get, nth, conj, drop, count, map_, filter_, reduce
 from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
@@ -1477,16 +1477,6 @@ def vec(coll):
 
 def is_counted(x):
     return isinstance(x, ICounted)
-
-def count(x):
-    if x is None:
-        return 0
-    elif isinstance(x, ICounted):
-        return x.count_()
-    elif isinstance(x, ISeqable):
-        return _count_seqable(x)
-    else:
-        return len(x)
 
 def _count_seqable(x):
     num = 0

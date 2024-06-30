@@ -213,10 +213,15 @@ extern "C" fn py_hash_map_count(
                 "PersistentHashMap.count_() takes no arguments")
         } else {
             let self_ = PyObj::borrow(self_);
-            let self_ = unsafe { self_.as_ref::<HashMap>() };
-            Ok(PyObj::from(self_.impl_.len() as i64))
+            Ok(PyObj::from(count(&self_)))
         }
     })
+}
+
+#[inline]
+pub fn count(self_: &PyObj) -> i64 {
+    let self_ = unsafe { self_.as_ref::<HashMap>() };
+    self_.impl_.len() as i64
 }
 
 extern "C" fn py_hash_map_merge(
