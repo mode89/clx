@@ -24,7 +24,13 @@
   (is (= (comp/read-string "hello") 'hello))
   (is (= (comp/read-string "hello/world") 'hello/world))
   (is (identical? (comp/read-string "()") '()))
+  (is (list? (comp/read-string "(1 2 3)")))
   (is (= (comp/read-string "(1 2 3)") '(1 2 3)))
   (is (= (comp/read-string "(1 (2 3) ((4 5) 6))") '(1 (2 3) ((4 5) 6))))
   (raises Exception #"Expected '\)'"
-    (comp/read-string "(1 2 3")))
+    (comp/read-string "(1 2 3"))
+  (is (vector? (comp/read-string "[4 5 6]")))
+  (is (= (comp/read-string "[4 5 6]") [4 5 6]))
+  (is (= (comp/read-string "[4 [5 6] [7 [8 9]]]") [4 [5 6] [7 [8 9]]]))
+  (raises Exception #"Expected ']'"
+    (comp/read-string "[4 5 6")))
