@@ -68,5 +68,5 @@
       (assert (instance? Token token))
       (if (= end (.-text token))
         [(apply ctor elements) (rest ts)]
-        (let [x (read-form ts)]
-          (recur (conj elements (first x)) (second x)))))))
+        (let [[item ts*] (read-form ts)]
+          (recur (conj elements item) ts*))))))
