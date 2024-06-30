@@ -22,7 +22,7 @@
      (when matches
        (let [m (first matches)
              spaces (.group m 1)
-             token (Token (.group m 2) line)]
+             token (Token. (.group m 2) line)]
          (cons token (tokenize (next matches) line)))))))
 
 (declare read-form)

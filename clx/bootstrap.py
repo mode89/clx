@@ -2,6 +2,7 @@ import ast
 from bisect import bisect_left
 from collections.abc import Iterable
 import functools
+import inspect
 import itertools
 import re
 import threading
@@ -162,6 +163,7 @@ _S_FINALLY = symbol("finally")
 _S_LOOP = symbol("loop")
 _S_RECUR = symbol("recur")
 _S_DOT = symbol(".")
+_S_NEW = symbol("new")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
 _S_PYTHON_WITH = symbol("python/with")
@@ -282,11 +284,15 @@ def read_form(tokens):
         elif tstring == "(":
             l, rtokens = read_collection(token, rtokens, list_, ")")
             l0 = l.first()
-            if type(l0) is Symbol and l0.name[0] == "." and l0.name != ".":
-                member = symbol(l0.name[1:])
-                assert l.count_() > 1, "expected (.member target ...)"
-                target = l.rest().first()
-                l = list_(_S_DOT, target, member, *l.rest().rest())
+            if is_symbol(l0) and l0.name != ".":
+                if l0.name[0] == ".":
+                    member = symbol(l0.name[1:])
+                    assert l.count_() > 1, "expected (.member target ...)"
+                    target = l.rest().first()
+                    l = list_(_S_DOT, target, member, *l.rest().rest())
+                elif l0.name[-1] == ".":
+                    cls = symbol(pr_str(l0)[:-1])
+                    l = list_(_S_NEW, cls, *l.rest())
             if l.count_() > 0:
                 l = l.with_meta(
                     hash_map(_K_LINE, token.line, _K_COLUMN, token.column))
@@ -522,6 +528,7 @@ def init_context(namespaces):
             "+": lambda *args: sum(args),
             "with-meta": with_meta,
             "meta": meta,
+            "new": new,
             "apply": apply,
             "keyword": keyword,
             "keyword?": is_keyword,
@@ -1502,6 +1509,11 @@ def _compile_constant(ctx, lctx, value):
 #************************************************************
 # Core
 #************************************************************
+
+def new(cls, *args):
+    assert inspect.isclass(cls), \
+        "`new` expects a class as the first argument"
+    return cls(*args)
 
 def apply(func, *args):
     assert callable(func), "apply expects a function as the first argument"

@@ -733,6 +733,13 @@ def test_dot():
     with pytest.raises(Exception, match=r"expected .*member.*target"):
         _eval("(.lookup)")
 
+def test_dot_constructor():
+    assert _eval(
+        """
+        (import* pathlib)
+        (pathlib/Path. "foo" "bar")
+        """) == Path("foo/bar")
+
 def test_import():
     mod = _eval("(import* collections)")
     assert mod is __import__("collections")
