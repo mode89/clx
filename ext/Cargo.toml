@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3-ffi = { version = "0.21.2", features = ["extension-module"] }
 libc = "*"
+thread_local = "*"
 
 [profile.release]
 opt-level = 3

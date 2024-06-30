@@ -12,6 +12,7 @@ mod cons;
 mod lazy_seq;
 mod indexed_seq;
 mod atom;
+mod var;
 mod common;
 mod seq_iterator;
 
@@ -43,6 +44,7 @@ pub extern "C" fn PyInit_lepet_ext() -> *mut PyObject {
     lazy_seq::init_module(module);
     indexed_seq::init_module(module);
     atom::init_module(module);
+    var::init_module(module);
     common::init_module(module);
 
     module

@@ -5,7 +5,6 @@ import functools
 import inspect
 import itertools
 import re
-import threading
 import types
 import weakref
 
@@ -18,6 +17,7 @@ from lepet_ext import \
     PersistentHashMap, hash_map, hash_map_from, \
     cons, lazy_seq, seq, \
     atom, is_atom, \
+    Var, \
     is_seq, is_record, \
     first, next_, rest, get, nth, conj, take, drop, count, \
     map_, filter_, reduce
@@ -113,36 +113,6 @@ def is_vector(obj):
 
 def define_record(name, *fields):
     return define_record0(name, *[(f, munge(f)) for f in fields])
-
-class DynamicVar:
-    def __init__(self, value):
-        self._lock = threading.Lock()
-        self._root = value
-        self._stack = threading.local()
-        self._stack.value = None
-        self._is_bound = False
-    def deref(self):
-        with self._lock:
-            return self._root \
-                if not self._is_bound \
-                else self._stack.value.first()
-    def push(self, value):
-        with self._lock:
-            self._stack.value = cons(value, self._stack.value)
-            self._is_bound = True
-    def pop(self):
-        with self._lock:
-            assert self._is_bound, "dynamic var is not bound"
-            self._stack.value = self._stack.value.next()
-            self._is_bound = self._stack.value is not None
-    def set(self, value):
-        with self._lock:
-            assert self._stack.value is not None, \
-                "dynamic var is not bound by this thread"
-            self._stack.value = cons(value, self._stack.value.next())
-    def is_bound(self):
-        with self._lock:
-            return self._is_bound
 
 #************************************************************
 # Constants
@@ -609,7 +579,7 @@ def _intern(ctx, ns, name, value, dynamic=False):
     binding = Binding(py_name, None) \
         if not dynamic else Binding(py_name, hash_map(_K_DYNAMIC, True))
     ctx.namespaces.swap(assoc_in, list_(ns, _K_BINDINGS, name), binding)
-    ctx.py_globals[py_name] = value if not dynamic else DynamicVar(value)
+    ctx.py_globals[py_name] = value if not dynamic else Var(value)
 
 def _local_context( # pylint: disable=too-many-arguments
         env=hash_map(),
@@ -666,7 +636,7 @@ def _with_bindings1(ctx, body, *bindings):
 
 def _with_bindings(body, *bindings):
     for obj, value in zip(bindings[::2], bindings[1::2]):
-        assert type(obj) is DynamicVar, "expected a dynamic var"
+        assert type(obj) is Var, "expected a dynamic var"
         obj.push(value)
     try:
         return body()

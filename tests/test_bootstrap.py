@@ -883,7 +883,7 @@ def test_resolve_symbol():
                   K("imports"),  M()),
                 )),
         {
-            munge("clx.core/*ns*"): clx.DynamicVar("user"),
+            munge("clx.core/*ns*"): clx.Var("user"),
         },
     )
     lctx = clx.LocalContext(M("a", 5, "bar", 6), None, False, True, 1, 1)

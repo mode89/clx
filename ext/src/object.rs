@@ -398,3 +398,21 @@ impl Hash for PyObjHashable {
         self.hash.hash(state);
     }
 }
+
+pub struct PyObjSendable(PyObj);
+
+unsafe impl Send for PyObjSendable {}
+
+impl From<PyObj> for PyObjSendable {
+    #[inline]
+    fn from(obj: PyObj) -> Self {
+        PyObjSendable(obj)
+    }
+}
+
+impl PyObjSendable {
+    #[inline]
+    pub fn as_pyobj(&self) -> PyObj {
+        self.0.clone()
+    }
+}
