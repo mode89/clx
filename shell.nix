@@ -14,6 +14,7 @@ in pkgs.mkShell {
     less
     which
     (python38.withPackages (ps: with ps; [
+      ipython
       pylint
       pytest
     ]))

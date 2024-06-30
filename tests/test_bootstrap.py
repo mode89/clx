@@ -118,7 +118,7 @@ def test_record():
 def test_read_string():
     assert clx.read_string("1") == 1
     assert clx.read_string("1.23") == 1.23
-    # assert clx.read_string("1.23e4") == 1.23e4 TODO
+    # TODO assert clx.read_string("1.23e4") == 1.23e4
     assert clx.read_string("true") is True
     assert clx.read_string("false") is False
     assert clx.read_string("nil") is None
