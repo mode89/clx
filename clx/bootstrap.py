@@ -20,6 +20,7 @@ from lepet_ext import \
     is_seq, is_record, \
     first, next_, rest, get, nth, conj, take, drop, count, \
     map_, filter_, reduce
+from lepet_ext import is_hash_map as is_map
 from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
@@ -108,9 +109,6 @@ def munge(obj):
 
 def is_vector(obj):
     return type(obj) is PersistentVector
-
-def is_hash_map(obj):
-    return type(obj) is PersistentMap
 
 def define_record(name, *fields):
     return define_record0(name, *[(f, munge(f)) for f in fields])
@@ -406,7 +404,7 @@ def quasiquote(suffix, form):
             return list_(_S_APPLY, _S_LIST, _quasiquote_sequence(suffix, form))
     elif is_vector(form):
         return list_(_S_VEC, _quasiquote_sequence(suffix, form))
-    elif is_hash_map(form):
+    elif is_map(form):
         elements = []
         for k, v in form.items():
             elements.append(k)
@@ -537,6 +535,7 @@ def init_context(namespaces):
             "vector?": is_vector,
             "vec": vec,
             "hash-map": hash_map,
+            "map?": is_map,
             "lazy-seq*": lazy_seq,
             "seq?": is_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),
@@ -1353,7 +1352,7 @@ def _destructure1(bform, expr):
         return [bform, expr]
     elif is_vector(bform):
         return _destructure_sequence(bform, expr)
-    elif is_hash_map(bform):
+    elif is_map(bform):
         raise NotImplementedError()
     else:
         raise Exception("Invalid destructuring form")
