@@ -1055,6 +1055,13 @@ def test_take_last():
     assert clx.take_last(3, L(1, 2)) == [1, 2]
     assert clx.take_last(-1, L(1, 2)) is None
 
+def test_last():
+    assert clx.last(None) is None
+    assert clx.last(L()) is None
+    assert clx.last(L(1)) == 1
+    assert clx.last(L(2, 3)) == 3
+    assert clx.last(V()) is None
+
 def test_map():
     inc = lambda x: x + 1
 

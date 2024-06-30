@@ -556,6 +556,7 @@ def init_context(namespaces):
             "conj": conj,
             "take-last": take_last,
             "drop": drop,
+            "last": last,
             "map": map_,
             "filter": filter_,
             "reduce": reduce,
@@ -1558,6 +1559,9 @@ def take_last(n, coll):
         return seq(coll)
     else:
         return drop(size - n, coll)
+
+def last(coll):
+    return first(take_last(1, coll))
 
 def _in_ns(ctx, ns):
     _current_ns(ctx).set(ns.name)
