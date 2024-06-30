@@ -39,6 +39,7 @@
     (cond
       (= "(" t) (read-collection ts list ")")
       (= "[" t) (read-collection ts vector "]")
+      (= "{" t) (read-collection ts hash-map "}")
       :else [(read-atom t) ts])))
 
 (declare read-string-literal)

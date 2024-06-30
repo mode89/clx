@@ -33,4 +33,8 @@
   (is (= (comp/read-string "[4 5 6]") [4 5 6]))
   (is (= (comp/read-string "[4 [5 6] [7 [8 9]]]") [4 [5 6] [7 [8 9]]]))
   (raises Exception #"Expected ']'"
-    (comp/read-string "[4 5 6")))
+    (comp/read-string "[4 5 6"))
+  (is (map? (comp/read-string "{:a 7 \"b\" eight}")))
+  (is (= (comp/read-string "{:a 7 \"b\" eight}") {:a 7 "b" 'eight}))
+  (raises Exception #"Expected '}'"
+    (comp/read-string "{1 2 3 4")))
