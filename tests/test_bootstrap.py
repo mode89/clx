@@ -323,6 +323,25 @@ def test_let():
                   b))
             """)
     assert _eval("(let [a (___local_context :top_level?)] a)") is True
+    assert _eval("(let [[] '(1 2 3)])") is None
+    assert _eval("(let [[x] '(1 2 3)] x)") == 1
+    assert _eval("(let [[x y] '(3 4 5)] (+ x y))") == 7
+    assert _eval(
+        """
+        (let [[x y & z] '(1 2 3 4 5)]
+          [x y z])
+        """) == L(1, 2, L(3, 4, 5))
+    assert _eval(
+        """
+        (let [[x y & z :as w] '(5 6 7 8 9)]
+          [x y z w])
+        """) == L(5, 6, L(7, 8, 9), L(5, 6, 7, 8, 9))
+    assert _eval(
+        """
+        (let [[x y & [s t] :as w] '(5 6 7 8 9)]
+          [x y s t w])
+        """) == L(5, 6, 7, 8, L(5, 6, 7, 8, 9))
+    assert _eval("(let [[x y] [42]] [y x])") == L(None, 42)
 
 def test_cond():
     assert _eval("(cond)") is None
@@ -420,6 +439,17 @@ def test_fn():
               :else (foo (+ x x)))))
         (foo 1)
         """) == 16
+    assert _eval("(fn* [[]] 42)")([]) == 42
+    assert _eval("(fn* [[x]] x)")(V(42)) == 42
+    assert _eval("(fn* [[x y]] (+ x y))")(V(1, 2)) == 3
+    v15 = V(1, 2, 3, 4, 5)
+    assert _eval("(fn* [[x y & z]] [x y z])")(v15) == L(1, 2, L(3, 4, 5))
+    assert _eval("(fn* [[x y & [s t]]] [x y s t])")(v15) == L(1, 2, 3, 4)
+    assert _eval("(fn* [[x y & [s t] :as w]] [x y s t w])")(v15) == \
+        L(1, 2, 3, 4, L(1, 2, 3, 4, 5))
+    assert _eval("(fn* [[x y] z [s t]] [x y z s t])")([1, 2], 3, [4, 5]) == \
+        L(1, 2, 3, 4, 5)
+    assert _eval("(fn* [[x y]] [y x])")((42,)) == L(None, 42)
 
 def test_letfn():
     assert _eval("(letfn [])") is None

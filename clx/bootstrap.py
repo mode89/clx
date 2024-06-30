@@ -184,6 +184,8 @@ _S_SYMBOL = _core_symbol("symbol")
 _S_APPLY = _core_symbol("apply")
 _S_RE_PATTERN = _core_symbol("re-pattern")
 _S_DEREF = _core_symbol("deref")
+_S_FIRST = _core_symbol("first")
+_S_REST = _core_symbol("rest")
 
 _K_LINE = keyword("line")
 _K_COLUMN = keyword("column")
@@ -204,6 +206,7 @@ _K_LOCAL = keyword("local")
 _K_LOCK = keyword("lock")
 _K_LOOP_BINDINGS = keyword("loop_bindings")
 _K_TAIL_Q = keyword("tail?")
+_K_AS = keyword("as")
 
 _BINDING_META_LOCAL = hash_map(_K_LOCAL, True)
 
@@ -778,6 +781,7 @@ def _compile_let(ctx, lctx, form):
         "let expects a vector as the first argument"
     assert len(bindings) % 2 == 0, \
         "bindings of let must have even number of elements"
+    bindings = destructure(bindings)
     body = []
     for i in range(0, len(bindings), 2):
         _name, value = bindings[i], bindings[i + 1]
@@ -853,16 +857,27 @@ def _make_function_def(ctx, lctx, fname, params, body):
     pos_params = []
     rest_param = None
     env = lctx.env
+    to_destructure = []
     while params:
         param = first(params)
-        assert is_simple_symbol(param), \
-            "parameters of function must be simple symbols"
+        if is_symbol(param):
+            assert is_simple_symbol(param), \
+                "parameters of function must be simple symbols"
+        else:
+            to_destructure.append(param)
+            param = gensym()
+            to_destructure.append(param)
         if param == _S_AMPER:
             assert next_(next_(params)) is None, \
-                "parameters should have a single symbol after &"
+                "parameters should have a single entry after &"
             rest_param = second(params)
-            assert is_simple_symbol(rest_param), \
-                "rest parameters of function must be a simple symbol"
+            if is_symbol(rest_param):
+                assert is_simple_symbol(rest_param), \
+                    "rest parameters of function must be a simple symbol"
+            else:
+                to_destructure.append(rest_param)
+                rest_param = gensym()
+                to_destructure.append(rest_param)
             env = assoc(env, rest_param.name,
                 Binding(munge(rest_param.name), _BINDING_META_LOCAL))
             break
@@ -873,6 +888,8 @@ def _make_function_def(ctx, lctx, fname, params, body):
     lctx = assoc(lctx, _K_ENV, env)
 
     if body is not None:
+        if to_destructure:
+            body = list_(_S_LET, vec(to_destructure), body)
         body_expr, body_stmts = _compile(
             ctx, assoc(lctx, _K_TOP_LEVEL_Q, False, _K_TAIL_Q, True), body)
         body_stmts.append(_node(ast.Return, lctx, body_expr))
@@ -1321,6 +1338,51 @@ def _wrap_with_do(forms):
         return forms.first()
     else:
         return list_(_S_DO, *forms)
+
+def destructure(bindings):
+    assert is_vector(bindings)
+    assert len(bindings) % 2 == 0
+    res = []
+    for i in range(0, len(bindings), 2):
+        bform, expr = bindings[i], bindings[i + 1]
+        res += _destructure1(bform, expr)
+    return vec(res)
+
+def _destructure1(bform, expr):
+    if is_simple_symbol(bform):
+        return [bform, expr]
+    elif is_vector(bform):
+        return _destructure_sequence(bform, expr)
+    elif is_hash_map(bform):
+        raise NotImplementedError()
+    else:
+        raise Exception("Invalid destructuring form")
+
+def _destructure_sequence(bform, expr):
+    bform_len = count(bform)
+    if bform_len == 0:
+        return [gensym(), expr]
+    elif bform_len == 1:
+        sfirst = gensym()
+        return [sfirst, list_(_S_FIRST, expr)] + \
+            _destructure1(first(bform), sfirst)
+    elif first(take_last(2, bform)) == _K_AS:
+        name = last(bform)
+        assert is_simple_symbol(name), "Expected a simple symbol after :as"
+        return [name, expr] + _destructure_sequence(drop_last(2, bform), name)
+    elif first(bform) == _S_AMPER:
+        assert bform_len == 2, "Expected exactly one entry after &"
+        return _destructure1(second(bform), expr)
+    else:
+        sexpr = gensym()
+        sfirst = gensym()
+        srest = gensym()
+        return [
+            sexpr, expr, # Prevents evaluation of expr multiple times
+            sfirst, list_(_S_FIRST, sexpr),
+            srest, list_(_S_REST, sexpr),
+        ] + _destructure1(first(bform), sfirst) + \
+            _destructure_sequence(rest(bform), srest)
 
 def _node(type_, lctx, *args):
     _n = type_(*args)
