@@ -200,6 +200,10 @@
         (when (= n (count s0))
           (cons s0 (partition n (drop n s))))))))
 
+(defn interleave [& colls])
+
+(defn interpose [sep coll])
+
 (defmacro doseq [bindings & body]
   (assert (vector? bindings) "bindings must be a vector")
   ; TODO allow multiple bindings
@@ -322,3 +326,8 @@
                  (meta %))
               forms)
        ~gx)))
+
+; TODO
+
+; require
+; eval

@@ -5,7 +5,9 @@ pkgs.mkShell {
     cargo
     rustc
     rust-analyzer
+    gdb
     (python3.withPackages (ps: with ps; [
+      ipython
       mypy
       pylint
       pytest

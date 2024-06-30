@@ -620,6 +620,8 @@ def _eval_form(ctx, lctx, form):
     body = ast.Module(body, type_ignores=[])
     result = ast.Expression(result, type_ignores=[])
     _transform_ast(ctx, body, result)
+    print(ast.unparse(body))
+    print(ast.unparse(result))
     file_name = _current_file(ctx).deref()
     exec(compile(body, file_name, "exec"), ctx.py_globals) # pylint: disable=exec-used
     return eval(compile(result, file_name, "eval"), ctx.py_globals) # pylint: disable=eval-used
@@ -1146,6 +1148,20 @@ def _compile_python(ctx, lctx, form):
     else:
         stmts = module.body
         result = _node(ast.Constant, lctx, None)
+
+    for stmt in stmts:
+        stmt.lineno = lctx.line
+        stmt.end_lineno = lctx.line
+        stmt.col_offset = lctx.column
+        stmt.end_col_offset = lctx.column
+        ast.fix_missing_locations(stmt)
+
+    result.lineno = lctx.line
+    result.end_lineno = lctx.line
+    result.col_offset = lctx.column
+    result.end_col_offset = lctx.column
+    ast.fix_missing_locations(result)
+
     return result, stmts
 
 def _compile_python_with(ctx, lctx, form):
