@@ -1036,6 +1036,27 @@ def test_drop():
     assert drop(3, (1, 2)) == []
     assert drop(-1, (1, 2)) == [1, 2]
 
+def test_drop_last():
+    assert clx.drop_last(0, None) is L()
+    assert clx.drop_last(1, None) is L()
+    assert clx.drop_last(-1, None) is L()
+    assert clx.drop_last(0, L()) is L()
+    assert clx.drop_last(1, L()) is L()
+    assert clx.drop_last(-1, L()) is L()
+    assert clx.drop_last(0, L(1, 2)) == L(1, 2)
+    assert clx.drop_last(1, L(1, 2)) == L(1)
+    assert clx.drop_last(2, L(1, 2)) == L()
+    assert clx.drop_last(3, L(1, 2)) == L()
+    assert clx.drop_last(-1, L(1, 2)) == L(1, 2)
+    assert clx.drop_last(0, V()) is V()
+    assert clx.drop_last(1, V()) is L()
+    assert clx.drop_last(-1, V()) is V()
+    assert clx.drop_last(0, V(1, 2)) == L(1, 2)
+    assert clx.drop_last(1, V(1, 2)) == L(1)
+    assert clx.drop_last(2, V(1, 2)) == L()
+    assert clx.drop_last(3, V(1, 2)) == L()
+    assert clx.drop_last(-1, V(1, 2)) == L(1, 2)
+
 def test_assoc():
     assert assoc(None, "a", 1) == M("a", 1)
     assert assoc(M("a", 2), "a", 3) == M("a", 3)

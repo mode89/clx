@@ -558,6 +558,7 @@ def init_context(namespaces):
             "take": take,
             "take-last": take_last,
             "drop": drop,
+            "drop-last": drop_last,
             "last": last,
             "map": map_,
             "filter": filter_,
@@ -1564,6 +1565,19 @@ def take_last(n, coll):
 
 def last(coll):
     return first(take_last(1, coll))
+
+def drop_last(arg1, arg2=_DUMMY):
+    if arg2 is _DUMMY:
+        return drop_last(1, arg1)
+    n = arg1
+    coll = arg2
+    if coll is None:
+        return list_()
+    elif n <= 0:
+        return coll
+    else:
+        size = count(coll)
+        return take(size - n, coll)
 
 def _in_ns(ctx, ns):
     _current_ns(ctx).set(ns.name)
