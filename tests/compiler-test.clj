@@ -37,4 +37,5 @@
   (is (map? (comp/read-string "{:a 7 \"b\" eight}")))
   (is (= (comp/read-string "{:a 7 \"b\" eight}") {:a 7 "b" 'eight}))
   (raises Exception #"Expected '}'"
-    (comp/read-string "{1 2 3 4")))
+    (comp/read-string "{1 2 3 4"))
+  (is (= (comp/read-string "'hello") '(quote hello))))

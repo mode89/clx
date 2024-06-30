@@ -40,6 +40,8 @@
       (= "(" t) (read-collection ts list ")")
       (= "[" t) (read-collection ts vector "]")
       (= "{" t) (read-collection ts hash-map "}")
+      (= "'" t) (let [[form ts*] (read-form ts)]
+                  [(list 'quote form) ts*])
       :else [(read-atom t) ts])))
 
 (declare read-string-literal)
