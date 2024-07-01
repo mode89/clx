@@ -4,6 +4,6 @@
   (fn* []
     :hello/world))
 
-(def ns (.deref *ns*))
+(def ns *ns*)
 
-(def file (.deref *file*))
+(def file *file*)

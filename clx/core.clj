@@ -102,7 +102,7 @@
 (def ^{:macro? true} defn
   (fn* clx.core/defn [fname & decl]
     `(def ~fname
-        (fn ~(symbol @*ns* (.-name fname)) ~@decl))))
+        (fn ~(symbol *ns* (.-name fname)) ~@decl))))
 
 (def ^{:macro? true} defmacro
   (fn* clx.core/defmacro [name & decl]
@@ -277,7 +277,7 @@
 (defmacro defrecord [tname fields]
   (assert (simple-symbol? tname) "record name must be a simple symbol")
   (assert (vector? fields) "record fields must be a vector")
-  (let [qtname (str @*ns* "." (name tname))]
+  (let [qtname (str *ns* "." (name tname))]
     `(def ~tname
        (clx.bootstrap/define-record
          ~qtname

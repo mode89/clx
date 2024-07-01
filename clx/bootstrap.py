@@ -686,6 +686,10 @@ def _compile(ctx, lctx, form):
             binding = _resolve_symbol(ctx, lctx, form)
             if get(binding.meta, _K_MACRO_QMARK, False):
                 raise Exception(f"Can't take value of a macro: {form}")
+            if get(binding.meta, _K_DYNAMIC, False):
+                var = _binding_node(lctx, ast.Load(), binding)
+                deref = _node(ast.Attribute, lctx, var, "deref", ast.Load())
+                return _node(ast.Call, lctx, deref, [], []), []
             return _binding_node(lctx, ast.Load(), binding), []
         else:
             return \
