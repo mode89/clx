@@ -305,26 +305,6 @@ pub fn nth(
         Ok(PyObj::none())
     } else if coll.type_is(vector::vector_type()) {
         vector::nth(coll, index, not_found)
-    } else if coll.is_tuple() {
-        coll.get_tuple_item(index).or_else(|_| {
-            match not_found {
-                Some(not_found) => {
-                    utils::clear_exception();
-                    Ok(not_found)
-                },
-                None => Err(())
-            }
-        })
-    } else if coll.is_string() {
-        coll.get_sequence_item(index).or_else(|_| {
-            match not_found {
-                Some(not_found) => {
-                    utils::clear_exception();
-                    Ok(not_found)
-                },
-                None => Err(())
-            }
-        })
     } else if coll.is_instance(iindexed_type()) {
         match not_found {
             None => coll.call_method1(
@@ -359,9 +339,15 @@ pub fn nth(
             }
         }
     } else {
-        let msg = format!("nth() not supported for '{}'",
-            coll.class().qual_name_string()?);
-        utils::raise_exception(&msg)
+        coll.get_sequence_item(index).or_else(|_| {
+            match not_found {
+                Some(not_found) => {
+                    utils::clear_exception();
+                    Ok(not_found)
+                },
+                None => Err(())
+            }
+        })
     }
 }
 
