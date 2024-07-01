@@ -263,6 +263,9 @@ def test_quote():
           V(L(5, K("six")), M(S("seven"), "eight")),
           M(K("nine"), L(S("ten"), 11), 12, V(K("thirteen"), "fourteen")))
 
+def test_var():
+    assert clx.is_var(_eval("(var *ns*)"))
+
 def test_def():
     ctx = _make_test_context()
     res = clx._eval_string(ctx, "(def foo 42)")

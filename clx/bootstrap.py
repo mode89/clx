@@ -134,6 +134,7 @@ _S_LOOP = symbol("loop")
 _S_RECUR = symbol("recur")
 _S_DOT = symbol(".")
 _S_NEW = symbol("new")
+_S_VAR = symbol("var")
 _S_IMPORT_STAR = symbol("import*")
 _S_PYTHON = symbol("python*")
 _S_PYTHON_WITH = symbol("python/with")
@@ -1064,6 +1065,14 @@ def _compile_quote(_ctx, lctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
     return _node(ast.Constant, lctx, second(form)), []
 
+def _compile_var(ctx, lctx, form):
+    assert len(form) == 2, "`var` expects exactly one argument"
+    sym = second(form)
+    assert is_symbol(sym), "`var` expects a symbol"
+    binding = _resolve_symbol(ctx, None, sym)
+    assert get(binding.meta, _K_DYNAMIC), "`var` expects a dynamic var"
+    return _binding_node(lctx, ast.Load(), binding), []
+
 def _compile_dot(ctx, lctx, form):
     assert len(form) >= 3, "dot expects at least 2 arguments"
     obj = second(form)
@@ -1190,6 +1199,7 @@ _SPECIAL_FORM_COMPILERS = {
     _S_LOOP: _compile_loop,
     _S_RECUR: _compile_recur,
     _S_QUOTE: _compile_quote,
+    _S_VAR: _compile_var,
     _S_DOT: _compile_dot,
     _S_IMPORT_STAR: _compile_import,
     _S_PYTHON: _compile_python,
@@ -1484,6 +1494,9 @@ def new(cls, *args):
     assert inspect.isclass(cls), \
         "`new` expects a class as the first argument"
     return cls(*args)
+
+def is_var(obj):
+    return type(obj) is Var
 
 def apply(func, *args):
     assert callable(func), "apply expects a function as the first argument"
