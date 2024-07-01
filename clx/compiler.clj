@@ -1,5 +1,7 @@
 (in-ns 'clx.compiler)
 
+(import* ast)
+
 (defrecord Token [text line])
 
 (def RE-TOKEN
@@ -74,3 +76,103 @@
         [(apply ctor elements) (rest ts)]
         (let [[item ts*] (read-form ts)]
           (recur (conj elements item) ts*))))))
+
+(def MUNGE-TABLE
+  {"-" "_DASH_"
+   "." "_DOT_"
+   ":" "_COLON_"
+   "+" "_PLUS_"
+   "*" "_STAR_"
+   "&" "_AMPER_"
+   ">" "_GT_"
+   "<" "_LT_"
+   "=" "_EQ_"
+   "%" "_PERCENT_"
+   "#" "_SHARP_"
+   "!" "_BANG_"
+   "?" "_QMARK_"
+   "'" "_SQUOTE_"
+   "|" "_BAR_"
+   "/" "_SLASH_"
+   "$" "_DOLLAR_"})
+
+(def SPECIAL-NAMES
+  (hash-set
+    "and"
+    "as"
+    "assert"
+    "async"
+    "await"
+    "break"
+    "class"
+    "continue"
+    "def"
+    "del"
+    "elif"
+    "else"
+    "except"
+    "False"
+    "finally"
+    "for"
+    "from"
+    "global"
+    "if"
+    "import"
+    "in"
+    "is"
+    "lambda"
+    "None"
+    "or"
+    "return"
+    "True"
+    "try"
+    "while"
+    "with"
+    "yield"))
+
+(defn munge [name])
+
+(defrecord LocalContext [env loop-bindings tail? top-level? line column])
+
+(defn default-local-context []
+  (LocalContext. {} nil false true 1 1))
+
+(defrecord Context [local namespaces py-globals])
+
+(declare intern*)
+
+(defn make-context []
+  (let [ctx (Context.
+              (Var. (default-local-context))
+              (atom {})
+              (python/dict))]
+    (doto ctx
+      (intern*))))
+
+(declare compile*)
+
+(defn eval-form [ctx form]
+  (let [[result body] (compile* ctx form)]
+    (python/exec
+      (python/compile
+        (apply-kw* ast/Module body {"type_ignores" []})
+        "<no-file>" "exec")
+      (:py-globals ctx))
+    (python/eval
+      (python/compile
+        (apply-kw* ast/Expression result {"type_ignores" []})
+        "<no-file>" "eval")
+      (:py-globals ctx))))
+
+(declare compile-def)
+
+(defn compile* [ctx form]
+  (cond
+    (list? form)
+    (let [head (first form)]
+      (cond
+        (= 'def head) (compile-def ctx form)))))
+
+(defn compile-def [ctx form]
+  (assert (= 3 (count form)) "'def' form expects 2 arguments")
+  (let [name (second form)]))

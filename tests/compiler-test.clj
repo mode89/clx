@@ -39,3 +39,6 @@
   (raises Exception #"Expected '}'"
     (comp/read-string "{1 2 3 4"))
   (is (= (comp/read-string "'hello") '(quote hello))))
+
+; (deftest def
+;   (eval))
