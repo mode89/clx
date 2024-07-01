@@ -1020,6 +1020,38 @@ def test_nth():
     with pytest.raises(IndexError):
         nth(_lazy_range(10000000), -1)
 
+def test_contains():
+    assert clx.contains(None, None) is False
+    assert clx.contains(None, 42) is False
+    assert clx.contains(M(), None) is False
+    assert clx.contains(M(), 42) is False
+    assert clx.contains(M("a", 1), None) is False
+    assert clx.contains(M("a", 1), 42) is False
+    assert clx.contains(M("a", 1), "a") is True
+    assert clx.contains(M("a", 1), 1) is False
+    assert clx.contains(M(1, 2, 3, 4), 1) is True
+    assert clx.contains(M(1, 2, 3, 4), 2) is False
+    assert clx.contains(M(1, 2, 3, 4), 3) is True
+    assert clx.contains(M(1, 2, 3, 4), 4) is False
+    assert clx.contains(ST(), None) is False
+    assert clx.contains(ST(), 42) is False
+    assert clx.contains(ST("a"), None) is False
+    assert clx.contains(ST("a"), 42) is False
+    assert clx.contains(ST("a"), "a") is True
+    assert clx.contains(ST("a"), 1) is False
+    assert clx.contains(ST(1, 2, 3, 4), 1) is True
+    assert clx.contains(ST(1, 2, 3, 4), 2) is True
+    assert clx.contains(ST(1, 2, 3, 4), 3) is True
+    assert clx.contains(ST(1, 2, 3, 4), 4) is True
+    assert clx.contains({1: 2, 3: 4}, 1) is True
+    assert clx.contains({1: 2, 3: 4}, 2) is False
+    assert clx.contains({1: 2, 3: 4}, 3) is True
+    assert clx.contains({1: 2, 3: 4}, 4) is False
+    assert clx.contains({1, 2, 3, 4}, 1) is True
+    assert clx.contains({1, 2, 3, 4}, 2) is True
+    assert clx.contains({1, 2, 3, 4}, 3) is True
+    assert clx.contains({1, 2, 3, 4}, 4) is True
+
 def test_conj():
     assert conj(None, 42) == L(42)
     assert conj(L(), 42) == L(42)

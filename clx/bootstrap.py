@@ -19,7 +19,7 @@ from lepet_ext import \
     atom, is_atom, \
     Var, \
     is_seq, is_record, \
-    first, next_, rest, get, nth, conj, take, drop, count, \
+    first, next_, rest, get, nth, conj, contains, take, drop, count, \
     map_, filter_, reduce
 from lepet_ext import is_hash_map as is_map
 from lepet_ext import cow_set as hash_set
@@ -539,6 +539,7 @@ def init_context(namespaces):
             "assoc": assoc,
             "get": get,
             "nth": nth,
+            "contains?": contains,
             "conj": conj,
             "take": take,
             "take-last": take_last,

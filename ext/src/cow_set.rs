@@ -248,7 +248,8 @@ extern "C" fn py_contains(
     })
 }
 
-fn contains(self_: &PyObj, obj: PyObj) -> Result<bool, ()> {
+#[inline]
+pub fn contains(self_: &PyObj, obj: PyObj) -> Result<bool, ()> {
     let self_ = unsafe { self_.as_ref::<CowSet>() };
     let obj = obj.into_hashable()?;
     Ok(self_.impl_.contains(&obj))

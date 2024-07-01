@@ -390,6 +390,12 @@ extern "C" fn py_hash_map_call(
     })
 }
 
+#[inline]
+pub fn contains(self_: &PyObj, key: PyObj) -> Result<bool, ()> {
+    let self_ = unsafe { self_.as_ref::<HashMap>() };
+    Ok(self_.impl_.contains_key(&key.into_hashable()?))
+}
+
 extern "C" fn py_hash_map_iter(
     self_: *mut PyObject,
 ) -> *mut PyObject {

@@ -19,6 +19,7 @@ pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, rest, py_rest);
     utils::module_add_method!(module, get, py_get);
     utils::module_add_method!(module, nth, py_nth);
+    utils::module_add_method!(module, contains, py_contains);
     utils::module_add_method!(module, conj, py_conj);
     utils::module_add_method!(module, take, py_take);
     utils::module_add_method!(module, drop, py_drop);
@@ -352,6 +353,31 @@ pub fn nth(
             }
         })
     }
+}
+
+extern "C" fn py_contains(
+    _self: *mut PyObject,
+    args: *mut *mut PyObject,
+    nargs: isize
+) -> *mut PyObject {
+    utils::wrap_body!({
+        if nargs == 2 {
+            let coll = PyObj::borrow(unsafe { *args });
+            let item = PyObj::borrow(unsafe { *args.add(1) });
+            if coll.is_none() {
+                Ok(PyObj::from(false))
+            } else if coll.type_is(hash_map::hash_map_type()) {
+                Ok(PyObj::from(hash_map::contains(&coll, item)?))
+            } else if coll.type_is(cow_set::class()) {
+                Ok(PyObj::from(cow_set::contains(&coll, item)?))
+            } else {
+                coll.call_method1(
+                    &utils::static_pystring!("__contains__"), item)
+            }
+        } else {
+            utils::raise_exception("'contains?' expects exactly 2 arguments")
+        }
+    })
 }
 
 extern "C" fn py_conj(
