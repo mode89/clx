@@ -1,6 +1,6 @@
 import ast
 from bisect import bisect_left
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 import functools
 import inspect
 import itertools
@@ -501,6 +501,7 @@ def init_context(namespaces):
             "meta": meta,
             "new": new,
             "apply": apply,
+            "apply-kw*": apply_kw,
             "keyword": keyword,
             "keyword?": is_keyword,
             "simple-keyword?": is_simple_keyword,
@@ -1510,6 +1511,15 @@ def apply(func, *args):
     assert isinstance(last_arg, Iterable), \
         "last argument of apply must be iterable"
     return func(*args[:-1], *last_arg)
+
+def apply_kw(func, *args):
+    assert callable(func), \
+        "'apply-kw' expects a function as the first argument"
+    assert len(args) > 0, "'apply-kw' expects at least 2 arguments"
+    last_arg = args[-1]
+    assert isinstance(last_arg, Mapping), \
+        "last argument of 'apply-kw' must be a mapping"
+    return func(*args[:-1], **last_arg)
 
 def meta(obj):
     return getattr(obj, "__meta__", None)

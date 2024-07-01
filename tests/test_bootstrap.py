@@ -920,6 +920,22 @@ def test_apply():
     with pytest.raises(Exception, match=r"must be iterable"):
         clx.apply(lambda x: x, 42)
 
+def test_apply_kw():
+    assert clx.apply_kw(lambda: 42, {}) == 42
+    assert clx.apply_kw(lambda: 42, M()) == 42
+    assert clx.apply_kw(lambda x: x, M("x", 42)) == 42
+    assert clx.apply_kw(lambda x, y: x + y, M("x", 1, "y", 2)) == 3
+    assert clx.apply_kw(
+        lambda x, y, z: x + y + z, {"x": 1, "y": 2, "z": 3}) == 6
+    assert clx.apply_kw(
+        lambda x, y, z: x + y + z, M("x", 1, "y", 2, "z", 3)) == 6
+    with pytest.raises(Exception, match=r"expects a function"):
+        clx.apply_kw(42, {})
+    with pytest.raises(Exception, match=r"expects at least 2 arguments"):
+        clx.apply_kw(lambda x: x)
+    with pytest.raises(Exception, match=r"must be a mapping"):
+        clx.apply_kw(lambda x: x, 42)
+
 def test_get():
     _m = M("a", 1, "b", 2)
     assert get(_m, "a") == 1

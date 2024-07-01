@@ -14,8 +14,8 @@
 (defmacro raises [ex-type arg0 & args]
   (if (re-pattern? arg0)
     `(let [pattern# ~arg0]
-       (python/with [_ (python* clx.test/raises*
-                         "(" ~ex-type ", match=" pattern# ")")]
+       (python/with [_ (apply-kw* clx.test/raises*
+                         ~ex-type {"match" pattern#})]
          ~@args))
     `(python/with [_ (clx.test/raises* ~ex-type)]
        ~arg0
