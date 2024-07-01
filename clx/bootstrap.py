@@ -22,6 +22,8 @@ from lepet_ext import \
     first, next_, rest, get, nth, conj, take, drop, count, \
     map_, filter_, reduce
 from lepet_ext import is_hash_map as is_map
+from lepet_ext import cow_set as hash_set
+from lepet_ext import is_cow_set as is_set
 from lepet_ext import define_record as define_record0
 
 Iterable.register(PersistentVector)
@@ -515,6 +517,8 @@ def init_context(namespaces):
             "vec": vec,
             "hash-map": hash_map,
             "map?": is_map,
+            "hash-set": hash_set,
+            "set?": is_set,
             "lazy-seq*": lazy_seq,
             "seq?": is_seq,
             "re-pattern": lambda pattern: re.compile(pattern, 0),

@@ -15,6 +15,7 @@ S = clx.symbol
 L = clx.list_
 V = clx.vector
 M = clx.hash_map
+ST = clx.hash_set
 
 TEST_DIR = Path(__file__).parent
 
@@ -1271,6 +1272,8 @@ def test_count():
     assert clx.count(V(1, 2, 3, 4, 5)) == 5
     assert clx.count(M()) == 0
     assert clx.count(M(1, 2, 3, 4)) == 2
+    assert clx.count(ST()) == 0
+    assert clx.count(ST(1, 2, 3, 4, 5, 6)) == 6
     assert clx.count([1, 2, 3 ,4]) == 4
     assert clx.count((1, 2, 3, 4, 5, 6)) == 6
     assert clx.count(_lazy_range(0, 2000)) == 2000

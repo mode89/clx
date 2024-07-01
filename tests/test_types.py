@@ -6,6 +6,7 @@ from lepet_ext import \
     PersistentList, list_, \
     PersistentVector, vector, \
     PersistentHashMap, hash_map, hash_map_from, \
+    CowSet, cow_set, cow_set_from, is_cow_set, \
     cons, lazy_seq, seq, \
     Atom, atom, \
     define_record
@@ -16,6 +17,7 @@ S = symbol
 L = list_
 V = vector
 M = hash_map
+CS = cow_set
 
 class NoHash:
     def __hash__(self):
@@ -242,6 +244,44 @@ def test_hash_map():
     assert len(M("a", 1)) == 1
     with pytest.raises(TypeError):
         hash(M(NoHash(), 42))
+    assert M().seq() is None
+    assert sorted(M(1, 2, 3, 4).seq()) == [(1, 2), (3, 4)]
+
+def test_cow_set():
+    assert type(CS()) is CowSet
+    assert CS() is CS()
+    assert CS().count_() == 0
+    assert CS().seq() is None
+    assert CS().conj(1) == CS(1)
+    assert CS().disj(1) is CS()
+    assert CS().contains(1) is False
+    assert CS(1, 2).contains(1) is True
+    assert CS(1, 2).contains(2) is True
+    assert CS(1, 2).contains(3) is False
+    assert CS(1, 2).contains(None) is False
+    assert CS(1, 2).conj(3).contains(1) is True
+    assert CS(1, 2).conj(3).contains(2) is True
+    assert CS(1, 2).conj(3).contains(3) is True
+    assert CS(1, 2).conj(3).contains(None) is False
+    assert CS(1, 2).disj(1).contains(1) is False
+    assert CS(1, 2).disj(1).contains(2) is True
+    assert CS(1, 2).disj(1).contains(3) is False
+    assert CS(1, 2).disj(1).contains(None) is False
+    assert CS(1, 2, 3) is not CS()
+    assert CS(1, 2, 3) == CS(3, 1, 2)
+    assert CS(1, 2, 3) != CS(1, 2)
+    assert CS(1, 2, 3).count_() == 3
+    assert sorted(CS(1, 2, 3).seq()) == [1, 2, 3]
+    assert CS(1, 2, 3).conj(4) == CS(1, 2, 3, 4)
+    assert CS(1, 2, 3).disj(2) == CS(1, 3)
+    assert CS(1, 2, 3).disj(4) == CS(1, 2, 3)
+    assert CS(1, 2, 3).disj(1, 2) == CS(3)
+    assert CS(1, 2, 3).disj(3, 1, 2) is CS()
+    assert is_cow_set(CS())
+    assert is_cow_set(CS(1, 2, 3))
+    assert not is_cow_set(L())
+    assert cow_set_from([]) is CS()
+    assert cow_set_from([1, 2, 3]) == CS(1, 2, 3)
 
 def test_cons():
     assert cons(1, None).first() == 1

@@ -4,6 +4,7 @@ use crate::indexed_seq;
 use crate::list;
 use crate::vector;
 use crate::hash_map;
+use crate::cow_set;
 use crate::record;
 use crate::object::PyObj;
 use crate::utils;
@@ -184,6 +185,8 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
         Ok(vector::seq(coll))
     } else if coll.type_is(indexed_seq::class()) {
         Ok(coll.clone())
+    } else if coll.type_is(cow_set::class()) {
+        cow_set::seq(coll.clone())
     } else if coll.is_tuple() || coll.is_string() {
         let len = coll.len()?;
         Ok(if len > 0 {
@@ -194,7 +197,7 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
     } else if coll.is_instance(iseqable_type()) {
         Ok(coll.call_method0(&utils::static_pystring!("seq"))?)
     } else if coll.is_instance(iterable_type()) {
-        seq(&iterator_seq(&coll.get_iter()?)?)
+        seq(&iterator_seq(&coll.get_iter()?))
     } else {
         let msg = format!("Don't know how to create ISeq from '{}'",
             coll.class().qual_name_string()?);
@@ -202,7 +205,7 @@ pub fn seq(coll: &PyObj) -> Result<PyObj, ()> {
     }
 }
 
-pub fn iterator_seq(it: &PyObj) -> Result<PyObj, ()> {
+pub fn iterator_seq(it: &PyObj) -> PyObj {
     fn _seq(it: PyObj) -> Result<PyObj, ()> {
         Ok(match it.next() {
             Some(value) =>
@@ -212,7 +215,7 @@ pub fn iterator_seq(it: &PyObj) -> Result<PyObj, ()> {
         })
     }
     let it = it.clone();
-    Ok(lazy_seq::lazy_seq(Box::new(move || _seq(it.clone()))))
+    lazy_seq::lazy_seq(Box::new(move || _seq(it.clone())))
 }
 
 pub fn sequential_eq(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
@@ -484,7 +487,7 @@ extern "C" fn py_count(
                     hash_map::count(&coll)
                 } else if coll.is_instance(icounted_type()) {
                     coll.call_method0(
-                        &utils::static_pystring!("count"))?.as_int()? as i64
+                        &utils::static_pystring!("count_"))?.as_int()? as i64
                 } else if coll.is_instance(iseqable_type()) {
                     let mut count = 0;
                     let mut coll = seq(&coll)?;

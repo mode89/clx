@@ -96,6 +96,7 @@ impl PyObj {
         result_from_owned_ptr(unsafe { PyTuple_New(len) })
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn tuple2(obj1: PyObj, obj2: PyObj) -> PyObj {
         PyObj::from_owned_ptr(unsafe {

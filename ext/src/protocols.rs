@@ -153,3 +153,10 @@ pub fn sequence_type() -> &'static PyObj {
         module.get_attr(&utils::static_pystring!("Sequence")).unwrap()
     })
 }
+
+pub fn set_type() -> &'static PyObj {
+    utils::lazy_static!(PyObj, {
+        let module = PyObj::import("collections.abc").unwrap();
+        module.get_attr(&utils::static_pystring!("Set")).unwrap()
+    })
+}

@@ -7,6 +7,7 @@ mod keyword;
 mod list;
 mod vector;
 mod hash_map;
+mod cow_set;
 mod record;
 mod cons;
 mod lazy_seq;
@@ -39,6 +40,7 @@ pub extern "C" fn PyInit_lepet_ext() -> *mut PyObject {
     list::init_module(module);
     vector::init_module(module);
     hash_map::init_module(module);
+    cow_set::init_module(module);
     record::init_module(module);
     cons::init_module(module);
     lazy_seq::init_module(module);
