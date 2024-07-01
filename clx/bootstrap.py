@@ -545,6 +545,7 @@ def init_context(namespaces):
             "reduce": reduce,
             "pr-str": pr_str,
             "gensym": gensym,
+            "with-bindings*": _with_bindings,
         },
         **namespaces,
     }
@@ -618,31 +619,31 @@ def _eval_form(ctx, lctx, form):
     return eval(compile(result, file_name, "eval"), ctx.py_globals) # pylint: disable=eval-used
 
 def load_file(ctx, path):
-    return _with_bindings1(ctx,
-        lambda: _eval_string(ctx, slurp(path)),
-        "*file*", path,
-        "*ns*", _current_ns(ctx).deref())
+    return _with_bindings1(ctx, {
+        "*file*": path,
+        "*ns*": _current_ns(ctx).deref(),
+    }, lambda: _eval_string(ctx, slurp(path)))
 
-def _with_bindings1(ctx, body, *bindings):
-    _bindings = []
-    for name, value in zip(bindings[::2], bindings[1::2]):
+def _with_bindings1(ctx, bindings, body):
+    _bindings = {}
+    for name, value in bindings.items():
         binding = _resolve_symbol(ctx, None, symbol(name), None)
         assert binding is not None, f"Can't resolve symbol '{name}'"
         assert get(binding.meta, _K_DYNAMIC, False), \
             f"Can't re-bind non-dynamic symbol '{name}'"
         obj = _binding_object(ctx, binding)
-        _bindings.append(obj)
-        _bindings.append(value)
-    return _with_bindings(body, *_bindings)
+        _bindings[obj] = value
+    return _with_bindings(_bindings, body)
 
-def _with_bindings(body, *bindings):
-    for obj, value in zip(bindings[::2], bindings[1::2]):
+def _with_bindings(bindings, body):
+    for obj in bindings:
         assert type(obj) is Var, "expected a dynamic var"
+    for obj, value in bindings.items():
         obj.push(value)
     try:
         return body()
     finally:
-        for obj, _ in zip(bindings[::2], bindings[1::2]):
+        for obj in bindings:
             obj.pop()
 
 def macroexpand(ctx, form):

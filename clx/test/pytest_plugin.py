@@ -38,10 +38,10 @@ class TestItem(pytest.Item):
         self.func = func
 
     def runtest(self):
-        boot._with_bindings1(self.ctx,
-            self.func,
-            "*file*", self.path,
-            "*ns*", self.ns)
+        boot._with_bindings1(self.ctx, {
+            "*file*": self.path,
+            "*ns*": self.ns,
+        }, self.func)
 
     def repr_failure(self, excinfo):
         return excinfo.getrepr(style="short")
