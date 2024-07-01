@@ -311,3 +311,14 @@
                  (list form res))
                (next forms)))
       res)))
+
+(defmacro doto [x & forms]
+  (let [gx (gensym)]
+    `(let [~gx ~x]
+       ~@(map #(with-meta
+                 (if (list? %)
+                   `(~(first %) ~gx ~@(next %))
+                   `(~% ~gx))
+                 (meta %))
+              forms)
+       ~gx)))

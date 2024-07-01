@@ -391,3 +391,10 @@
   (is (= 6 (->> 5 (inc))))
   (is (= 1 (->> 3 (- 4))))
   (is (= "348" (->> 8 (- 15) inc (str 3 4)))))
+
+(deftest doto
+  (is (= [1 3] (doto (python/list)
+                 (. append 1)
+                 (. append 2)
+                 (. pop)
+                 (. append 3)))))
