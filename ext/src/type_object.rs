@@ -86,7 +86,7 @@ pub fn new_type(spec: TypeSpec) -> PyObj {
         }).lock().unwrap();
 
     // Add extra space for list of weak references
-    let size = spec.size + std::mem::size_of::<PyObject>();
+    let size = spec.size + 16; // NOTE: for some reason 8 bytes aren't enough
     let weaklistoffset = spec.size;
     let flags = spec.flags;
     let bases: Vec<PyObj> = spec.bases.iter()
