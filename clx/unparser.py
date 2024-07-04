@@ -1,6 +1,7 @@
 from ast import *
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from enum import IntEnum, auto
+import sys
 
 class NodeVisitor(object):
     """
@@ -58,6 +59,8 @@ class NodeVisitor(object):
                               DeprecationWarning, 2)
                 return visitor(node)
         return self.generic_visit(node)
+
+_INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
 class _Precedence(IntEnum):
     """Precedence table that originated from python grammar."""
@@ -209,7 +212,7 @@ class _Unparser(NodeVisitor):
             return node
 
     def get_type_comment(self, node):
-        comment = self._type_ignores.get(node.lineno) or node.type_comment
+        comment = self._type_ignores.get(node.lineno)
         if comment is not None:
             return f" # type: {comment}"
 
@@ -435,9 +438,6 @@ class _Unparser(NodeVisitor):
         self.fill(def_str)
         with self.delimit("(", ")"):
             self.traverse(node.args)
-        if node.returns:
-            self.write(" -> ")
-            self.traverse(node.returns)
         with self.block(extra=self.get_type_comment(node)):
             self._write_docstring_and_traverse_body(node)
 
@@ -642,8 +642,6 @@ class _Unparser(NodeVisitor):
         elif value is ...:
             self.write("...")
         else:
-            if node.kind == "u":
-                self.write("u")
             self._write_constant(node.value)
 
     def visit_List(self, node):
@@ -911,9 +909,6 @@ class _Unparser(NodeVisitor):
 
     def visit_arg(self, node):
         self.write(node.arg)
-        if node.annotation:
-            self.write(": ")
-            self.traverse(node.annotation)
 
     def visit_arguments(self, node):
         first = True
@@ -942,9 +937,6 @@ class _Unparser(NodeVisitor):
             self.write("*")
             if node.vararg:
                 self.write(node.vararg.arg)
-                if node.vararg.annotation:
-                    self.write(": ")
-                    self.traverse(node.vararg.annotation)
 
         # keyword-only arguments
         if node.kwonlyargs:
@@ -956,7 +948,7 @@ class _Unparser(NodeVisitor):
                     self.traverse(d)
 
         # kwargs
-        if node.kwarg:
+        if hasattr(node, "kwarg") and node.kwarg:
             if first:
                 first = False
             else:
