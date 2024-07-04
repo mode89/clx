@@ -106,8 +106,6 @@ pub fn new_type(spec: TypeSpec) -> PyObj {
 
     let otype = type_from_spec(&spec, bases);
     let _type = unsafe { otype.as_ref::<PyTypeObject>() };
-    _type.tp_as_sequence = &tbuf.sequence_methods as *const _ as *mut _;
-    _type.tp_as_mapping = &tbuf.mapping_methods as *const _ as *mut _;
     _type.tp_weaklistoffset = weaklistoffset as isize;
     otype
 }
@@ -117,8 +115,6 @@ pub fn new_type(spec: TypeSpec) -> PyObj {
 pub struct _TypeBuffer {
     name: *const i8,
     slots: Vec<PyType_Slot>,
-    sequence_methods: PySequenceMethods,
-    mapping_methods: PyMappingMethods,
     _members: Vec<PyMemberDef>,
     _methods: Vec<PyMethodDef>,
     _strings: LinkedList<CString>,
@@ -197,6 +193,41 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
         });
     }
 
+    if let Some(method) = spec.sequence_length {
+        slots.push(PyType_Slot {
+            slot: Py_sq_length,
+            pfunc: method as *mut _,
+        });
+    }
+
+    if let Some(method) = spec.sequence_item {
+        slots.push(PyType_Slot {
+            slot: Py_sq_item,
+            pfunc: method as *mut _,
+        });
+    }
+
+    if let Some(method) = spec.sequence_contains {
+        slots.push(PyType_Slot {
+            slot: Py_sq_contains,
+            pfunc: method as *mut _,
+        });
+    }
+
+    if let Some(method) = spec.mapping_length {
+        slots.push(PyType_Slot {
+            slot: Py_mp_length,
+            pfunc: method as *mut _,
+        });
+    }
+
+    if let Some(method) = spec.mapping_subscript {
+        slots.push(PyType_Slot {
+            slot: Py_mp_subscript,
+            pfunc: method as *mut _,
+        });
+    }
+
     let mut members = spec.members.iter()
         .enumerate()
         .map(|(i, m)| PyMemberDef {
@@ -239,30 +270,9 @@ pub fn _make_type_buffer(spec: TypeSpec) -> _TypeBuffer {
 
     slots.push(PY_TYPE_SLOT_DUMMY);
 
-    let sequence_methods = PySequenceMethods {
-        sq_length: spec.sequence_length,
-        sq_concat: None,
-        sq_repeat: None,
-        sq_item: spec.sequence_item,
-        sq_ass_item: None,
-        sq_contains: spec.sequence_contains,
-        sq_inplace_concat: None,
-        sq_inplace_repeat: None,
-        was_sq_ass_slice: std::ptr::null_mut(),
-        was_sq_slice: std::ptr::null_mut(),
-    };
-
-    let mapping_methods = PyMappingMethods {
-        mp_length: spec.mapping_length,
-        mp_subscript: spec.mapping_subscript,
-        mp_ass_subscript: None,
-    };
-
     _TypeBuffer {
         name: alloc_string(&spec.name),
         slots,
-        sequence_methods,
-        mapping_methods,
         _members: members,
         _methods: methods,
         _strings: strings,
