@@ -183,7 +183,10 @@
        (when ~bname ~@body))))
 
 (defn name [x]
-  (python* x ".name"))
+  (.-name x))
+
+(defn namespace [x]
+  (.-namespace x))
 
 (defmacro set! [obj field value]
   `(let [obj# ~obj

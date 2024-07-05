@@ -398,3 +398,15 @@
                  (. append 2)
                  (. pop)
                  (. append 3)))))
+
+(deftest name
+  (is (= "foo" (name 'foo)))
+  (is (= "bar" (name 'foo/bar)))
+  (is (= "foo" (name :foo)))
+  (is (= "bar" (name :foo/bar))))
+
+(deftest namespace
+  (is (= nil (namespace 'foo)))
+  (is (= "foo" (namespace 'foo/bar)))
+  (is (= nil (namespace :foo)))
+  (is (= "foo" (namespace :foo/bar))))
