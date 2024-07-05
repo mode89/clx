@@ -196,6 +196,17 @@
            ~then)
          ~else))))
 
+(defmacro when-some [bindings & body]
+  (assert (vector? bindings) "bindings must be a vector")
+  (assert (= 2 (count bindings)) "bindings must have exactly two elements")
+  (let [bname (bindings 0)
+        bvalue (bindings 1)]
+    `(let [temp# ~bvalue]
+       (if (nil? temp#)
+         nil
+         (let [~bname temp#]
+           ~@body)))))
+
 (defmacro if-some [bindings then else]
   (assert (vector? bindings) "bindings must be a vector")
   (assert (= 2 (count bindings)) "bindings must have exactly two elements")
