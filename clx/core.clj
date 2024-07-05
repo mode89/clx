@@ -182,6 +182,18 @@
     `(let [~bname ~bvalue]
        (when ~bname ~@body))))
 
+(defmacro if-let [bindings then else]
+  (assert (vector? bindings) "bindings must be a vector")
+  (assert (= 2 (count bindings)) "bindings must have exactly two elements")
+  (let [bname (bindings 0)
+        bvalue (bindings 1)]
+    (python* "print(" bname ", " bvalue ")")
+    `(let [temp# ~bvalue]
+       (if temp#
+         (let [~bname temp#]
+           ~then)
+         ~else))))
+
 (defn name [x]
   (.-name x))
 

@@ -104,6 +104,10 @@
   (is (= 42 (when-let [x 42] x)))
   (is (= nil (when-let [x nil] (throw (Exception))))))
 
+(deftest if-let
+  (is (= 42 (if-let [x 42] x (throw (Exception.)))))
+  (is (= 43 (if-let [x nil] (throw (Exception. x)) 43))))
+
 (deftest assert
   (is (= 42 (do (assert true) 42)))
   (raises Exception
