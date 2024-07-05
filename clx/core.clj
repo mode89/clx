@@ -179,8 +179,10 @@
     "bindings must have exactly two elements")
   (let [bname (bindings 0)
         bvalue (bindings 1)]
-    `(let [~bname ~bvalue]
-       (when ~bname ~@body))))
+    `(let [temp# ~bvalue]
+       (when temp#
+         (let [~bname temp#]
+           ~@body)))))
 
 (defmacro if-let [bindings then else]
   (assert (vector? bindings) "bindings must be a vector")
