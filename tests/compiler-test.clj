@@ -39,3 +39,13 @@
   (raises Exception #"Expected '}'"
     (comp/read-string "{1 2 3 4"))
   (is (= (comp/read-string "'hello") '(quote hello))))
+
+(deftest munge
+  (is (= (comp/munge "foo") "foo"))
+  (is (= (comp/munge "foo.bar/baz") "foo_DOT_bar_SLASH_baz"))
+  (is (= (comp/munge "foo-bar.*baz*/+qux_fred!")
+         "foo_DASH_bar_DOT__STAR_baz_STAR__SLASH__PLUS_qux_fred_BANG_"))
+  (is (= (comp/munge "if") "if_"))
+  (is (= (comp/munge "def") "def_"))
+  (raises Exception #"reserved"
+    (comp/munge "def_")))

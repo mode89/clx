@@ -74,3 +74,75 @@
         [(apply ctor elements) (rest ts)]
         (let [[item ts*] (read-form ts)]
           (recur (conj elements item) ts*))))))
+
+(def MUNGE-TABLE
+  {"-" "_DASH_"
+   "." "_DOT_"
+   ":" "_COLON_"
+   "+" "_PLUS_"
+   "*" "_STAR_"
+   "&" "_AMPER_"
+   ">" "_GT_"
+   "<" "_LT_"
+   "=" "_EQ_"
+   "%" "_PERCENT_"
+   "#" "_SHARP_"
+   "!" "_BANG_"
+   "?" "_QMARK_"
+   "'" "_SQUOTE_"
+   "|" "_BAR_"
+   "/" "_SLASH_"
+   "$" "_DOLLAR_"})
+
+(def SPECIAL-NAMES
+  (hash-set
+    "and"
+    "as"
+    "assert"
+    "async"
+    "await"
+    "break"
+    "class"
+    "continue"
+    "def"
+    "del"
+    "elif"
+    "else"
+    "except"
+    "False"
+    "finally"
+    "for"
+    "from"
+    "global"
+    "if"
+    "import"
+    "in"
+    "is"
+    "lambda"
+    "None"
+    "or"
+    "return"
+    "True"
+    "try"
+    "while"
+    "with"
+    "yield"))
+
+(defn munge [obj]
+  (let [name (cond
+               (or (symbol? obj)
+                   (keyword? obj)) (if-some [ns (namespace obj)]
+                                     (str ns "/" (name obj))
+                                     (name obj))
+               (string? obj) obj
+               :else (throw (Exception.
+                              (str "'munge' expects a symbol, "
+                                   "keyword or a string"))))]
+    (assert (not (and (= "_" (last name))
+                      (contains? SPECIAL-NAMES (python* name "[:-1]"))))
+      (str "name '" name "' is reserved"))
+    (.join ""
+      (map #(get MUNGE-TABLE % %)
+           (if (contains? SPECIAL-NAMES name)
+             (str name "_")
+             name)))))
