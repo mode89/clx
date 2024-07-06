@@ -93,6 +93,7 @@ def test_symbol():
     assert S("".join(["a" for _ in range(100)])) == \
         S("".join(["a" for _ in range(100)]))
     assert S(None, "foo") == S("foo")
+    assert S(None, f"x{10085}") == S(None, f"x{10085}")
 
 def test_list():
     assert isinstance(L(), PersistentList)

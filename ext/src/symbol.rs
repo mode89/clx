@@ -109,7 +109,7 @@ extern "C" fn py_symbol(
 
             Ok(_symbol(
                 ns.intern_string_in_place(),
-                name,
+                name.intern_string_in_place(),
                 PyObj::none(),
                 None))
         } else {
@@ -182,15 +182,9 @@ extern "C" fn py_symbol_compare(
         let other = PyObj::borrow(other);
         if other.type_is(symbol_type()) {
             let self_ = PyObj::borrow(self_);
-            let self_ = unsafe { self_.as_ref::<Symbol>() };
-            let other = unsafe { other.as_ref::<Symbol>() };
             match op {
-                pyo3_ffi::Py_EQ => Ok(PyObj::from(
-                    self_.namespace.is(&other.namespace) &&
-                    self_.name.is(&other.name))),
-                pyo3_ffi::Py_NE => Ok(PyObj::from(
-                    !self_.namespace.is(&other.namespace) ||
-                    !self_.name.is(&other.name))),
+                pyo3_ffi::Py_EQ => Ok(PyObj::from(equal(self_, other))),
+                pyo3_ffi::Py_NE => Ok(PyObj::from(!equal(self_, other))),
                 _ => utils::raise_exception(
                     "symbol comparison not supported")
             }
@@ -198,6 +192,13 @@ extern "C" fn py_symbol_compare(
             Ok(PyObj::from(false))
         }
     })
+}
+
+#[inline]
+fn equal(a: PyObj, b: PyObj) -> bool {
+    let a = unsafe { a.as_ref::<Symbol>() };
+    let b = unsafe { b.as_ref::<Symbol>() };
+    a.namespace.is(&b.namespace) && a.name.is(&b.name)
 }
 
 extern "C" fn py_symbol_with_meta(
