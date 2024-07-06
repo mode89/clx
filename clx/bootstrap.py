@@ -116,6 +116,13 @@ def is_vector(obj):
 def define_record(name, *fields):
     return define_record0(name, *[(f, munge(f)) for f in fields])
 
+class LispConstant(ast.AST):
+    def __init__(self, value):
+        self._fields = ["value"]
+        self.value = value
+        self.lineno = None
+        self.col_offset = None
+
 #************************************************************
 # Constants
 #************************************************************
@@ -698,6 +705,10 @@ def _compile(ctx, lctx, form):
                 deref = _node(ast.Attribute, lctx, var, "deref", ast.Load())
                 return _node(ast.Call, lctx, deref, [], []), []
             return _binding_node(lctx, ast.Load(), binding), []
+        elif type(form) is Keyword:
+            return _node(LispConstant, lctx, form), []
+        elif type(form) is re.Pattern:
+            return _node(LispConstant, lctx, form), []
         else:
             return \
                 ast.Constant(
@@ -1074,7 +1085,18 @@ def _compile_recur(ctx, lctx, form):
 
 def _compile_quote(_ctx, lctx, form):
     assert len(form) == 2, "quote expects exactly 1 argument"
-    return _node(ast.Constant, lctx, second(form)), []
+    obj = second(form)
+    custom_constant = isinstance(obj, (
+        Symbol,
+        Keyword,
+        PersistentList,
+        PersistentVector,
+        PersistentMap,
+        re.Pattern,
+    ))
+    if custom_constant:
+        return _node(LispConstant, lctx, obj), []
+    return _node(ast.Constant, lctx, obj), []
 
 def _compile_var(ctx, lctx, form):
     assert len(form) == 2, "`var` expects exactly one argument"
@@ -1430,20 +1452,10 @@ def _fix_constants(ctx, body, result):
     lctx = _local_context()
 
     class Transformer(ast.NodeTransformer):
-        def visit_Constant(self, node):
-            if isinstance(node.value, (
-                    Keyword,
-                    Symbol,
-                    PersistentList,
-                    PersistentVector,
-                    PersistentMap,
-                    re.Pattern)):
-                name = _gen_name("___const_")
-                consts[name] = _compile_constant(ctx, lctx, node.value)
-                return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
-            else:
-                self.generic_visit(node)
-                return node
+        def visit_LispConstant(self, node):
+            name = _gen_name("___const_")
+            consts[name] = _compile_constant(ctx, lctx, node.value)
+            return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
 
     Transformer().visit(body)
     Transformer().visit(result)

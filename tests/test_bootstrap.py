@@ -263,6 +263,7 @@ def test_quote():
         L(L(V(1, K("two")), M("three", S("four"))),
           V(L(5, K("six")), M(S("seven"), "eight")),
           M(K("nine"), L(S("ten"), 11), 12, V(K("thirteen"), "fourteen")))
+    assert _eval("'#\"a.*b+\"") == re.compile("a.*b+")
 
 def test_var():
     assert clx.is_var(_eval("(var *ns*)"))
