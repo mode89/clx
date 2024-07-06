@@ -476,7 +476,8 @@ def escape(text):
 
 Context = define_record("clx.bootstrap.Context",
     keyword("namespaces"),
-    keyword("py_globals")
+    keyword("py_globals"),
+    keyword("constants"),
 )
 
 # Local context defines state that is local to a single form
@@ -560,7 +561,7 @@ def init_context(namespaces):
         **namespaces,
     }
 
-    ctx = Context(atom(hash_map()), {})
+    ctx = Context(atom(hash_map()), {}, atom(hash_map()))
 
     for ns_name, ns_bindings in namespaces.items():
         for name, value in ns_bindings.items():
@@ -1444,26 +1445,21 @@ def _transform_ast(ctx, body, result):
     _fix_constants(ctx, body, result)
 
 def _fix_constants(ctx, body, result):
-    consts = {}
-
-    lctx = _local_context()
-
     class Transformer(ast.NodeTransformer):
         def visit_LispConstant(self, node):
-            name = _gen_name("___const_")
-            consts[name] = _compile_constant(ctx, lctx, node.value)
+            def define_constant(constants):
+                if constants.lookup(node.value, None) is None:
+                    name = _gen_name("___const_")
+                    ctx.py_globals[name] = node.value
+                    return assoc(constants, node.value, name)
+                else:
+                    return constants
+            constants = ctx.constants.swap(define_constant)
+            name = constants.lookup(node.value, None)
             return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
 
     Transformer().visit(body)
     Transformer().visit(result)
-
-    body.body[:0] = [
-        ast.Assign(
-            [ast.Name(name, ast.Store(), lineno=0, col_offset=0)],
-            value,
-            lineno=0, col_offset=0)
-        for name, value in consts.items()
-    ]
 
 def _compile_constant(ctx, lctx, value):
     if isinstance(value, (Keyword, Symbol)):

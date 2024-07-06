@@ -891,6 +891,7 @@ def test_resolve_symbol():
         {
             munge("clx.core/*ns*"): clx.Var("user"),
         },
+        clx.atom(M()),
     )
     lctx = clx.LocalContext(M("a", 5, "bar", 6), None, False, True, 1, 1)
     resolve = lambda x: clx._resolve_symbol(ctx, lctx, x)
