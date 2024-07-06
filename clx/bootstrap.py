@@ -505,6 +505,7 @@ def init_context(namespaces):
         },
         "clx.core": {
             "IAssociative": IAssociative,
+            "Var": Var,
             "+": lambda *args: sum(args),
             "with-meta": with_meta,
             "meta": meta,

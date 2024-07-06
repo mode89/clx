@@ -49,3 +49,6 @@
   (is (= (comp/munge "def") "def_"))
   (raises Exception #"reserved"
     (comp/munge "def_")))
+
+; (deftest def
+;   (eval))
