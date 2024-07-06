@@ -4,6 +4,8 @@ use crate::utils;
 use crate::protocols::*;
 use crate::common;
 use pyo3_ffi::*;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, cow_set, py_new);
@@ -38,6 +40,7 @@ pub fn class() -> &'static PyObj {
         dealloc: Some(tpo::generic_dealloc::<CowSet>),
         new: Some(utils::disallowed_new!(class)),
         compare: Some(py_compare),
+        hash: Some(py_hash),
         call: Some(py_call),
         iter: Some(py_iter),
         members: vec![ tpo::member!("__meta__") ],
@@ -88,7 +91,9 @@ fn new(
 
 fn empty() -> PyObj {
     utils::lazy_static!(PyObj, {
-        new(SetImpl::new(), PyObj::none(), None)
+        let mut hasher = DefaultHasher::new();
+        "empty_cow_set".hash(&mut hasher);
+        new(SetImpl::new(), PyObj::none(), Some(hasher.finish() as isize))
     }).clone()
 }
 
@@ -227,6 +232,36 @@ fn equal(self_: &PyObj, other: &PyObj) -> bool {
             self_.impl_ == other.impl_
         } else {
             false
+        }
+    }
+}
+extern "C" fn py_hash(
+    self_: *mut PyObject,
+) -> isize {
+    utils::handle_gil!({
+        let self_ = PyObj::borrow(self_);
+        match hash(&self_) {
+            Ok(hash) => hash,
+            Err(()) => -1
+        }
+    })
+}
+
+fn hash(self_: &PyObj) -> Result<isize, ()> {
+    let set = unsafe { self_.as_ref::<CowSet>() };
+    match set.hash {
+        Some(hash) => Ok(hash),
+        None => {
+            let mut hasher = DefaultHasher::new();
+            let mut items = set.impl_.iter().collect::<Vec<_>>();
+            // TODO won't work if collisions are present
+            items.sort_by_key(|x| x.hash);
+            for item in items {
+                item.hash.hash(&mut hasher);
+            }
+            let hash = hasher.finish() as isize;
+            set.hash = Some(hash);
+            Ok(hash)
         }
     }
 }

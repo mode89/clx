@@ -291,6 +291,10 @@ def test_cow_set():
     assert not is_cow_set(L())
     assert cow_set_from([]) is CS()
     assert cow_set_from([1, 2, 3]) == CS(1, 2, 3)
+    assert hash(CS()) == hash(CS())
+    assert hash(CS(1, 2)) == hash(CS(1, 2))
+    assert hash(CS(1).conj(2).conj(3)) == hash(CS(3).conj(2).conj(1))
+    assert hash(CS(*range(1000))) == hash(CS(*range(1000)))
 
 def test_cons():
     assert cons(1, None).first() == 1
