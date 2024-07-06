@@ -212,6 +212,12 @@ def test_vector():
     assert [*V(1, 2, 3)] == [1, 2, 3]
     assert V(1, 2).conj(3) == V(1, 2, 3)
     assert isinstance(V(1, 2).conj(3), PersistentVector)
+    assert hash(V()) == hash(V())
+    assert hash(V(1)) == hash(V(1))
+    assert hash(V(1, 2)) == hash(V(1, 2))
+    assert hash(V(1, 2)) != hash(V(2, 1))
+    assert hash(V(1, 2, 3)) == hash(V(1, 2, 3))
+    assert hash(V(1, 2, 3)) != hash(V(1, 2))
 
 def test_hash_map():
     m0 = M()

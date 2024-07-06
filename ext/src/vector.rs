@@ -39,7 +39,7 @@ pub fn vector_type() -> &'static PyObj {
             dealloc: Some(tpo::generic_dealloc::<Vector>),
             sequence_length: Some(py_vector_len),
             compare: Some(py_vector_compare),
-            // TODO hash: Some(py_vector_hash),
+            hash: Some(py_hash),
             sequence_item: Some(py_vector_item),
             call: Some(py_vector_call),
             members: vec![ tpo::member!("__meta__") ],
@@ -116,6 +116,34 @@ extern "C" fn py_vector_compare(
             _ => utils::raise_exception("vector comparison not supported")
         }
     })
+}
+
+extern "C" fn py_hash(
+    self_: *mut PyObject,
+) -> isize {
+    utils::handle_gil!({
+        let self_ = PyObj::borrow(self_);
+        match hash(&self_) {
+            Ok(hash) => hash,
+            Err(()) => -1
+        }
+    })
+}
+
+fn hash(self_: &PyObj) -> Result<isize, ()> {
+    let v = unsafe { self_.as_ref::<Vector>() };
+    match v.hash {
+        Some(hash) => Ok(hash),
+        None => {
+            let mut hasher = DefaultHasher::new();
+            for item in &v.impl_ {
+                item.py_hash()?.hash(&mut hasher);
+            }
+            let hash = hasher.finish() as isize;
+            v.hash = Some(hash);
+            Ok(hash)
+        }
+    }
 }
 
 fn equal(self_: &PyObj, other: &PyObj) -> Result<bool, ()> {
