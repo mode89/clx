@@ -1156,36 +1156,47 @@ def _compile_import(ctx, lctx, form):
             [_node(ast.alias, lctx, mod.name, alias_name)])]
 
 def _compile_python(ctx, lctx, form):
-    def _eval_entry(entry):
-        if isinstance(entry, Symbol):
-            return _binding_string(_resolve_symbol(ctx, lctx, entry))
-        elif isinstance(entry, str):
-            return entry
+    stmts = []
+    source = ""
+    for entry in form.rest():
+        if type(entry) is str:
+            source += entry
+        elif is_list(entry) and entry.first() == _S_DEREF:
+            entry = second(entry)
+            entry_expr, entry_stmts = _compile(ctx, lctx, entry)
+            stmts.extend(entry_stmts)
+            result = ast.Expression(entry_expr, type_ignores=[])
+            _fix_constants(ctx, ast.Module([], type_ignores=[]), result)
+            source += f"({unparse(result)})"
         else:
-            raise Exception("python* expects strings or symbols")
-    source = "".join(map(_eval_entry, form.rest()))
-    module = ast.parse(source)
+            raise Exception("'python*' arguments must be strings or derefs")
+
+    try:
+        module = ast.parse(source)
+    except SyntaxError as ex:
+        raise Exception("'python*' failed to parse python code") from ex
+
     if module.body and isinstance(module.body[-1], ast.Expr):
-        stmts = module.body[:-1]
+        parsed_stmts = module.body[:-1]
         result = module.body[-1].value
     else:
-        stmts = module.body
+        parsed_stmts = module.body
         result = _node(ast.Constant, lctx, None)
 
-    for stmt in stmts:
-        stmt.lineno = lctx.line
-        stmt.end_lineno = lctx.line
-        stmt.col_offset = lctx.column
-        stmt.end_col_offset = lctx.column
-        ast.fix_missing_locations(stmt)
+    def fix_locations(node):
+        if isinstance(node, ast.AST):
+            node.lineno = lctx.line
+            node.col_offset = lctx.column
+            for child in ast.iter_child_nodes(node):
+                fix_locations(child)
+        elif isinstance(node, Iterable):
+            for child in node:
+                fix_locations(child)
 
-    result.lineno = lctx.line
-    result.end_lineno = lctx.line
-    result.col_offset = lctx.column
-    result.end_col_offset = lctx.column
-    ast.fix_missing_locations(result)
+    fix_locations(parsed_stmts)
+    fix_locations(result)
 
-    return result, stmts
+    return result, stmts + parsed_stmts
 
 def _compile_python_with(ctx, lctx, form):
     assert len(form) >= 2, "python/with expects at least 1 argument"
@@ -1475,6 +1486,7 @@ def _fix_constants(ctx, body, result):
                     return constants
             constants = ctx.constants.swap(define_constant)
             name = constants.lookup(node.value, None)
+            print(name, ":", pr_str(node.value))
             return ast.Name(name, ast.Load(), lineno=0, col_offset=0)
 
     Transformer().visit(body)

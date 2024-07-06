@@ -141,7 +141,7 @@
                               (str "'munge' expects a symbol, "
                                    "keyword or a string"))))]
     (assert (not (and (= "_" (last name))
-                      (contains? SPECIAL-NAMES (python* name "[:-1]"))))
+                      (contains? SPECIAL-NAMES (python* @name "[:-1]"))))
       (str "name '" name "' is reserved"))
     (.join ""
       (map #(get MUNGE-TABLE % %)

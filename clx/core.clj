@@ -4,9 +4,9 @@
 (import* pathlib)
 (import* sys)
 
-(def throw
+(def ^{:macro? true} throw
   (fn* clx.core/throw [x]
-    (python* "raise " x)))
+    `(python* "raise " @~x)))
 
 (def Exception
   (python* "Exception"))
@@ -35,8 +35,7 @@
 
 (def ^{:macro? true} assert
   (fn* clx.core/assert [tst & msg]
-    `(when-not ~tst
-       (throw (Exception ~@msg)))))
+    `(python* "assert " @~tst ", " @(.join "" [~@msg]))))
 
 (def multi-arity-fn
   (fn* multi-arity-fn [fname decls]
@@ -50,12 +49,12 @@
                         (when fname
                           (vector
                             (symbol
-                              (let [fname* (python* "str(" fname ")")
-                                    arity* (python* "str(" arity ")")]
+                              (let [fname* (python* "str(" @fname ")")
+                                    arity* (python* "str(" @arity ")")]
                                 (python*
-                                  fname*
+                                  @fname*
                                   " + \"-arity-\" + "
-                                  arity*))))))
+                                  @arity*))))))
            decl-entry (fn* [decl]
                         (let [args (first decl)
                               _ (assert (vector? args)
@@ -75,14 +74,14 @@
                                     (cons (decl-entry (first decls*))
                                           entries))
                                   entries)))
-              arities-dict# (python* "dict(" arities# ")")
+              arities-dict# (python* "dict(" @arities# ")")
               variadic# (.get arities-dict# :variadic)]
          (fn* ~@(when fname [fname]) [& args]
            (python*
-             "f = " arities-dict# ".get(len(" args "), " variadic# ")\n"
+             "f = " @arities-dict# ".get(len(" @args "), " @variadic# ")\n"
              "if f is None:\n"
              "    raise Exception(\"Wrong number of arguments\")\n"
-             "f(*" args ")"))))))
+             "f(*" @args ")"))))))
 
 (def ^{:macro? true} fn
   (fn* clx.core/fn [& args]
@@ -108,47 +107,48 @@
   (fn* clx.core/defmacro [name & decl]
     `(defn ~(with-meta name {:macro? true}) ~@decl)))
 
-(defn nil? [x]
-  (python* x " is None"))
+(defmacro nil? [x]
+  `(python* "(" @~x " is None)"))
 
 (defn string? [x]
-  (python* "type(" x ") is str"))
+  (python* "type(" @x ") is str"))
 
 (defn some? [x]
-  (python* x " is not None"))
+  (python* @x " is not None"))
 
 (defn not [x]
   (if x false true))
 
-(defn identical? [x y]
-  (python* x " is " y))
+(defmacro identical? [x y]
+  `(python* @~x " is " @~y))
 
 (defn even? [x]
-  (python* "not " x " & 1"))
+  (python* "not " @x " & 1"))
 
 (defn odd? [x]
-  (python* x " & 1 == 1"))
+  (python* @x " & 1 == 1"))
 
 (defn inc [x]
-  (python* x " + 1"))
+  (python* @x " + 1"))
 
 (defn dec [x]
-  (python* x " - 1"))
+  (python* @x " - 1"))
 
 (defn zero? [x]
-  (python* x " == 0"))
+  (python* @x " == 0"))
 
 (defn pos? [x]
-  (python* x " > 0"))
+  (python* @x " > 0"))
 
 (defn neg? [x]
-  (python* x " < 0"))
+  (python* @x " < 0"))
 
 (def + operator/add)
 (def - operator/sub)
 (def * operator/mul)
 (def / operator/truediv)
-(def = operator/eq)
+(defmacro = [x y]
+  `(python* @~x " == " @~y))
 (def not= operator/ne)
 (def < operator/lt)
 (def > operator/gt)
@@ -189,7 +189,6 @@
   (assert (= 2 (count bindings)) "bindings must have exactly two elements")
   (let [bname (bindings 0)
         bvalue (bindings 1)]
-    (python* "print(" bname ", " bvalue ")")
     `(let [temp# ~bvalue]
        (if temp#
          (let [~bname temp#]
@@ -225,9 +224,7 @@
   (.-namespace x))
 
 (defmacro set! [obj field value]
-  `(let [obj# ~obj
-         value# ~value]
-     (python* obj# "." ~(name field) " = " value#)))
+  `(python* @~obj "." ~(name field) " = " @~value))
 
 (defmacro lazy-seq [& body]
   `(lazy-seq* (fn [] ~@body)))
@@ -266,7 +263,7 @@
   ([s start]
    (subs s start (count s)))
   ([s start end]
-   (python* s "[" start ":" end "]")))
+   (python* @s "[" @start ":" @end "]")))
 
 (defn load [& paths]
   (doseq [p paths]
@@ -283,11 +280,11 @@
 (load "clx/python")
 
 (defn instance? [t x]
-  (python* "isinstance(" x ", " t ")"))
+  (python* "isinstance(" @x ", " @t ")"))
 
 (defn re-find [re s]
   (when-let [match (.search re s)]
-    (let [full-match (python* match "[0]")
+    (let [full-match (python* @match "[0]")
           groups (seq (.groups match))]
       (if (some? groups)
         (cons full-match groups)

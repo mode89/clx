@@ -441,7 +441,7 @@ def test_fn():
         (def foo
           (fn* [x]
             (cond
-              (python* x " > 10") x
+              (python* @x " > 10") x
               :else (foo (+ x x)))))
         (foo 1)
         """) == 16
@@ -471,7 +471,7 @@ def test_letfn():
         """) == 92
     assert _eval(
         """
-        (letfn [(> [x y] (python* x " > " y))
+        (letfn [(> [x y] (python* @x " > " @y))
                 (foo [x]
                   (cond
                     (> x 10) x
@@ -488,7 +488,7 @@ def test_letfn():
                   (cond
                     (< x 4) (foo (+ x 1))
                     :else 43))
-                (< [x y] (python* x " < " y))]
+                (< [x y] (python* @x " < " @y))]
           [(foo 1) (bar 1)])
         """) == L(43, 42)
 
@@ -504,17 +504,17 @@ def test_try():
         """
         (let [Exception (python* "Exception")
               foo (Exception "foo")]
-          (try (python* "raise " foo)
+          (try (python* "raise " @foo)
             (catch Exception ex*
-              (python* "str(" ex* ")"))))
+              (python* "str(" @ex* ")"))))
         """) == "foo"
     assert _eval(
         """
         (def x nil)
         (try
-          (python* x " = 42")
+          (python* @x " = 42")
           (finally
-            (python* x " += 1")))
+            (python* @x " += 1")))
         x
         """) == 43
     assert _eval(
@@ -525,17 +525,17 @@ def test_try():
         (def y (try
                  :hello
                  (let [ex (Exception "world")]
-                   (python* "raise " ex))
-                 (python* x " *= 3")
+                   (python* "raise " @ex))
+                 (python* @x " *= 3")
                  x
                  (catch Exception ex
-                   (python* x " += 1")
+                   (python* @x " += 1")
                    x)
                  (catch RuntimeError ex
-                   (python* x " += 100")
+                   (python* @x " += 100")
                    42)
                  (finally
-                   (python* x " *= 2")
+                   (python* @x " *= 2")
                    x)))
         (list x y)
         """) == L(12, 6)
@@ -558,7 +558,7 @@ def test_loop():
         """
         (loop [x 1]
           (cond
-            (python* x "< 10") (recur (+ x 1))
+            (python* @x "< 10") (recur (+ x 1))
             :else x))
         """) == 10
     assert _eval(
@@ -566,7 +566,7 @@ def test_loop():
         (loop [x 1
                xs (list)]
           (cond
-            (python* x "< 5") (recur (+ x 1) (cons x xs))
+            (python* @x "< 5") (recur (+ x 1) (cons x xs))
             :else xs))
         """) == L(4, 3, 2, 1)
     assert _eval(
@@ -574,10 +574,10 @@ def test_loop():
         (loop [x 0
                y 0]
           (cond
-            (python* x "< 4")
+            (python* @x "< 4")
             (let [xy (loop [x 0
                             y (+ y 5)]
-                       (cond (python* x "< 2") (recur (+ x 1) (+ y 1))
+                       (cond (python* @x "< 2") (recur (+ x 1) (+ y 1))
                              :else [x y]))]
               (recur (+ x (first xy)) (+ y (second xy))))
             :else [x y]))
@@ -596,7 +596,7 @@ def test_loop():
         """
         (loop [x 1]
           (do 42
-              (cond (python* x "< 10") (recur (+ x 1))
+              (cond (python* @x "< 10") (recur (+ x 1))
                     :else x)))
         """) == 10
     with pytest.raises(Exception, match=r"only in tail"):
@@ -761,13 +761,13 @@ def test_python():
     assert _eval(
         """
         (def foo 42)
-        (python* foo)
+        (python* @foo)
         """) == 42
     assert _eval(
         """
         (def a 1)
         (def b 2)
-        (python* a " + " b)
+        (python* @a " + " @b)
         """) == 3
     assert _eval(
         """
@@ -775,16 +775,22 @@ def test_python():
               y 3]
           (python*
             \"z = 4\\n\"
-            x \" * \" y \" * z\"))
+            @x \" * \" @y \" * z\"))
         """) == 24
     assert _eval(
         """
         (def foo
           (fn* []
             42))
-        (python* foo "()")
+        (python* @foo "()")
         """) == 42
     assert _eval("(python* \"a = 42\")") is None
+    assert _eval("(python* @(+ 1 2))") == 3
+    assert _eval("(python* \"3 * \" @(+ 1 2))") == 9
+    assert _eval("(python* \"2 * \" @(cond false 1 true 3))") == 6
+    assert _eval("(python* @:foo)") is K("foo")
+    assert _eval("(python* @(:foo {:foo 42}))") == 42
+    assert _eval("(python* \"True == \" @(python* \"None is None\"))") is True
 
 def test_python_with():
     assert _eval(
@@ -796,12 +802,12 @@ def test_python_with():
           (contextmanager
             (fn* []
               (do (.append foo 1)
-                  (python* "yield " foo)
+                  (python* "yield " @foo)
                   (.append foo 2)))))
         (.append foo
           (python/with [cm* (cm)]
             (.append cm* 3)
-            (python* "sum(" foo ")")))
+            (python* "sum(" @foo ")")))
         foo
         """) == [1, 3, 2, 4]
     assert _eval(
@@ -813,15 +819,15 @@ def test_python_with():
         (def cm
           (contextmanager
             (fn* []
-              (try (python* "yield " foo)
+              (try (python* "yield " @foo)
                 (catch Exception ex
                   nil)))))
         (.append foo
           (python/with [cm* (cm)]
             (.append cm* 42)
             (let [ex (Exception "hello")]
-              (python* "raise " ex))
-            (python* "sum(" foo ")")))
+              (python* "raise " @ex))
+            (python* "sum(" @foo ")")))
         foo
         """) == [42, None]
 

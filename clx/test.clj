@@ -9,7 +9,7 @@
      ~@body))
 
 (defmacro is [x]
-  `(assert ~x "Test failed"))
+  `(assert ~x))
 
 (defmacro raises [ex-type arg0 & args]
   (if (re-pattern? arg0)

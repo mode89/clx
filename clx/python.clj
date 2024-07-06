@@ -6,7 +6,7 @@
   `(def ~(symbol name) (python* ~name)))
 
 (defn dosnt-start-with-underscore [x]
-  (not (python* x ".startswith('_')")))
+  (not (python* @x ".startswith('_')")))
 
 (defmacro define-bindings []
   `(do ~@(map make-binding
