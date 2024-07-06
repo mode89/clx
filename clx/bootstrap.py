@@ -446,13 +446,10 @@ def pr_str(obj, readably=False):
             " ".join(map(lambda x: pr_str(x, readably), obj)) + \
             "]"
     elif type(obj) is PersistentMap:
-        kvs = functools.reduce(
-            lambda acc, kv:
-                acc.conj(pr_str(kv[1], readably))
-                    .conj(pr_str(kv[0], readably)),
-            obj.items(),
-            list_())
-        return "{" + " ".join(kvs) + "}"
+        kvs = []
+        for k, v in obj.items():
+            kvs.append(f"{pr_str(k, readably)} {pr_str(v, readably)}")
+        return "{" + ", ".join(kvs) + "}"
     elif isinstance(obj, ISeq):
         return "(" + \
             " ".join(map(lambda x: pr_str(x, readably), obj)) + \
