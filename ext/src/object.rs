@@ -386,7 +386,7 @@ fn result_from_owned_ptr(ptr: *mut PyObject) -> Result<PyObj, ()> {
 #[derive(Clone, Eq, PartialEq)]
 pub struct PyObjHashable {
     obj: PyObj,
-    hash: isize,
+    pub hash: isize,
 }
 
 impl PyObjHashable {

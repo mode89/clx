@@ -252,6 +252,9 @@ def test_hash_map():
         hash(M(NoHash(), 42))
     assert M().seq() is None
     assert sorted(M(1, 2, 3, 4).seq()) == [(1, 2), (3, 4)]
+    assert hash(M()) == hash(M())
+    assert hash(M(1, 2)) == hash(M(1, 2))
+    assert hash(M(*range(1000))) == hash(M(*range(1000)))
 
 def test_cow_set():
     assert type(CS()) is CowSet

@@ -4,6 +4,8 @@ use crate::list;
 use crate::utils;
 use crate::protocols::*;
 use pyo3_ffi::*;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub fn init_module(module: *mut PyObject) {
     utils::module_add_method!(module, hash_map, py_hash_map);
@@ -38,7 +40,7 @@ pub fn hash_map_type() -> &'static PyObj {
             dealloc: Some(tpo::generic_dealloc::<HashMap>),
             new: Some(utils::disallowed_new!(hash_map_type)),
             compare: Some(py_hash_map_compare),
-            // TODO hash: Some(py_vector_hash),
+            hash: Some(py_hash),
             call: Some(py_hash_map_call),
             iter: Some(py_hash_map_iter),
             mapping_length: Some(py_hash_map_len),
@@ -100,7 +102,12 @@ fn hash_map(
 
 fn empty_hash_map() -> PyObj {
     utils::lazy_static!(PyObj, {
-        hash_map(HashMapImpl::new(), PyObj::none(), None)
+        let mut hasher = DefaultHasher::new();
+        "empty_hash_map".hash(&mut hasher);
+        hash_map(
+            HashMapImpl::new(),
+            PyObj::none(),
+            Some(hasher.finish() as isize))
     }).clone()
 }
 
@@ -281,6 +288,39 @@ fn hash_map_eq(self_: &PyObj, other: &PyObj) -> bool {
             self_.impl_ == other.impl_
         } else {
             false
+        }
+    }
+}
+
+extern "C" fn py_hash(
+    self_: *mut PyObject,
+) -> isize {
+    utils::handle_gil!({
+        let self_ = PyObj::borrow(self_);
+        match hash(&self_) {
+            Ok(hash) => hash,
+            Err(()) => -1
+        }
+    })
+}
+
+fn hash(self_: &PyObj) -> Result<isize, ()> {
+    let hm = unsafe { self_.as_ref::<HashMap>() };
+    match hm.hash {
+        Some(hash) => Ok(hash),
+        None => {
+            let mut hasher = DefaultHasher::new();
+            let mut keys = hm.impl_.keys().collect::<Vec<_>>();
+            // TODO won't work if collisions are present
+            keys.sort_by_key(|x| x.hash);
+            for key in keys {
+                let value = &hm.impl_[key];
+                key.hash.hash(&mut hasher);
+                value.py_hash()?.hash(&mut hasher);
+            }
+            let hash = hasher.finish() as isize;
+            hm.hash = Some(hash);
+            Ok(hash)
         }
     }
 }
