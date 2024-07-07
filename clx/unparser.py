@@ -156,7 +156,8 @@ class _Unparser(NodeVisitor):
             return node
 
     def get_type_comment(self, node):
-        comment = self._type_ignores.get(node.lineno) or node.type_comment
+        comment = self._type_ignores.get(node.lineno) \
+            or getattr(node, "type_comment", None)
         if comment is not None:
             return f" # type: {comment}"
 
@@ -406,7 +407,7 @@ class _Unparser(NodeVisitor):
             self._type_params_helper(node.type_params)
         with self.delimit("(", ")"):
             self.traverse(node.args)
-        if node.returns:
+        if getattr(node, "returns", None):
             self.write(" -> ")
             self.traverse(node.returns)
         with self.block(extra=self.get_type_comment(node)):
@@ -654,7 +655,7 @@ class _Unparser(NodeVisitor):
         elif value is ...:
             self.write("...")
         else:
-            if node.kind == "u":
+            if getattr(node, "kind", None) == "u":
                 self.write("u")
             self._write_constant(node.value)
 
@@ -931,7 +932,7 @@ class _Unparser(NodeVisitor):
 
     def visit_arg(self, node):
         self.write(node.arg)
-        if node.annotation:
+        if getattr(node, "annotation", None):
             self.write(": ")
             self.traverse(node.annotation)
 
@@ -962,7 +963,7 @@ class _Unparser(NodeVisitor):
             self.write("*")
             if node.vararg:
                 self.write(node.vararg.arg)
-                if node.vararg.annotation:
+                if getattr(node.vararg, "annotation", None):
                     self.write(": ")
                     self.traverse(node.vararg.annotation)
 
@@ -976,7 +977,7 @@ class _Unparser(NodeVisitor):
                     self.traverse(d)
 
         # kwargs
-        if node.kwarg:
+        if getattr(node, "kwarg", None):
             if first:
                 first = False
             else:
