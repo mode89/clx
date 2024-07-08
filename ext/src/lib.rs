@@ -3,6 +3,7 @@ mod object;
 mod type_object;
 mod protocols;
 mod symbol;
+mod symbol2;
 mod keyword;
 mod list;
 mod vector;
@@ -36,6 +37,7 @@ pub extern "C" fn PyInit_lepet_ext() -> *mut PyObject {
 
     protocols::init_module(module);
     symbol::init_module(module);
+    symbol2::init_module(module);
     keyword::init_module(module);
     list::init_module(module);
     vector::init_module(module);

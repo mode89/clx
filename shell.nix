@@ -8,12 +8,14 @@ let
 in pkgs.mkShell {
   packages = with pkgs; [
     cargo
+    rustc
     rust-analyzer
     gdb
     ncurses
     less
     which
     (python38.withPackages (ps: with ps; [
+      ipython
       pylint
       pytest
     ]))

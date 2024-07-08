@@ -8,7 +8,8 @@ name = "lepet_ext"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3-ffi = { version = "0.21.2", features = ["extension-module"] }
+pyo3-ffi = { version = "0.22.1", features = ["extension-module"] }
+pyo3 = { version = "0.22.1", features = ["extension-module"] }
 libc = "*"
 thread_local = "*"
 
